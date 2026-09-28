@@ -565,6 +565,7 @@ with new keys in **bold**:
 | ``Super+` `` | toggle monocle |
 | **`Super+Up`** / **`Super+Shift+Up`** / **`Super+Down`** | maximize / fullscreen / restore the current window |
 | `Super+Shift+F`, `Super+Insert` | toggle floating |
+| **`Super`+middle-click** | toggle maximize on the window under the pointer |
 | `Super+Shift+R` | resize mode (floating windows) |
 | **`Super+U`** | focus the most recent urgent window |
 | **`Super+Shift+N`** | notification center |
@@ -1522,34 +1523,7 @@ are what "done" means.
 
 ## 21. Open questions
 
-- **Drag to resize a tiled window.** Floating windows already resize with
-  `Super`+right-drag or by dragging an edge. For a tiled window, Hyprland's
-  master layout turns the drag into an `mfact` change, but Hyprland 0.56
-  drops the drag before it reaches a Lua layout: its `resizeTarget` only
-  recalculates, so `lua:quickspace` never learns the distance. Options:
-  - **(a) Recommended:** a small upstream Hyprland patch that passes the
-    drag delta and corner to a Lua `resize` callback. The layout then
-    maps a drag across the master/stack boundary to `mfact`, per workspace
-    and mode like the keys. It waits on Hyprland accepting the patch, and
-    the pinned version gains it on the next upgrade PR.
-  - (b) A Lua workaround: on `Super`+right-button, poll the cursor with
-    `hl.timer` until release and adjust `mfact` from the movement. It
-    works now, but it's a polling loop on a hot path and fights Hyprland's
-    own drag.
-  - (c) Keys only (`Super+\` / `Super+/`), as today.
-- **Click to maximize, click again to restore.** The restore half already
-  holds: maximize is Hyprland's fullscreen state 1, and turning it off
-  puts the window back in its tile. What's missing is something to click,
-  since there are no title bars and Hyprland has no double-click binds.
-  Options:
-  - **(a) Recommended:** `Super`+middle-click on a window toggles its
-    maximize. It is one bind and can ship now.
-  - **(b) Recommended too:** double-click the bar's empty middle to toggle
-    maximize on that monitor's focused window, like a title bar. The bar
-    shows no window title (§7.1), so the middle is free. It lands with
-    the bar in M3.
-  - (c) Title bars from the `hyprbars` plugin, with double-click. Rejected:
-    a plugin is rebuilt against every Hyprland upgrade (§3.1).
+None right now. Deferred work, with its notes, is in `TODO.md`.
 
 Decided in review of this spec:
 
