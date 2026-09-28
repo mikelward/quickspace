@@ -1237,10 +1237,13 @@ this spec.
     that daemonizes.
   - `quickspace launch` writes one for the launcher and key bindings.
   - A notification click writes one for the sender's app (§9).
-  - For the terminal, a preexec hook in `conf`'s zsh config writes one with
-    the command's program name. It goes to Hyprland's request socket through
-    zsh's own socket module, so no process starts per command; the other
-    shells get the hook as a fast-follow.
+  - For the terminal, `conf`'s `shrc` writes one before each command, in zsh
+    and bash, with the command's program name and the shell's pid. It skips
+    assignments, wrappers (`env`, `nohup` …) and redirections, and reads a
+    program named by a variable (`$BROWSER`) by that variable's value. It
+    goes through `hyprctl eval`, one short process per command, and only in
+    a quickspace session. fish, nushell, Elvish and mesh get it as a
+    fast-follow (`conf`'s TODO.md).
   - The guard resolves a program name to an app the way the launcher does,
     through desktop entries' `Exec` and `StartupWMClass`. `xdg-open` and
     `gio open` resolve through the default handler for the file's type.
@@ -1251,8 +1254,7 @@ this spec.
   app, such as a script that opens a window. The preexec hook's grant names
   its shell's pid, and a window whose process descends from that shell uses
   it up. A launch grant names no process, so it never matches this way. Parents are walked in `/proc/<pid>/stat`; if `/proc` can't be read,
-  there's no fallback and the window waits. It matters once the zsh preexec
-  hook writes grants for terminal commands (TODO.md).
+  there's no fallback and the window waits.
 - **Opting in.** A `focus_on_activate` window rule lets a specific app's
   activations through, if one turns out to need it.
 

@@ -51,10 +51,11 @@ errors, and autostart entries. SPEC.md §5.4 also wants:
 
 ## Grants for terminal commands
 
-SPEC.md §14.3 has a preexec hook in `conf`'s zsh config write a grant for
-each command, through zsh's socket module. It isn't written yet, so a GUI
-started from a terminal opens unfocused unless it's the terminal's own app,
-and the guard's process-ancestry fallback has no grant to use.
+`conf`'s `shrc` grants each zsh or bash command's program (SPEC.md §14.3).
+What's left is tracked in `conf`'s TODO.md: the fish, nushell, Elvish and
+mesh ports, and command chains, shell functions and `env -S`, which grant
+the wrong program. Until the ports land, a GUI app started from those
+shells opens unfocused unless it's the terminal's own app.
 
 ## Grants through desktop entries
 
