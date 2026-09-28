@@ -411,7 +411,9 @@ flowchart TD
   - The hypridle drop-in also sets `TimeoutStartSec=10`, so a hypridle
     that never claims its name fails quickly and the shell starts without
     it, rather than waiting out systemd's 90 s default.
-  - `quickspace launch` also records the launch for the focus guard (§14.3).
+  - `quickspace launch` also records the launch for the focus guard (§14.3),
+    before it waits, so a key press or focus change during the wait cancels
+    the grant.
 - **No restarts for theme or config.** Theme is a property change, and
   Quickshell hot-reloads its config.
 - **`quickspace doctor`** checks the running session for:

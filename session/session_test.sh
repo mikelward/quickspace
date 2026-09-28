@@ -131,6 +131,8 @@ fi
 if make -s install-session DESTDIR="$tmp/root" PREFIX=/usr >"$tmp/session.log" 2>&1; then
     check "make install-session installs the wrapper" \
         test -x "$tmp/root/usr/bin/quickspace-hyprland"
+    check "make install-session installs the quickspace command" \
+        test -x "$tmp/root/usr/bin/quickspace"
     check "make install-session installs the session entry" \
         test -f "$tmp/root/usr/share/wayland-sessions/quickspace.desktop"
 else

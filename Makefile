@@ -4,8 +4,9 @@
 #   make install          install the per-user parts: the Hyprland layout,
 #                         the session's systemd user units and the portal
 #                         config, under ~/.config
-#   make install-session  install the session entry and its compositor
-#                         wrapper under $(PREFIX) (root; see README.md)
+#   make install-session  install the session entry, its compositor wrapper
+#                         and the quickspace command under $(PREFIX) (root;
+#                         see README.md)
 #   make mocks            re-render the design mocks (docs/mocks/*.html -> *.png)
 
 # Hyprland embeds Lua 5.5; the layout also runs on 5.4, which is what most
@@ -21,6 +22,7 @@ test:
 	@test -n "$(LUA)" || { echo "make test: no lua5.5, lua5.4 or lua on PATH" >&2; exit 1; }
 	$(LUA) hypr/quickspace/layout_test.lua
 	sh session/session_test.sh
+	sh bin/quickspace_test.sh
 
 # Copies only. Enabling quickspace.service, which hangs it off the quickspace
 # session's target, is `setup --quickspace`'s job (scripts repo).
@@ -38,7 +40,7 @@ install:
 # up at the greeter, install with PREFIX=/usr.
 install-session:
 	install -d "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(PREFIX)/share/wayland-sessions"
-	install -m 755 bin/quickspace-hyprland "$(DESTDIR)$(PREFIX)/bin/"
+	install -m 755 bin/quickspace bin/quickspace-hyprland "$(DESTDIR)$(PREFIX)/bin/"
 	install -m 644 session/quickspace.desktop "$(DESTDIR)$(PREFIX)/share/wayland-sessions/"
 
 # Needs Node and Playwright with Chromium. A global Playwright install is
