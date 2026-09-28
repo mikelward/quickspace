@@ -1160,6 +1160,11 @@ this spec.
     mirroring the keyboard binding (a few lines).
   - a window's `pid` and `class`;
   - the `no_initial_focus` window rule.
+- **Where it lives.** `hypr/quickspace/focus.lua`, beside the layout, which
+  `conf`'s `hyprland.lua` loads. It publishes itself as the Lua global
+  `quickspace_focus`, and `quickspace launch` records a grant with
+  `hyprctl eval 'quickspace_focus.grant("APP")'`. A window it keeps from
+  focus is announced as `custom>>quickspace-attention>>ADDRESS`.
 - **The guard withholds focus up front.** Focusing a window and then handing
   focus straight back won't do: the app you're in would see a focus-out and
   close its menus and autocomplete.

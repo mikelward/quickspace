@@ -120,6 +120,7 @@ home="$tmp/home"
 if make -s install HOME="$home" >"$tmp/install.log" 2>&1; then
     for f in .config/hypr/quickspace/layout.lua \
              .config/hypr/quickspace/geometry.lua \
+             .config/hypr/quickspace/focus.lua \
              .config/systemd/user/quickspace.service \
              .config/systemd/user/hypridle.service.d/quickspace.conf \
              .config/xdg-desktop-portal/quickspace-portals.conf; do

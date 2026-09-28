@@ -1,7 +1,8 @@
 # quickspace
 #
 #   make test             run the tests
-#   make install          install the per-user parts: the Hyprland layout,
+#   make install          install the per-user parts: the Hyprland layout and
+#                         focus guard,
 #                         the session's systemd user units and the portal
 #                         config, under ~/.config
 #   make install-session  install the session entry, its compositor wrapper
@@ -21,6 +22,7 @@ PREFIX ?= /usr/local
 test:
 	@test -n "$(LUA)" || { echo "make test: no lua5.5, lua5.4 or lua on PATH" >&2; exit 1; }
 	$(LUA) hypr/quickspace/layout_test.lua
+	$(LUA) hypr/quickspace/focus_test.lua
 	sh session/session_test.sh
 	sh bin/quickspace_test.sh
 
@@ -28,7 +30,7 @@ test:
 # session's target, is `setup --quickspace`'s job (scripts repo).
 install:
 	install -d "$(HYPR_DIR)"
-	install -m 644 hypr/quickspace/geometry.lua hypr/quickspace/layout.lua "$(HYPR_DIR)/"
+	install -m 644 hypr/quickspace/geometry.lua hypr/quickspace/layout.lua hypr/quickspace/focus.lua "$(HYPR_DIR)/"
 	install -d "$(SYSTEMD_USER_DIR)/hypridle.service.d"
 	install -m 644 systemd/user/quickspace.service "$(SYSTEMD_USER_DIR)/"
 	install -m 644 systemd/user/hypridle.service.d/quickspace.conf "$(SYSTEMD_USER_DIR)/hypridle.service.d/"
