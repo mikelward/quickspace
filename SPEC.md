@@ -1162,6 +1162,25 @@ this spec.
     mirroring the keyboard binding (a few lines).
   - a window's `pid` and `class`;
   - the `no_initial_focus` window rule.
+- **Where it lives.** `hypr/quickspace/focus.lua`, beside the layout, which
+  `conf`'s `hyprland.lua` loads. It publishes itself as the Lua global
+  `quickspace_focus`, and `quickspace launch` records a grant with
+  `hyprctl eval 'quickspace_focus.grant("APP")'`. A window it keeps from
+  focus is announced as `custom>>quickspace-attention>>ADDRESS`.
+- **Super+U.** Lua can't set Hyprland's urgent flag, so the guard keeps its
+  own list of waiting windows: the ones it kept from focus, and activations
+  without a grant. `quickspace_focus.focus_attention()` goes to the latest
+  and returns false when none is waiting, and `Super+U` then falls back to
+  Hyprland's `urgent_or_last`.
+- **Polkit prompts in M2.** The transitional polkit agent is a window of
+  its own, and Lua can't see which process asked. So the guard applies the
+  keyboard half of the §14.1 rule: a known agent's window takes focus when
+  you pressed a key in the last 2 s, and otherwise waits for `Super+U`,
+  with its notification. The Quickshell agent (M3) applies the full rule.
+- **Portal dialogs in M2.** A file chooser from `xdg-desktop-portal-gtk`
+  (or `-kde`, `-gnome`) is the portal's window, not the app's, and Lua
+  can't see its parent. So the guard treats any portal dialog as the active
+  app's: it takes focus while a window is focused, and waits otherwise.
 - **The guard withholds focus up front.** Focusing a window and then handing
   focus straight back won't do: the app you're in would see a focus-out and
   close its menus and autocomplete.
@@ -1170,7 +1189,9 @@ this spec.
     it allows. If the guard fails, windows open unfocused, so the failure
     mode is "never steals".
     - The catch: Hyprland skips a fullscreen request made as the window
-      opens when the window gets no initial focus, so the guard re-applies it.
+      opens when the window gets no initial focus. Lua can't see that
+      request in 0.56 (`m_wantsInitialFullscreen` isn't exposed), so such a
+      window opens tiled until an upstream patch exposes it (TODO.md).
   - Marking disallowed windows from `window.open_early`, if Lua can set that
     state.
 - **Launch records** say which app you asked for, and when. Each is a
@@ -1201,10 +1222,14 @@ this spec.
   - The guard resolves a program name to an app the way the launcher does,
     through desktop entries' `Exec` and `StartupWMClass`. `xdg-open` and
     `gio open` resolve through the default handler for the file's type.
+    Not yet in M2: a grant matches the window class alone (TODO.md), so a
+    launch through an opener needs `--app` to name the app.
 - **Process ancestry** is the fallback for a command that names no known
-  app, such as a script that opens a window: the window's process descends
-  from the focused terminal's, found by walking parents in
-  `/proc/<pid>/stat`. M2 checks that Hyprland's Lua can read `/proc`.
+  app, such as a script that opens a window. The preexec hook's grant names
+  its shell's pid, and a window whose process descends from that shell uses
+  it up. A launch grant names no process, so it never matches this way. Parents are walked in `/proc/<pid>/stat`; if `/proc` can't be read,
+  there's no fallback and the window waits. It matters once the zsh preexec
+  hook writes grants for terminal commands (TODO.md).
 - **Opting in.** A `focus_on_activate` window rule lets a specific app's
   activations through, if one turns out to need it.
 
