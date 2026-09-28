@@ -35,8 +35,9 @@ focus grant, and runs it with `uwsm app` so it outlives a shell restart.
 
 Until the Quickshell shell exists, `quickspace.service` runs
 `quickspace-shell`, a transitional shell: conf's theme daemon (which runs
-waybar and swaync) and a polkit agent. It reports ready once swaync owns the
-notification name and waybar's tray owns the watcher (see `TODO.md`).
+waybar and swaync), a polkit agent, and swww for the wallpaper. It also runs
+conf's input setup once. It reports ready once swaync owns the notification
+name and waybar's tray owns the watcher (see `TODO.md`).
 
 ## Mocks
 

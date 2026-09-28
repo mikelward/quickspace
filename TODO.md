@@ -8,7 +8,9 @@ Deferred work, with enough notes to pick it up later.
 because the Quickshell shell can't be built or tested in the sandbox and the
 MVP comes first. The owners are the ones already in daily use: waybar (bar and
 tray watcher) and swaync (notifications), both run by `conf`'s theme daemon,
-plus the first polkit agent found.
+plus the first polkit agent found and swww for the wallpaper. It also runs
+`conf`'s `apply-input.sh` once, since Hyprland's config starts nothing but
+`uwsm finalize` in this session.
 
 - Replace it piece by piece as M3 (bar, launcher) and M4 (notifications)
   land: each Quickshell owner joins the shell's ready check, and its old
