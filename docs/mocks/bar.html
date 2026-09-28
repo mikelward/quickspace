@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: bar</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .frame { overflow: hidden; box-shadow: 0 0 0 1px #2a2a30; }
+  .frame.light { box-shadow: 0 0 0 1px #3a3a42; }
+  .frame .under { height: 26px; }
+  .theme-dark .under { background: linear-gradient(90deg, #1b2438, #231c34); }
+  .theme-light .under { background: linear-gradient(90deg, #d6e4f7, #e7dcf3); }
+  .chips { display: flex; gap: 22px; flex-wrap: wrap; }
+  .chip { display: flex; flex-direction: column; align-items: flex-start; }
+  .chip .bar { border-radius: 9px; padding: 0 6px; }
+  .chip .cap { max-width: 190px; }
+</style>
+</head>
+<body class="sheet" data-width="1200" data-scale="2">
+
+<h1>Bar</h1>
+<p class="lede">One full-width bar per monitor: a plain 34&nbsp;px rectangle flush with the top edge and both sides, with no margins, rounded corners or shadow. Workspaces sit on the left and status and clocks on the right; the middle stays empty. Shown here at 1136&nbsp;px wide: a wider monitor only adds empty middle.</p>
+
+<h2>Dark</h2>
+<div class="frame theme-dark">
+  <div class="bar">
+    <div class="bar-left">
+      <div class="ws occupied"><span class="n">1</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span></span></div>
+      <div class="ws active"><span class="n">2</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span><span class="appicon app-meet"><i class="ms">videocam</i></span><span class="appicon app-chat"><i class="ms">chat</i></span></span></div>
+      <div class="ws occupied"><span class="n">3</span><span class="apps"><span class="appicon app-code"><i class="ms">code</i></span></span></div>
+      <div class="ws urgent"><span class="n">4</span><span class="apps"><span class="appicon app-chat flag"><i class="ms">chat</i></span></span></div>
+      <div class="ws occupied"><span class="n">5</span><span class="apps"><span class="appicon app-music"><i class="ms">music_note</i></span></span></div>
+      <div class="ws empty"><span class="n">6</span></div>
+      <div class="ws empty"><span class="n">7</span></div>
+      <div class="ws empty"><span class="n">8</span></div>
+      <div class="ws empty"><span class="n">9</span></div>
+      <span class="layout-sym">|M|</span>
+    </div>
+    <div class="bar-right">
+      <div class="tray" style="display:flex">
+        <span class="sicon dim"><i class="ms">cloud_done</i></span>
+        <span class="sicon dim"><i class="ms">forum</i></span>
+      </div>
+      <span class="sep"></span>
+      <span class="sicon"><i class="ms">bluetooth_connected</i></span>
+      <span class="sicon"><i class="ms fill">wifi</i></span>
+      <span class="sicon"><i class="ms fill">volume_up</i></span>
+      <span class="sicon"><i class="ms fill">battery_5_bar</i>82%</span>
+      <span class="sicon badge"><i class="ms">notifications</i></span>
+      <span class="sicon"><i class="ms">power_settings_new</i></span>
+      <span class="sep"></span>
+      <div class="clocks">
+        <span class="clock"><span class="tz">SF</span><span class="t">10:41</span></span>
+        <span class="clock"><span class="tz">NYC</span><span class="t">13:41</span></span>
+        <span class="clock"><span class="tz">LON</span><span class="t">18:41</span></span>
+        <span class="clock local"><span class="tz">Sep 28</span><span class="t">19:41</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="under"></div>
+</div>
+<p class="note">Left to right: workspaces 1–9, each showing the icons of its windows, and the current workspace's layout symbol (<code>|M|</code> = three-column). Right: third-party tray icons (StatusNotifierItem), then the built-in status icons (Bluetooth, network, volume, battery, notifications, session), then the clocks. The zone clocks carry short place labels (SF, NYC, LON), so nothing changes at DST; the clocks popover adds each zone’s current abbreviation (PDT/PST, EDT/EST, BST/GMT). The local clock swaps its label for the date.</p>
+
+<h2>Light (07:00–19:00 by default)</h2>
+<div class="frame light theme-light">
+  <div class="bar">
+    <div class="bar-left">
+      <div class="ws occupied"><span class="n">1</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span></span></div>
+      <div class="ws active"><span class="n">2</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span><span class="appicon app-meet"><i class="ms">videocam</i></span><span class="appicon app-chat"><i class="ms">chat</i></span></span></div>
+      <div class="ws occupied"><span class="n">3</span><span class="apps"><span class="appicon app-code"><i class="ms">code</i></span></span></div>
+      <div class="ws urgent"><span class="n">4</span><span class="apps"><span class="appicon app-chat flag"><i class="ms">chat</i></span></span></div>
+      <div class="ws occupied"><span class="n">5</span><span class="apps"><span class="appicon app-music"><i class="ms">music_note</i></span></span></div>
+      <div class="ws empty"><span class="n">6</span></div>
+      <div class="ws empty"><span class="n">7</span></div>
+      <div class="ws empty"><span class="n">8</span></div>
+      <div class="ws empty"><span class="n">9</span></div>
+      <span class="layout-sym">|M|</span>
+    </div>
+    <div class="bar-right">
+      <div class="tray" style="display:flex">
+        <span class="sicon dim"><i class="ms">cloud_done</i></span>
+        <span class="sicon dim"><i class="ms">forum</i></span>
+      </div>
+      <span class="sep"></span>
+      <span class="sicon"><i class="ms">bluetooth_connected</i></span>
+      <span class="sicon"><i class="ms fill">wifi</i></span>
+      <span class="sicon"><i class="ms fill">volume_up</i></span>
+      <span class="sicon"><i class="ms fill">battery_5_bar</i>82%</span>
+      <span class="sicon badge"><i class="ms">notifications</i></span>
+      <span class="sicon"><i class="ms">power_settings_new</i></span>
+      <span class="sep"></span>
+      <div class="clocks">
+        <span class="clock"><span class="tz">SF</span><span class="t">10:41</span></span>
+        <span class="clock"><span class="tz">NYC</span><span class="t">13:41</span></span>
+        <span class="clock"><span class="tz">LON</span><span class="t">18:41</span></span>
+        <span class="clock local"><span class="tz">Sep 28</span><span class="t">19:41</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="under"></div>
+</div>
+
+<h2>Workspace states</h2>
+<div class="chips theme-dark">
+  <div class="chip"><div class="bar"><div class="ws active"><span class="n">2</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span></span></div></div><div class="cap"><b>Current</b>: accent fill.</div></div>
+  <div class="chip"><div class="bar"><div class="ws occupied"><span class="n">1</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span></span></div></div><div class="cap"><b>Occupied</b>: one icon per window, up to 5, then “+N”.</div></div>
+  <div class="chip"><div class="bar"><div class="ws visible"><span class="n">6</span><span class="apps"><span class="appicon app-mail"><i class="ms">mail</i></span></span></div></div><div class="cap"><b>Shown on another monitor</b>: accent outline.</div></div>
+  <div class="chip"><div class="bar"><div class="ws empty"><span class="n">7</span></div></div><div class="cap"><b>Empty</b>: faint number. All nine are always shown.</div></div>
+  <div class="chip"><div class="bar"><div class="ws urgent"><span class="n">4</span><span class="apps"><span class="appicon app-chat flag"><i class="ms">chat</i></span></span></div></div><div class="cap"><b>Urgent</b>: amber, with the window that asked (or sent a notification) ringed. Clears when that window is focused. <kbd>Super+U</kbd> jumps to it.</div></div>
+</div>
+
+<h2>Status states</h2>
+<div class="chips theme-dark">
+  <div class="chip"><div class="bar"><span class="pill share"><i class="ms fill">screen_share</i>Sharing</span><span style="width:4px"></span><span class="pill mic"><i class="ms fill">mic</i></span></div><div class="cap"><b>Screen shared / mic live</b>. The red pill shows while a PipeWire screencast stream has a consumer; during a screen or region share, popups are held until it ends.</div></div>
+  <div class="chip"><div class="bar"><span class="sicon"><i class="ms">notifications_paused</i></span></div><div class="cap"><b>Do not disturb</b>. The icon changes; held popups go to the history.</div></div>
+  <div class="chip"><div class="bar"><span class="sicon" style="color:var(--accent)"><i class="ms fill">coffee</i></span></div><div class="cap"><b>Keeping awake</b>: on while you asked for it, or while the mic is live. It turns itself off after 2&nbsp;h.</div></div>
+  <div class="chip"><div class="bar"><span class="sicon low"><i class="ms fill">battery_1_bar</i>9%</span></div><div class="cap"><b>Battery low</b>: red below 15%, with a critical notification at 7%.</div></div>
+  <div class="chip"><div class="bar"><span class="sicon dim"><i class="ms">wifi_off</i></span></div><div class="cap"><b>Offline</b>. A VPN adds a small lock to the network icon.</div></div>
+</div>
+
+<h2>Clocks</h2>
+<div class="chips theme-dark">
+  <div class="chip"><div class="bar"><div class="clocks">
+    <span class="clock"><span class="tz">SF</span><span class="t">23:41</span><span class="d">−1</span></span>
+    <span class="clock"><span class="tz">NYC</span><span class="t">02:41</span></span>
+    <span class="clock"><span class="tz">LON</span><span class="t">07:41</span></span>
+    <span class="clock local"><span class="tz">Sep 29</span><span class="t">08:41</span></span>
+  </div></div><div class="cap" style="max-width:340px"><b>Different day</b>: a zone whose date differs from local gets a small −1 / +1.</div></div>
+  <div class="chip"><div class="bar"><div class="clocks">
+    <span class="clock"><span class="tz">SF</span><span class="t">10:41</span></span>
+    <span class="clock"><span class="tz">NYC</span><span class="t">13:41</span></span>
+    <span class="clock local"><span class="tz">Dec 7</span><span class="t">18:41</span></span>
+  </div></div><div class="cap" style="max-width:340px"><b>Local is London</b>: the LON clock is dropped rather than shown twice (configurable).</div></div>
+</div>
+
+</body>
+</html>

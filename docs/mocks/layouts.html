@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: layouts</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .grid { display: grid; gap: 26px 24px; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .mini {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #2e2e36;
+    background:
+      radial-gradient(160px 90px at 20% 30%, #123338, transparent 70%),
+      radial-gradient(200px 120px at 85% 80%, #2b1c3f, transparent 70%),
+      #16213a;
+  }
+  .mini.uw { aspect-ratio: 3440 / 1440; }
+  .mini.wide { aspect-ratio: 16 / 9; }
+  .mini .mbar { position: absolute; left: 0; right: 0; top: 0; height: 7%; background: rgba(22,22,26,.96); display: flex; align-items: center; padding: 0 2%; gap: 2%; }
+  .mini .mbar i { display: block; height: 42%; aspect-ratio: 1.6; border-radius: 2px; background: #3b3b44; }
+  .mini .mbar i.on { background: #3584e4; }
+  .mini .mbar i.u { background: #f6d32d; }
+  .mini .mbar b { margin-left: auto; font: 600 7px/1 var(--font-mono); color: #9a9aa6; }
+  .mini .area { position: absolute; left: 0; right: 0; bottom: 0; top: 7%; }
+  .w {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 .5px rgba(0,0,0,.55);
+  }
+  .w.dark { background: #26262c; color: #d8d8de; }
+  .w.lite { background: #f3f4f7; color: #33333a; }
+  .w.meet { background: #202124; color: #e8eaed; }
+  .w.chat { background: #eaf4ea; color: #2c4a2e; }
+  .w.code { background: #1e1f26; color: #c9ccd6; }
+  .w.mail { background: #fdf1ef; color: #6b2a24; }
+  .w .appicon { width: 20px; height: 20px; border-radius: 5px; }
+  .w .appicon .ms { font-size: 14px; }
+  .w.inactive::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,var(--dim)); }
+  .w.float { border-radius: 8px; z-index: 3; box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.4); }
+  .mini .corner { position: absolute; right: 6px; top: 9%; z-index: 4; font: 600 8px/1 var(--font-mono); color: #9a9aa6; background: rgba(22,22,26,.85); padding: 2px 4px; border-radius: 3px; }
+  .w .tag { position: absolute; top: 5px; left: 6px; font: 600 8px/1 var(--font-mono); opacity: .6; letter-spacing: .02em; }
+  .ttl { display: flex; align-items: baseline; gap: 8px; margin-top: 9px; }
+  .ttl b { color: #f0f0f4; font-size: 13.5px; }
+  .ttl code { font-size: 11px; }
+  .ttl kbd { margin-left: auto; font-size: 10.5px; }
+</style>
+</head>
+<body class="sheet theme-dark" data-width="1200" data-scale="2">
+
+<h1>Layouts</h1>
+<p class="lede">dwm/Krohnkite-style master-and-stack layouts, never binary-space partitioning. The layout belongs to the workspace, and the bar shows its symbol. New windows join the stack, and the master stays put. The only focus cue is that unfocused windows are darkened by 15%: no borders and no gaps. The hairlines between windows are just where one app's content meets the next.</p>
+
+<h2>On an ultrawide (3440×1440): cycle with <code>Super+.</code> / <code>Super+,</code></h2>
+<div class="grid g3" id="row1"></div>
+
+<h2>Monocle and the single-window rule</h2>
+<div class="grid g3" id="row2"></div>
+
+<h2>The current window, and dialogs</h2>
+<div class="grid g3" id="row4"></div>
+
+<h2>How three-column fills up (ultrawide)</h2>
+<div class="grid g4" id="row3"></div>
+<p class="note">Each step is the same layout, so adding or closing a window never reshuffles the ones you were looking at. With one window the single-window rule applies. With two, it's master plus one column. From three on, the master is centered and further windows alternate right, left, right into the side stacks. <b>Super+\</b> / <b>Super+/</b> grow or shrink the master (step 2.5%), <b>Super+=</b> / <b>Super+−</b> add or remove a master, and <b>Super+Return</b> swaps the focused window into the master.</p>
+
+<script>
+const APPS = {
+  term: ['dark', 'app-term', 'terminal', 'kitty'],
+  web:  ['lite', 'app-web', 'public', 'Chrome'],
+  meet: ['meet', 'app-meet', 'videocam', 'Meet'],
+  chat: ['chat', 'app-chat', 'chat', 'Chat'],
+  code: ['code', 'app-code', 'code', 'Editor'],
+  mail: ['mail', 'app-mail', 'mail', 'Mail'],
+  files: ['lite', 'app-files', 'folder_open', 'Save as…'],
+};
+// [app, x, y, w, h, focused?, tag] in fractions of the tiling area.
+function mini(kind, sym, wins, bar) {
+  const el = document.createElement('div');
+  el.className = 'mini ' + kind;
+  const area = document.createElement('div');
+  area.className = 'area';
+  if (bar === false) {
+    area.style.top = '0';
+  } else {
+    const mb = document.createElement('div');
+    mb.className = 'mbar';
+    mb.innerHTML = (bar || ['', 'on', '', 'u', '', '']).map(c => `<i class="${c}"></i>`).join('') + `<b>${sym}</b>`;
+    el.appendChild(mb);
+  }
+  for (const [app, x, y, w, h, focus, tag, float] of wins) {
+    const [tone, cls, glyph, name] = APPS[app];
+    const d = document.createElement('div');
+    d.className = `w ${tone}` + (focus ? '' : ' inactive') + (float ? ' float' : '');
+    Object.assign(d.style, { left: x * 100 + '%', top: y * 100 + '%', width: w * 100 + '%', height: h * 100 + '%' });
+    d.innerHTML = `<span class="appicon ${cls}"><i class="ms">${glyph}</i></span>${name}` + (tag ? `<span class="tag">${tag}</span>` : '');
+    area.appendChild(d);
+  }
+  el.appendChild(area);
+  return el;
+}
+function cell(parent, m, name, sym, key, cap) {
+  const c = document.createElement('div');
+  c.appendChild(m);
+  c.insertAdjacentHTML('beforeend',
+    `<div class="ttl"><b>${name}</b>${sym ? `<code>${sym}</code>` : ''}${key ? `<kbd>${key}</kbd>` : ''}</div><div class="cap">${cap}</div>`);
+  document.getElementById(parent).appendChild(c);
+}
+const t = 1 / 3;
+cell('row1', mini('uw', '[]=', [
+  ['web', 0, 0, .55, 1, true, 'master'],
+  ['term', .55, 0, .45, t], ['meet', .55, t, .45, t], ['chat', .55, 2 * t, .45, t],
+]), 'Tile', '[]=', '', 'Master on the left (55%), stack on the right. The default on 16:9 and 16:10 monitors.');
+cell('row1', mini('uw', '|M|', [
+  ['term', 0, 0, .25, 1],
+  ['web', .25, 0, .5, 1, true, 'master'],
+  ['meet', .75, 0, .25, .5], ['chat', .75, .5, .25, .5],
+]), 'Three-column', '|M|', '', 'Master centered (50%) with a stack on each side. The default on ultrawides.');
+cell('row1', mini('uw', '||=', [
+  ['web', 0, 0, .36, 1, true, 'master'],
+  ['code', .36, 0, .36, 1, false, 'master'],
+  ['term', .72, 0, .28, t], ['meet', .72, t, .28, t], ['chat', .72, 2 * t, .28, t],
+]), 'Two columns + stack', '||=', '', 'Two masters side by side at full height, and the rest stacked on the right.');
+
+cell('row2', mini('uw', '[M]', [
+  ['web', 0, 0, 1, 1, true],
+]), 'Monocle', '[M]', 'Super+`', 'One window fills the area. The bar shows how many are hidden behind it (<code>[3]</code>). The key toggles it back to the workspace’s layout.');
+cell('row2', mini('uw', '[]=', [
+  ['web', .1, 0, .8, 1, true],
+], ['', 'on', '', '', '', '']), 'One window, ultrawide', '80%', '', 'A lone tiled window is centered at <b>80%</b> of the width when the monitor’s aspect is ≥ 2.1 (21:9, 32:9). Wallpaper shows either side.');
+cell('row2', mini('wide', '[]=', [
+  ['web', 0, 0, 1, 1, true],
+], ['', 'on', '', '', '', '']), 'One window, 16:9', '100%', '', 'The same rule on a 16:9 or 16:10 monitor gives 100%. The threshold and width are per-monitor settings.');
+
+cell('row4', mini('uw', '|M|', [
+  ['web', 0, 0, 1, 1, true],
+]), 'Maximize this window', '', 'Super+Up', 'The current window covers the tiling area and the bar stays. The rest of the workspace keeps its layout underneath. <b>Super+Down</b> puts it back.');
+cell('row4', mini('uw', '', [
+  ['meet', 0, 0, 1, 1, true],
+], false), 'Fullscreen this window', '', 'Super+Shift+Up', 'The whole monitor, bar included, the same as an app’s own F11. Popups are held while a fullscreen video plays.');
+cell('row4', mini('uw', '|M|', [
+  ['term', 0, 0, .25, 1],
+  ['web', .25, 0, .5, 1, false, 'master'],
+  ['meet', .75, 0, .25, .5], ['chat', .75, .5, .25, .5],
+  ['files', .36, .22, .28, .56, true, 'Save as', true],
+]), 'Dialogs float', '', '', 'A window with a parent, a modal, or a fixed-size one floats: centered on its parent, above it, and focused, so the parent dims too. It never takes a tile.');
+
+cell('row3', mini('uw', '|M|', [['term', .1, 0, .8, 1, true]]), '1 window', '', '', 'Single-window rule.');
+cell('row3', mini('uw', '|M|', [['web', 0, 0, .5, 1, true, 'master'], ['term', .5, 0, .5, 1]]), '2 windows', '', '', 'Master + one column, 50/50.');
+cell('row3', mini('uw', '|M|', [['term', 0, 0, .25, 1], ['web', .25, 0, .5, 1, true, 'master'], ['meet', .75, 0, .25, 1]]), '3 windows', '', '', 'Three full-height columns.');
+cell('row3', mini('uw', '|M|', [
+  ['term', 0, 0, .25, .5], ['code', 0, .5, .25, .5],
+  ['web', .25, 0, .5, 1, true, 'master'],
+  ['meet', .75, 0, .25, .5], ['chat', .75, .5, .25, .5],
+]), '5 windows', '', '', 'Side stacks split evenly.');
+</script>
+</body>
+</html>

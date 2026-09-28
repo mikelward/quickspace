@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: clocks popover</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .stage {
+    position: relative;
+    height: 620px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #2a2a30;
+    background:
+      radial-gradient(500px 300px at 20% 25%, #123338, transparent 70%),
+      radial-gradient(700px 420px at 85% 80%, #2b1c3f, transparent 70%),
+      #16213a;
+  }
+  .stage .bar { justify-content: flex-end; }
+  .pop { position: absolute; right: 8px; top: calc(var(--bar-h) + 6px); width: 640px; padding: 18px 18px 14px; font-feature-settings: 'tnum' 1; }
+  .now { display: flex; align-items: baseline; gap: 12px; }
+  .now .big { font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
+  .now .date { font-size: 15px; color: var(--fg-dim); font-weight: 500; }
+  .zones { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+  .z { display: grid; grid-template-columns: 40px 150px 58px 1fr 54px; align-items: center; gap: 10px; height: 34px; }
+  .z .ab { font-size: 11px; font-weight: 700; letter-spacing: .05em; color: var(--fg-dim); }
+  .z .city { font-size: 13px; }
+  .z .tm { font-size: 15px; font-weight: 600; }
+  .z .off { font-size: 12px; color: var(--fg-dim); text-align: right; }
+  .strip { position: relative; height: 14px; border-radius: 4px; overflow: hidden; background: #1a1d2e; }
+  .strip .day { position: absolute; top: 0; bottom: 0; background: #3a4870; }
+  .strip .work { position: absolute; top: 3px; bottom: 3px; background: #78aeed; border-radius: 3px; opacity: .85; }
+  .strip .nowl { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #fff; }
+  .z.local .city { font-weight: 700; }
+  .axis { display: grid; grid-template-columns: 40px 150px 58px 1fr 54px; gap: 10px; font-size: 10px; color: var(--fg-faint); margin-top: 2px; }
+  .axis .ticks { display: flex; justify-content: space-between; }
+  .dst { margin-top: 12px; padding: 9px 12px; border-radius: 10px; background: var(--surface-2); font-size: 12.5px; display: flex; gap: 8px; align-items: flex-start; line-height: 1.45; }
+  .dst .ms { font-size: 17px; color: var(--warn); }
+  .cal { margin-top: 14px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: 12.5px; }
+  .cal .h { font-size: 10.5px; font-weight: 700; color: var(--fg-faint); padding: 4px 0; }
+  .cal span { padding: 5px 0; border-radius: 7px; }
+  .cal .o { color: var(--fg-faint); }
+  .cal .today { background: var(--accent-bg); color: #fff; font-weight: 700; }
+  .cal .mark { box-shadow: inset 0 -2px 0 var(--warn); }
+  .calhd { display: flex; align-items: center; margin-top: 16px; font-weight: 700; font-size: 13.5px; }
+  .calhd .ms { font-size: 20px; color: var(--fg-dim); }
+  .calhd .sp { flex: 1; }
+</style>
+</head>
+<body class="sheet" data-width="1100" data-scale="2">
+
+<h1>Clocks</h1>
+<p class="lede">Clicking any clock opens one popover: every zone with its offset from local, a 24-hour strip (night / day / 09–17 working hours) with a “now” line, the next DST change, and a month calendar. Scrolling over a clock scrubs time forward and back, so all the clocks answer “what time is 3pm Pacific here?”.</p>
+
+<div class="stage theme-dark">
+  <div class="bar">
+    <span class="sicon"><i class="ms fill">wifi</i></span>
+    <span class="sicon"><i class="ms fill">volume_up</i></span>
+    <span class="sicon"><i class="ms fill">battery_5_bar</i>82%</span>
+    <span class="sicon"><i class="ms">notifications</i></span>
+    <span class="sicon"><i class="ms">power_settings_new</i></span>
+    <span class="sep"></span>
+    <div class="clocks">
+      <span class="clock hover"><span class="tz">SF</span><span class="t">10:41</span></span>
+      <span class="clock hover"><span class="tz">NYC</span><span class="t">13:41</span></span>
+      <span class="clock hover"><span class="tz">LON</span><span class="t">18:41</span></span>
+      <span class="clock local hover"><span class="tz">Sep 28</span><span class="t">19:41</span></span>
+    </div>
+  </div>
+
+  <div class="pop card theme-dark">
+    <div class="now"><span class="big">19:41</span><span class="date">Monday, September 28</span></div>
+    <div class="zones" id="zones"></div>
+    <div class="axis"><span></span><span></span><span></span><div class="ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div><span></span></div>
+    <div class="dst"><i class="ms">schedule</i><div><b>Clocks change soon.</b> London moves to GMT on Sun Oct 25, a week before Pacific and Eastern move to PST/EST on Sun Nov 1. For that week, London is 7&nbsp;h ahead of Pacific instead of 8.</div></div>
+    <div class="calhd"><i class="ms">chevron_left</i><span style="margin:0 6px">September 2026</span><i class="ms">chevron_right</i><span class="sp"></span><span style="font-size:11.5px;color:var(--fg-dim);font-weight:500">week 40</span></div>
+    <div class="cal" id="cal"></div>
+  </div>
+</div>
+
+<script>
+// Offsets from UTC in hours at the mocked instant (2026-09-28 17:41 UTC).
+const zones = [
+  ['SF', 'San Francisco', 'PDT', -7],
+  ['NYC', 'New York', 'EDT', -4],
+  ['LON', 'London', 'BST', 1],
+  ['', 'Local', 'CEST', 2],
+];
+const utc = 17 + 41 / 60, local = 2;
+const z = document.getElementById('zones');
+for (const [ab, city, abbr, off] of zones) {
+  const t = ((utc + off) % 24 + 24) % 24;
+  const hh = String(Math.floor(t)).padStart(2, '0'), mm = '41';
+  const rel = off - local;
+  // The strip is drawn in *local* hours, so each zone's day shifts.
+  const toLocal = (h) => (((h - off + local) % 24) + 24) % 24;
+  const seg = (a, b, cls) => {
+    const s = toLocal(a), e = toLocal(b);
+    const parts = s < e ? [[s, e]] : [[s, 24], [0, e]];
+    return parts.map(([x, y]) => `<span class="${cls}" style="left:${x / 24 * 100}%;width:${(y - x) / 24 * 100}%"></span>`).join('');
+  };
+  const nowX = (utc + local) / 24 * 100;
+  z.insertAdjacentHTML('beforeend', `<div class="z${ab ? '' : ' local'}">
+    <span class="ab">${ab || '—'}</span><span class="city">${city} <span style="color:var(--fg-faint);font-size:11px;font-weight:600">${abbr}</span></span><span class="tm">${hh}:${mm}</span>
+    <div class="strip">${seg(7, 20, 'day')}${seg(9, 17, 'work')}<span class="nowl" style="left:${nowX}%"></span></div>
+    <span class="off">${rel ? (rel > 0 ? '+' : '−') + Math.abs(rel) + ' h' : ''}</span></div>`);
+}
+// September 2026 starts on a Tuesday; weeks start on Monday.
+const cal = document.getElementById('cal');
+cal.innerHTML = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(d => `<span class="h">${d}</span>`).join('');
+let cells = ['<span class="o">31</span>'];
+for (let d = 1; d <= 30; d++) cells.push(`<span class="${d === 28 ? 'today' : ''}">${d}</span>`);
+for (let d = 1; cells.length % 7; d++) cells.push(`<span class="o">${d}</span>`);
+cal.insertAdjacentHTML('beforeend', cells.join(''));
+</script>
+</body>
+</html>

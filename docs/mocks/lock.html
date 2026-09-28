@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: login and lock</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .faces { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 22px; }
+  .face {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    color: #f2f2f6;
+    box-shadow: 0 0 0 1px #2a2a30;
+    background:
+      radial-gradient(360px 220px at 22% 28%, rgba(38, 105, 110, .55), transparent 70%),
+      radial-gradient(420px 260px at 82% 78%, rgba(98, 52, 140, .55), transparent 70%),
+      #10172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .face::before { content: ''; position: absolute; inset: 0; backdrop-filter: blur(0); background: rgba(8, 10, 18, .35); }
+  .face > * { position: relative; }
+  .host { font-size: 58px; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+  .fclocks { display: flex; gap: 14px; margin-top: 12px; font-feature-settings: 'tnum' 1; font-size: 13px; color: rgba(255,255,255,.7); }
+  .fclocks b { font-weight: 600; color: #fff; }
+  .fclocks .tz { font-size: 10px; font-weight: 700; letter-spacing: .05em; margin-right: 4px; color: rgba(255,255,255,.55); }
+  .who { display: flex; align-items: center; gap: 10px; margin-top: 26px; }
+  .av { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #3584e4, #9141ac); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .who .n { font-weight: 600; font-size: 14px; }
+  .who .s { font-size: 11.5px; color: rgba(255,255,255,.6); }
+  .pw { margin-top: 12px; width: 270px; height: 38px; border-radius: 10px; background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); display: flex; align-items: center; padding: 0 12px; gap: 8px; font-size: 14px; letter-spacing: .25em; }
+  .pw .ms { font-size: 18px; color: rgba(255,255,255,.6); letter-spacing: 0; }
+  .pw .kb { margin-left: auto; letter-spacing: 0; font-size: 10.5px; font-weight: 700; background: rgba(255,255,255,.14); border-radius: 5px; padding: 2px 6px; color: rgba(255,255,255,.85); }
+  .pw.err { box-shadow: inset 0 0 0 1.5px #ff7b63; }
+  .errmsg { margin-top: 8px; font-size: 12px; color: #ff9e8a; font-weight: 600; }
+  .sess { position: absolute; left: 16px; bottom: 14px; display: flex; gap: 8px; }
+  .chipx { height: 28px; border-radius: 14px; background: rgba(255,255,255,.1); display: flex; align-items: center; gap: 6px; padding: 0 12px 0 10px; font-size: 12px; font-weight: 600; }
+  .chipx .ms { font-size: 16px; }
+  .pwr { position: absolute; right: 14px; bottom: 12px; display: flex; gap: 6px; }
+  .pwr span { width: 32px; height: 32px; border-radius: 16px; background: rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; }
+  .pwr .ms { font-size: 18px; }
+  .corner { position: absolute; left: 16px; top: 12px; font-size: 11.5px; color: rgba(255,255,255,.55); display: flex; gap: 12px; align-items: center; }
+  .corner .ms { font-size: 15px; }
+  .tag { position: absolute; right: 14px; top: 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.5); }
+  .ambient { background: #000; }
+  .ambient::before { display: none; }
+  .ambient .blk { position: absolute; left: 58%; top: 30%; text-align: left; }
+  .ambient .host { font-size: 26px; color: rgba(255,255,255,.42); }
+  .ambient .big { font-size: 64px; font-weight: 300; color: rgba(255,255,255,.5); letter-spacing: -.02em; font-feature-settings: 'tnum' 1; line-height: 1.05; margin-top: 6px; }
+  .ambient .fclocks { color: rgba(255,255,255,.35); margin-top: 6px; }
+  .ambient .fclocks b { color: rgba(255,255,255,.5); }
+  .ambient .fclocks .tz { color: rgba(255,255,255,.3); }
+  .ghost { position: absolute; border: 1px dashed rgba(255,255,255,.14); border-radius: 8px; }
+</style>
+</head>
+<body class="sheet" data-width="1360" data-scale="2">
+
+<h1>Login and lock</h1>
+<p class="lede">One screen, drawn by the same QML component, serves as the greetd greeter at boot and the session lock (<code>ext-session-lock-v1</code>) afterwards, so you meet the same face either way. It leads with the machine’s short hostname, big: first label, with any leading <code>&lt;user&gt;-</code> removed, the rule <code>i3statusdwm</code> already uses. The clocks sit below it.</p>
+
+<div class="faces">
+  <div>
+    <div class="face">
+      <span class="tag">Login · greetd</span>
+      <div class="host">host1</div>
+      <div class="fclocks"><span><span class="tz">SF</span><b>00:12</b></span><span><span class="tz">NYC</span><b>03:12</b></span><span><span class="tz">LON</span><b>08:12</b></span><span>Mon Sep 28 <b>09:12</b></span></div>
+      <div class="who"><span class="av">U</span><div><div class="n">user</div><div class="s">last signed in yesterday</div></div></div>
+      <div class="pw"><i class="ms">lock</i><span style="color:rgba(255,255,255,.45);letter-spacing:0;font-size:13px">Password</span><span class="kb">DVORAK</span></div>
+      <div class="sess"><span class="chipx"><i class="ms">desktop_windows</i>quickspace<i class="ms">expand_more</i></span><span class="chipx"><i class="ms">person</i>Other user</span></div>
+      <div class="pwr"><span><i class="ms">restart_alt</i></span><span><i class="ms">power_settings_new</i></span></div>
+    </div>
+    <div class="cap"><b>Login.</b> The last user is preselected, so boot, type the password, Enter. The session chip lists the <code>wayland-sessions</code> entries (quickspace first), plus a plain TTY shell as a way out if the desktop is broken. The keyboard layout matches the session (Dvorak), with a badge so a failed password isn’t a layout mystery.</div>
+  </div>
+
+  <div>
+    <div class="face">
+      <span class="tag">Lock · session</span>
+      <div class="corner"><span><i class="ms">notifications</i> 2</span><span><i class="ms fill">battery_5_bar</i> 82%</span></div>
+      <div class="host">host1</div>
+      <div class="fclocks"><span><span class="tz">SF</span><b>10:47</b></span><span><span class="tz">NYC</span><b>13:47</b></span><span><span class="tz">LON</span><b>18:47</b></span><span>Mon Sep 28 <b>19:47</b></span></div>
+      <div class="who"><span class="av">U</span><div><div class="n">user</div><div class="s">locked at 19:41</div></div></div>
+      <div class="pw"><i class="ms">lock</i><span>••••••</span><span class="kb">DVORAK</span></div>
+      <div class="sess"><span class="chipx"><i class="ms">bedtime</i>Suspend</span></div>
+      <div class="pwr"><span><i class="ms">restart_alt</i></span><span><i class="ms">power_settings_new</i></span></div>
+    </div>
+    <div class="cap"><b>Lock</b>: the same face, without the user and session pickers. It shows only a notification <i>count</i>, never content, plus battery. Restart and shut down still go through logind’s inhibitor check.</div>
+  </div>
+
+  <div>
+    <div class="face">
+      <span class="tag">Lock · wrong password</span>
+      <div class="host">host1</div>
+      <div class="fclocks"><span><span class="tz">SF</span><b>10:47</b></span><span><span class="tz">NYC</span><b>13:47</b></span><span><span class="tz">LON</span><b>18:47</b></span><span>Mon Sep 28 <b>19:47</b></span></div>
+      <div class="who"><span class="av">U</span><div><div class="n">user</div><div class="s">locked at 19:41</div></div></div>
+      <div class="pw err"><i class="ms">lock</i><span style="letter-spacing:0;font-size:13px;color:rgba(255,255,255,.45)">Password</span><span class="kb">DVORAK</span></div>
+      <div class="errmsg">Wrong password. Try again.</div>
+      <div class="pwr"><span><i class="ms">restart_alt</i></span><span><i class="ms">power_settings_new</i></span></div>
+    </div>
+    <div class="cap"><b>Failure</b>: the field shakes once and clears. PAM’s own messages (faillock countdowns, “fingerprint not recognized”) are shown verbatim below the field.</div>
+  </div>
+
+  <div>
+    <div class="face ambient">
+      <span class="tag" style="color:rgba(255,255,255,.28)">Screensaver · ambient</span>
+      <div class="ghost" style="left:12%;top:22%;width:240px;height:130px"></div>
+      <div class="ghost" style="left:30%;top:52%;width:240px;height:130px"></div>
+      <div class="blk">
+        <div class="host">host1</div>
+        <div class="big">19:47</div>
+        <div class="fclocks"><span><span class="tz">SF</span><b>10:47</b></span><span><span class="tz">NYC</span><b>13:47</b></span><span><span class="tz">LON</span><b>18:47</b></span></div>
+      </div>
+    </div>
+    <div class="cap"><b>Screensaver</b>: the lock’s idle face. Black, low contrast, and moved to a new spot each minute (the dashed boxes) to spare OLED panels. It shows for 30&nbsp;s, then the displays turn off. Any key or mouse move brings back the password face, and a typed key lands in the field.</div>
+  </div>
+</div>
+
+</body>
+</html>
