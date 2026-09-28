@@ -25,6 +25,7 @@ test:
 	$(LUA) hypr/quickspace/focus_test.lua
 	sh session/session_test.sh
 	sh bin/quickspace_test.sh
+	sh bin/quickspace-shell_test.sh
 
 # Copies only. Enabling quickspace.service, which hangs it off the quickspace
 # session's target, is `setup --quickspace`'s job (scripts repo).
@@ -42,7 +43,7 @@ install:
 # up at the greeter, install with PREFIX=/usr.
 install-session:
 	install -d "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(PREFIX)/share/wayland-sessions"
-	install -m 755 bin/quickspace bin/quickspace-hyprland "$(DESTDIR)$(PREFIX)/bin/"
+	install -m 755 bin/quickspace bin/quickspace-hyprland bin/quickspace-shell "$(DESTDIR)$(PREFIX)/bin/"
 	install -m 644 session/quickspace.desktop "$(DESTDIR)$(PREFIX)/share/wayland-sessions/"
 
 # Needs Node and Playwright with Chromium. A global Playwright install is
