@@ -68,10 +68,48 @@ fi
 echo $$ >> "$FAKE_PIDS"
 exec sleep 600 >/dev/null 2>&1
 FAKE
-chmod +x "$fake"/* "$tmp/theme-daemon" "$tmp/agent"
+# swww-daemon stays up and starts answering at once; swww answers `query`
+# once the daemon is up (never, printing $FAKE_QUERY_ERR, if that's set)
+# and logs `img`, failing it with $FAKE_IMG_FAILS.
+# They're in their own directory so a run can leave them off the PATH.
+swww=$tmp/swww-bin
+mkdir "$swww"
+cat > "$swww/swww-daemon" <<'FAKE'
+#!/bin/sh
+: > "$FAKE_OWNED/swww-up"
+echo $$ >> "$FAKE_PIDS"
+exec sleep 600 >/dev/null 2>&1
+FAKE
+cat > "$swww/swww" <<'FAKE'
+#!/bin/sh
+case "$1" in
+    query)
+        if test -n "$FAKE_QUERY_ERR"; then
+            echo "$FAKE_QUERY_ERR" >&2
+            exit 1
+        fi
+        test -e "$FAKE_OWNED/swww-up"
+        ;;
+    img)
+        printf 'swww img %s\n' "$2" >> "$FAKE_LOG"
+        test -z "$FAKE_IMG_FAILS"
+        ;;
+esac
+FAKE
+cat > "$tmp/input-setup" <<'FAKE'
+#!/bin/sh
+printf 'input-setup\n' >> "$FAKE_LOG"
+exit "${FAKE_INPUT_STATUS:-0}"
+FAKE
+: > "$tmp/wallpaper.jpg"
+chmod +x "$fake"/* "$swww"/* "$tmp/theme-daemon" "$tmp/agent" "$tmp/input-setup"
 
 both="org.freedesktop.Notifications org.kde.StatusNotifierWatcher"
 
+# run ENV...: runs the shell with the fakes. With $stop_on set, the fakes are
+# stopped as soon as the shell prints a line containing it, which ends a
+# shell that would otherwise run for the session.
+stop_on=
 run() {
     rm -rf "$tmp/owned"
     mkdir "$tmp/owned"
@@ -80,12 +118,18 @@ run() {
     # has: the shell, and the agent's watcher once cleanup stops the agent.
     # The long-lived fakes drop the pipe, so they can't hold it open.
     {
-        env PATH="$fake:$PATH" FAKE_OWNED="$tmp/owned" FAKE_LOG="$tmp/log" FAKE_PIDS="$tmp/pids" \
+        env PATH="$fake:$swww:$PATH" FAKE_OWNED="$tmp/owned" FAKE_LOG="$tmp/log" FAKE_PIDS="$tmp/pids" \
             QUICKSPACE_THEME_DAEMON="$tmp/theme-daemon" QUICKSPACE_POLKIT_AGENT="$tmp/agent" \
+            QUICKSPACE_WALLPAPER="$tmp/wallpaper.jpg" QUICKSPACE_INPUT_SETUP="$tmp/input-setup" \
             QUICKSPACE_SHELL_WAIT=1 "$@" sh "$shell" 2>&1 >/dev/null
         echo $? > "$tmp/status"
         cleanup
-    } | cat > "$tmp/err"
+    } | while IFS= read -r line; do
+        printf '%s\n' "$line"
+        if test -n "$stop_on"; then
+            case "$line" in *"$stop_on"*) cleanup ;; esac
+        fi
+    done > "$tmp/err"
     status=$(cat "$tmp/status")
 }
 
@@ -97,6 +141,59 @@ check "ready is reported once both names are owned" contains "$log" "systemd-not
 # The fake daemon exits right away; in a session that means the bar is gone.
 check "the theme daemon exiting ends the shell with a failure" test "$status" -ne 0
 check "the exit is reported" contains "$(cat "$tmp/err")" "the theme daemon exited"
+check "the wallpaper is set" contains "$log" "swww img $tmp/wallpaper.jpg"
+check "the input setup runs" contains "$log" "input-setup"
+
+run FAKE_NAMES="$both" FAKE_IMG_FAILS=1 FAKE_INPUT_STATUS=4
+check "a failed wallpaper doesn't hold up ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
+check "a failed wallpaper is reported" contains "$(cat "$tmp/err")" "swww img $tmp/wallpaper.jpg failed"
+check "a failed input setup is reported" contains "$(cat "$tmp/err")" "input-setup failed (4)"
+
+run FAKE_NAMES="$both" QUICKSPACE_WALLPAPER="$tmp/missing.jpg"
+check "a missing QUICKSPACE_WALLPAPER fails, not to be retried" test "$status" -eq 78
+check "a missing QUICKSPACE_WALLPAPER is reported by name" \
+    contains "$(cat "$tmp/err")" "QUICKSPACE_WALLPAPER is '$tmp/missing.jpg'"
+check "a missing QUICKSPACE_WALLPAPER starts nothing" test ! -s "$tmp/log"
+
+run FAKE_NAMES="$both" QUICKSPACE_INPUT_SETUP="$tmp/no-such-setup"
+check "a missing QUICKSPACE_INPUT_SETUP fails, not to be retried" test "$status" -eq 78
+check "a missing QUICKSPACE_INPUT_SETUP is reported by name" \
+    contains "$(cat "$tmp/err")" "QUICKSPACE_INPUT_SETUP is '$tmp/no-such-setup'"
+
+# swww-daemon never answers: once ready, the shell reports it with swww's
+# last error, then runs for the session as usual.
+stop_on="never answered"
+run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_QUERY_ERR="swww: protocol version mismatch"
+stop_on=
+check "a daemon that never answers doesn't hold up ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
+check "a daemon that never answers is reported with swww's error" \
+    contains "$(cat "$tmp/err")" "swww-daemon never answered; no wallpaper (last swww query error: swww: protocol version mismatch)"
+
+# The theme daemon exiting while the wallpaper waits ends the shell at once,
+# rather than after the wallpaper's wait (30 s here).
+run FAKE_NAMES="$both" FAKE_QUERY_ERR="not up" QUICKSPACE_SHELL_WAIT=30
+check "the theme daemon exiting during the wallpaper wait ends the shell" \
+    contains "$(cat "$tmp/err")" "the theme daemon exited"
+check "it doesn't wait out the wallpaper first" \
+    test -z "$(grep 'never answered' "$tmp/err")"
+
+# swww-daemon without its client.
+mkdir "$tmp/daemon-only"
+cp "$swww/swww-daemon" "$tmp/daemon-only/"
+if ! command -v swww >/dev/null 2>&1; then
+    run FAKE_NAMES="$both" PATH="$fake:$tmp/daemon-only:$PATH"
+    check "swww-daemon without swww is reported" \
+        contains "$(cat "$tmp/err")" "swww-daemon is installed but its client, swww, isn't"
+    check "swww-daemon without swww isn't started" test ! -e "$tmp/owned/swww-up"
+fi
+
+# Without swww-daemon on the PATH; skipped where the host has a real one,
+# which this run would otherwise start.
+if ! command -v swww-daemon >/dev/null 2>&1; then
+    run FAKE_NAMES="$both" PATH="$fake:$PATH"
+    check "no swww-daemon is reported" contains "$(cat "$tmp/err")" "swww-daemon not found"
+    check "no swww-daemon doesn't hold up ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
+fi
 
 run FAKE_NAMES="org.freedesktop.Notifications" FAKE_DAEMON_STAYS=1
 check "a missing owner fails the start" test "$status" -eq 1

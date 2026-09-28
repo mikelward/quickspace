@@ -22,6 +22,9 @@
 #   $QUICKSPACE_THEME_DAEMON  the theme daemon (default: conf's)
 #   $QUICKSPACE_POLKIT_AGENT  a polkit agent to use instead of searching
 #   $QUICKSPACE_POLKIT_AGENTS the paths searched, in order (default below)
+#   $QUICKSPACE_WALLPAPER     the wallpaper swww shows (default: conf's)
+#   $QUICKSPACE_INPUT_SETUP   a one-shot input setup (default: conf's
+#                             apply-input.sh), run once Hyprland is up
 
 prog=${0##*/}
 default_agents="
@@ -35,6 +38,8 @@ default_agents="
     /usr/libexec/kf6/polkit-kde-authentication-agent-1
 "
 theme_daemon=${QUICKSPACE_THEME_DAEMON:-$HOME/.config/hypr/scripts/theme-daemon.sh}
+wallpaper=${QUICKSPACE_WALLPAPER:-$HOME/.config/hypr/wallpaper.jpg}
+input_setup=${QUICKSPACE_INPUT_SETUP:-$HOME/.config/hypr/scripts/apply-input.sh}
 
 log() {
     echo "$prog: $*" >&2
@@ -101,6 +106,15 @@ if test -n "${QUICKSPACE_POLKIT_AGENT:-}" && ! is_program "$QUICKSPACE_POLKIT_AG
     exit $EX_CONFIG
 fi
 
+if test -n "${QUICKSPACE_INPUT_SETUP:-}" && ! is_program "$QUICKSPACE_INPUT_SETUP"; then
+    log "QUICKSPACE_INPUT_SETUP is '$QUICKSPACE_INPUT_SETUP', which isn't an executable file"
+    exit $EX_CONFIG
+fi
+if test -n "${QUICKSPACE_WALLPAPER:-}" && ! test -f "$QUICKSPACE_WALLPAPER"; then
+    log "QUICKSPACE_WALLPAPER is '$QUICKSPACE_WALLPAPER', which isn't a file"
+    exit $EX_CONFIG
+fi
+
 if ! is_program "$theme_daemon"; then
     if test -n "${QUICKSPACE_THEME_DAEMON:-}"; then
         log "QUICKSPACE_THEME_DAEMON is '$theme_daemon', which isn't an executable file"
@@ -122,24 +136,71 @@ trap 'rm -f "$theme_status"' EXIT
 ) &
 theme_pid=$!
 
-agent=$(polkit_agent)
-if test -n "$agent"; then
-    # A subshell watches the agent, so its exit ends this script too.
-    trap 'exit 1' USR1
+# Runs a long-lived owner under a watcher subshell, so its exit ends this
+# script too and systemd restarts the unit.
+trap 'exit 1' USR1
+supervise() {
+    _what=$1
+    shift
     (
-        "$agent"
-        log "the polkit agent exited ($?)"
+        "$@"
+        log "$_what exited ($?)"
         kill -USR1 $$
     ) &
+}
+
+agent=$(polkit_agent)
+if test -n "$agent"; then
+    supervise "the polkit agent" "$agent"
 else
     # Not fatal: the session works, but privileged actions can't prompt.
     log "no polkit agent found; install hyprpolkitagent or polkit-gnome"
+fi
+
+# The wallpaper (§5.2 puts it in the shell). Not an owner apps wait for, so
+# it isn't part of the ready check, but its daemon is supervised like one.
+wallpaper_pending=no
+if ! command -v swww-daemon >/dev/null 2>&1; then
+    log "swww-daemon not found; no wallpaper"
+elif ! command -v swww >/dev/null 2>&1; then
+    log "swww-daemon is installed but its client, swww, isn't; no wallpaper"
+else
+    supervise "the wallpaper daemon (swww-daemon)" swww-daemon
+    wallpaper_pending=yes
+fi
+
+# Sets the wallpaper once swww-daemon answers. Returns false while it
+# doesn't, so the wait loops below retry. `swww query` failing is the normal
+# answer while the daemon starts, so its message isn't shown then, but the
+# last one is kept in $swww_err for the report if the wait runs out.
+swww_err=
+set_wallpaper() {
+    if ! out=$(swww query 2>&1); then
+        swww_err=$(printf '%s\n' "$out" | tail -n 1)
+        return 1
+    fi
+    if ! test -r "$wallpaper"; then
+        log "no wallpaper at $wallpaper"
+    elif ! swww img "$wallpaper"; then
+        log "swww img $wallpaper failed"
+    fi
+    return 0
+}
+
+# Input devices, once (Hyprland is up: this unit starts after uwsm
+# finalize). A failure is reported and the session goes on with defaults.
+# Without the setting, conf's script is optional: no conf, no input setup.
+if is_program "$input_setup"; then
+    "$input_setup" || log "$input_setup failed ($?); input devices keep their defaults"
 fi
 
 missing=
 busctl_err=
 i=0
 while :; do
+    if test "$wallpaper_pending" = yes && set_wallpaper; then
+        wallpaper_pending=no
+    fi
     # Whether the daemon had exited is read before the names, so names it
     # claimed just before exiting still count.
     exited=no
@@ -147,6 +208,7 @@ while :; do
     missing=
     owned org.freedesktop.Notifications || missing="$missing org.freedesktop.Notifications (swaync)"
     owned org.kde.StatusNotifierWatcher || missing="$missing org.kde.StatusNotifierWatcher (waybar's tray)"
+    # The wallpaper doesn't hold up ready; it keeps trying below.
     test -z "$missing" && break
     if test "$exited" = yes; then
         log "the theme daemon exited ($(cat "$theme_status")) before its owners were up; no owner in $unit for:$missing"
@@ -163,6 +225,20 @@ done
 if ! systemd-notify --ready; then
     log "systemd-notify --ready failed"
     exit 1
+fi
+
+if test "$wallpaper_pending" = yes; then
+    j=0
+    until set_wallpaper; do
+        # The theme daemon exiting ends the unit (below), wallpaper or not.
+        test -s "$theme_status" && break
+        if test "$j" -ge "$((wait * 10))"; then
+            log "swww-daemon never answered; no wallpaper${swww_err:+ (last swww query error: $swww_err)}"
+            break
+        fi
+        sleep 0.1
+        j=$((j + 1))
+    done
 fi
 
 # Runs for the session. The theme daemon never exits on its own, so its end

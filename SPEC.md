@@ -326,7 +326,10 @@ It starts `conf`'s theme daemon, which runs waybar and swaync, and the
 first polkit agent it finds, and reports ready once swaync owns
 `org.freedesktop.Notifications` and waybar's tray owns
 `org.kde.StatusNotifierWatcher`. The polkit agent's registration isn't
-observable from a script, so it isn't waited for.
+observable from a script, so it isn't waited for. It also runs the
+wallpaper (swww, supervised but not waited for) and, once, `conf`'s
+`apply-input.sh`, which Hyprland's autostart ran before it shrank to
+`uwsm finalize`.
 
 ### 5.3 Start order
 
