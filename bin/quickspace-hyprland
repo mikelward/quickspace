@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# The compositor command for the quickspace session (SPEC.md §5.3).
+#
+# uwsm names a session after its compositor command, so starting Hyprland
+# through this wrapper gives the session its own target,
+# wayland-session@quickspace-hyprland.target. quickspace's units hang off that
+# target, so a plain Hyprland login, or Plasma, never starts them.
+exec Hyprland "$@"
