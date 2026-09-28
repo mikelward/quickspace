@@ -141,13 +141,17 @@ local function expire()
 end
 
 -- Uses up the grant for w's app, if one holds.
+-- A grant for "*" is used by whichever app shows a window first; one that
+-- names w's app is used before it.
 local function take_grant(w)
     expire()
     local app = app_of(w)
-    for i, g in ipairs(state.grants) do
-        if same_id(g.app, app) then
-            table.remove(state.grants, i)
-            return true
+    for _, wildcard in ipairs({ false, true }) do
+        for i, g in ipairs(state.grants) do
+            if (g.app == "*") == wildcard and (wildcard or same_id(g.app, app)) then
+                table.remove(state.grants, i)
+                return true
+            end
         end
     end
     return false

@@ -78,6 +78,20 @@ check "--app names the grant" \
     contains "$(cat "$log")" 'quickspace_focus.grant("org.gnome.Nautilus")'
 run "$qs" launch --app=kitty app
 check "--app=ID works too" contains "$(cat "$log")" 'quickspace_focus.grant("kitty")'
+run "$qs" launch --app '*' -- "$fake/app"
+check "--app '*' grants the next window of any app" \
+    contains "$(cat "$log")" 'quickspace_focus.grant("*")'
+for opener in xdg-open "gio open"; do
+    printf '#!/bin/sh\n' > "$fake/${opener%% *}"
+    chmod +x "$fake/${opener%% *}"
+    # shellcheck disable=SC2086  # "gio open" is two words
+    run "$qs" launch "$fake"/$opener https://example.com/
+    check "$opener grants the first window of any app" \
+        contains "$(cat "$log")" 'quickspace_focus.grant("*")'
+done
+run "$qs" launch "$fake/gio" trash file.txt
+check "gio trash opens no app, so it grants no wildcard" \
+    contains "$(cat "$log")" 'quickspace_focus.grant("gio")'
 run "$qs" launch --app 'a"b\c' app
 check "the grant escapes the ID for Lua" \
     contains "$(cat "$log")" 'quickspace_focus.grant("a\"b\\c")'
