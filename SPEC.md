@@ -302,7 +302,7 @@ work". The old setup shows how it fought itself:
 
 | Job | Owner | Started by | Kept out |
 |---|---|---|---|
-| Compositor | Hyprland | uwsm `wayland-wm@hyprland.desktop.service` | — |
+| Compositor | Hyprland | uwsm `wayland-wm@quickspace-hyprland.service` | — |
 | Bar (exactly one per monitor), launcher, OSD, wallpaper | quickspace (`qs -c quickspace`) | `quickspace.service` | waybar, swaybar, swww/swaybg, fuzzel/rofi aren't started; `doctor` counts top-layer bars |
 | Notifications (`org.freedesktop.Notifications`) | quickspace | `quickspace.service`, before any app | dunst/mako/swaync: not installed; `doctor` flags any activatable one |
 | Tray host (`org.kde.StatusNotifierWatcher`) | quickspace | `quickspace.service`, before any app | `nm-applet`, `blueman-applet`, `xembedsniproxy` not run |
@@ -324,8 +324,8 @@ work". The old setup shows how it fought itself:
 
 ```mermaid
 flowchart TD
-  G[greetd + quickspace greeter] -->|PAM: auth, unlock keyring| U["uwsm start -D quickspace:Hyprland hyprland.desktop"]
-  U --> W["wayland-wm@hyprland.desktop.service (Hyprland)"]
+  G[greetd + quickspace greeter] -->|PAM: auth, unlock keyring| U["uwsm start -e -D quickspace:Hyprland -- quickspace-hyprland"]
+  U --> W["wayland-wm@quickspace-hyprland.service (Hyprland)"]
   W -->|"the only exec-once: uwsm finalize"| GS[graphical-session.target]
   GS --> Q["quickspace.service: bar, launcher, notifications, tray watcher, polkit"]
   GS --> I["hypridle.service (Type=dbus: ready once it owns org.freedesktop.ScreenSaver)"]
@@ -335,13 +335,21 @@ flowchart TD
   A --> APPS[apps via uwsm app]
 ```
 
-`-D` sets uwsm's desktop names (`XDG_CURRENT_DESKTOP`); M2 confirms the
-flag against the packaged uwsm.
+- **The session entry** is `quickspace.desktop` in `wayland-sessions`, so
+  the current display manager lists it too (M2).
+- **`-e -D quickspace:Hyprland`** sets `XDG_CURRENT_DESKTOP` to exactly that;
+  without `-e`, uwsm appends to names from other sources.
+- **`quickspace-hyprland`** is a wrapper that execs `Hyprland`. uwsm names a
+  session after its compositor command, so the wrapper gives quickspace
+  its own session target, `wayland-session@quickspace-hyprland.target`. A
+  plain Hyprland login gets `wayland-session@hyprland.desktop.target`
+  instead, and starts none of quickspace's units.
 
 ### 5.4 Guards that keep it that way
 
-- **Scoped units.** quickspace's units are `WantedBy=` uwsm's Hyprland session
-  target and `PartOf=graphical-session.target`, never plainly
+- **Scoped units.** quickspace's units are `WantedBy=` the quickspace
+  session's target (`wayland-session@quickspace-hyprland.target`, §5.3) and
+  `PartOf=graphical-session.target`, never plainly
   `WantedBy=graphical-session.target`. Plasma also reaches that target, and
   that is exactly how swaync leaked into KDE. Nothing quickspace installs
   starts in a KDE session.
@@ -1477,7 +1485,7 @@ light/dark switch.
 
 | Repo | Gets |
 |---|---|
-| **quickspace** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session units (`quickspace.service`, `quickspace-lock.service`, the `hypridle.service` drop-in), `quickspace-portals.conf`, the `quickspace-lock` PAM file and the greetd config template. `quickspace-share-picker`. `quickspace doctor`, `quickspace launch` and `quickspace idle-suspend`. The Lua tiling layout. `make install`. |
+| **quickspace** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session: its `wayland-sessions` entry and `quickspace-hyprland` wrapper, the units (`quickspace.service`, `quickspace-lock.service`, the `hypridle.service` drop-in), `quickspace-portals.conf`, the `quickspace-lock` PAM file and the greetd config template. `quickspace-share-picker`. `quickspace doctor`, `quickspace launch` and `quickspace idle-suspend`. The Lua tiling layout. `make install`. |
 | **conf** | The personal config: Hyprland in Lua (keys, rules, the Lua layout's settings, the single `exec-once`, loading `hyprland.local.lua`); `hypridle.conf` timings; uwsm env; the shared `~/.config/quickspace/*.json` defaults (clocks, idle, layouts), with `*.local.json` left per machine (§16.1); `.desktop` files for the launcher scripts. Deleting waybar, swaync, fuzzel, hyprlock, `theme-daemon.sh` and the sway config once M5 lands (§21). |
 | **scripts** | `setup --quickspace`: packages (pinned Hyprland, Quickshell, greetd, xdph, adw-gtk3, grim/slurp/wl-clipboard/satty, the file manager without its recommends, `xdg-terminal-exec`, the companion apps in §16.2) and enabling units. `screenshot` gains a Wayland path. `lock-screensaver` goes through `loginctl lock-session` on Wayland. `setup --purge-obsolete` learns about packages quickspace replaces. |
 
