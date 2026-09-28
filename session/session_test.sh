@@ -67,6 +67,7 @@ check "ready means the shell said so" has_line "$unit" "Type=notify"
 check "the shell's helpers may report ready" has_line "$unit" "NotifyAccess=all"
 check "a shell that never gets ready fails in 15 s" \
     has_line "$unit" "TimeoutStartSec=15"
+check "a bad setting isn't restarted" has_line "$unit" "RestartPreventExitStatus=78"
 check "hypridle is wanted, not required" has_line "$unit" "Wants=hypridle.service"
 check "hypridle is not required" lacks_line_matching "$unit" '^Requires=.*hypridle'
 check "the shell starts after hypridle" has_line "$unit" "After=hypridle.service"
@@ -84,14 +85,15 @@ check "the drop-in adds no [Install], so hypridle isn't enabled globally" \
     lacks_line_matching "$dropin" '^\[Install\]'
 
 # --- systemd-analyze verify ---------------------------------------------------
-# Resolves the units as systemd would. qs and hypridle aren't installed here,
-# so the copies point ExecStart at a stub; everything else is as shipped.
+# Resolves the units as systemd would. quickspace-shell and hypridle aren't
+# installed here, so the copies point ExecStart at a stub; everything else is
+# as shipped.
 if command -v systemd-analyze >/dev/null 2>&1; then
     mkdir -p "$tmp/run" "$tmp/units/hypridle.service.d"
     chmod 700 "$tmp/run"
     printf '#!/bin/sh\n' > "$tmp/stub"
     chmod +x "$tmp/stub"
-    sed "s|^ExecStart=qs |ExecStart=$tmp/stub |" "$unit" > "$tmp/units/quickspace.service"
+    sed "s|^ExecStart=quickspace-shell\$|ExecStart=$tmp/stub|" "$unit" > "$tmp/units/quickspace.service"
     # A stand-in for the packaged hypridle.service, with the drop-in on top.
     printf '[Unit]\nDescription=hypridle\n[Service]\nExecStart=%s\n' "$tmp/stub" \
         > "$tmp/units/hypridle.service"
@@ -134,6 +136,8 @@ if make -s install-session DESTDIR="$tmp/root" PREFIX=/usr >"$tmp/session.log" 2
         test -x "$tmp/root/usr/bin/quickspace-hyprland"
     check "make install-session installs the quickspace command" \
         test -x "$tmp/root/usr/bin/quickspace"
+    check "make install-session installs the unit's shell" \
+        test -x "$tmp/root/usr/bin/quickspace-shell"
     check "make install-session installs the session entry" \
         test -f "$tmp/root/usr/share/wayland-sessions/quickspace.desktop"
 else

@@ -320,6 +320,14 @@ work". The old setup shows how it fought itself:
 | Terminal for `Terminal=true` apps | kitty, via `xdg-terminal-exec` | on demand | GLib's fallback list (Konsole) |
 | Apps | you | `quickspace launch` from keybinds and the launcher, which waits for the shell to be ready, then runs `uwsm app --` (§5.4) | — |
 
+**M2 transitional shell.** Until the Quickshell shell lands (M3 and M4),
+`quickspace.service` runs `quickspace-shell` instead of `qs -c quickspace`.
+It starts `conf`'s theme daemon, which runs waybar and swaync, and the
+first polkit agent it finds, and reports ready once swaync owns
+`org.freedesktop.Notifications` and waybar's tray owns
+`org.kde.StatusNotifierWatcher`. The polkit agent's registration isn't
+observable from a script, so it isn't waited for.
+
 ### 5.3 Start order
 
 ```mermaid

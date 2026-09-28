@@ -1,0 +1,173 @@
+#!/bin/sh
+#
+# quickspace-shell: what quickspace.service runs until the Quickshell shell
+# exists (SPEC.md §5.2, §5.4; TODO.md "Transitional shell").
+#
+# For M2 the owners are the ones already in daily use:
+#   - swaync owns org.freedesktop.Notifications, and waybar hosts the tray's
+#     org.kde.StatusNotifierWatcher. conf's theme daemon starts both with the
+#     light/dark style and restarts them at each theme boundary, so it runs
+#     here rather than from Hyprland's autostart;
+#   - the first polkit agent found on this system.
+#
+# All of them run in this unit's cgroup, so they stop with the session. The
+# unit is Type=notify: this reports ready once both D-Bus names are owned, so
+# no app starts before them, and only by processes in this unit, so a stale
+# daemon from outside the session doesn't count. It waits
+# $QUICKSPACE_SHELL_WAIT seconds at most (12, inside the unit's 15 s timeout)
+# and fails, naming the missing owner, if they never appear. The polkit
+# agent's registration can't be observed from here, so it isn't waited for,
+# but its exit fails the unit, so systemd restarts it.
+#
+#   $QUICKSPACE_THEME_DAEMON  the theme daemon (default: conf's)
+#   $QUICKSPACE_POLKIT_AGENT  a polkit agent to use instead of searching
+#   $QUICKSPACE_POLKIT_AGENTS the paths searched, in order (default below)
+
+prog=${0##*/}
+default_agents="
+    /usr/libexec/hyprpolkitagent
+    /usr/lib/hyprpolkitagent/hyprpolkitagent
+    /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+    /usr/libexec/polkit-gnome-authentication-agent-1
+    /usr/lib/polkit-kde-authentication-agent-1
+    /usr/libexec/polkit-kde-authentication-agent-1
+    /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1
+    /usr/libexec/kf6/polkit-kde-authentication-agent-1
+"
+theme_daemon=${QUICKSPACE_THEME_DAEMON:-$HOME/.config/hypr/scripts/theme-daemon.sh}
+
+log() {
+    echo "$prog: $*" >&2
+}
+
+polkit_agent() {
+    if test -n "${QUICKSPACE_POLKIT_AGENT:-}"; then
+        echo "$QUICKSPACE_POLKIT_AGENT"
+        return
+    fi
+    for a in ${QUICKSPACE_POLKIT_AGENTS-$default_agents}; do
+        if is_program "$a"; then
+            echo "$a"
+            return
+        fi
+    done
+}
+
+unit=quickspace.service
+
+# True when a process in this unit owns the name. busctl failing is the
+# normal answer while nobody owns it yet, so its message isn't shown then,
+# but the last one is kept in $busctl_err for the report if the wait runs
+# out: a missing user bus or busctl shows up there, not as a missing owner.
+owned() {
+    if ! out=$(busctl --user status "$1" 2>&1); then
+        busctl_err=$(printf '%s\n' "$out" | tail -n 1)
+        return 1
+    fi
+    printf '%s\n' "$out" | grep -qx "UserUnit=$unit"
+}
+
+# No cleanup trap: stopping the unit kills its whole cgroup, which also
+# catches waybar and swaync, started by the theme daemon rather than here.
+
+# A bad setting or a missing piece fails the start at once, by name, before
+# anything runs. It exits EX_CONFIG (78), which the unit doesn't restart on
+# (RestartPreventExitStatus=78): retrying can't fix it.
+EX_CONFIG=78
+is_program() {
+    test -f "$1" && test -x "$1"
+}
+
+# At most 3600, which also keeps the arithmetic below in range.
+wait=${QUICKSPACE_SHELL_WAIT:-12}
+case "$wait" in
+    '' | *[!0-9]* | 0* | ?????*) wait_ok=no ;;
+    *) test "$wait" -le 3600 && wait_ok=yes || wait_ok=no ;;
+esac
+if test "$wait_ok" = no; then
+    log "QUICKSPACE_SHELL_WAIT must be a whole number of seconds from 1 to 3600, not '$wait'"
+    exit $EX_CONFIG
+fi
+
+# The unit's TimeoutStartSec=15 fits the default 12 s. A longer wait asks
+# systemd for the extra time, or the unit's timeout would cut it short and
+# lose the report below. If systemd refuses, the unit's timeout stands.
+if test "$wait" -gt 12 && ! systemd-notify "EXTEND_TIMEOUT_USEC=$(((wait + 3) * 1000000))"; then
+    log "couldn't extend the start timeout for QUICKSPACE_SHELL_WAIT=$wait; the unit's own timeout applies"
+fi
+
+if test -n "${QUICKSPACE_POLKIT_AGENT:-}" && ! is_program "$QUICKSPACE_POLKIT_AGENT"; then
+    log "QUICKSPACE_POLKIT_AGENT is '$QUICKSPACE_POLKIT_AGENT', which isn't an executable file"
+    exit $EX_CONFIG
+fi
+
+if ! is_program "$theme_daemon"; then
+    if test -n "${QUICKSPACE_THEME_DAEMON:-}"; then
+        log "QUICKSPACE_THEME_DAEMON is '$theme_daemon', which isn't an executable file"
+    else
+        log "no theme daemon at $theme_daemon, so no bar or notifications"
+    fi
+    exit $EX_CONFIG
+fi
+# The theme daemon runs under a subshell that records its exit status, so an
+# exit during startup is reported as itself rather than as missing owners.
+theme_status=$(mktemp) || {
+    log "couldn't create a temporary file for the theme daemon's status"
+    exit 1
+}
+trap 'rm -f "$theme_status"' EXIT
+(
+    "$theme_daemon"
+    echo $? > "$theme_status"
+) &
+theme_pid=$!
+
+agent=$(polkit_agent)
+if test -n "$agent"; then
+    # A subshell watches the agent, so its exit ends this script too.
+    trap 'exit 1' USR1
+    (
+        "$agent"
+        log "the polkit agent exited ($?)"
+        kill -USR1 $$
+    ) &
+else
+    # Not fatal: the session works, but privileged actions can't prompt.
+    log "no polkit agent found; install hyprpolkitagent or polkit-gnome"
+fi
+
+missing=
+busctl_err=
+i=0
+while :; do
+    # Whether the daemon had exited is read before the names, so names it
+    # claimed just before exiting still count.
+    exited=no
+    test -s "$theme_status" && exited=yes
+    missing=
+    owned org.freedesktop.Notifications || missing="$missing org.freedesktop.Notifications (swaync)"
+    owned org.kde.StatusNotifierWatcher || missing="$missing org.kde.StatusNotifierWatcher (waybar's tray)"
+    test -z "$missing" && break
+    if test "$exited" = yes; then
+        log "the theme daemon exited ($(cat "$theme_status")) before its owners were up; no owner in $unit for:$missing"
+        exit 1
+    fi
+    if test "$i" -ge "$((wait * 10))"; then
+        log "not ready after ${wait} s; no owner in $unit for:$missing${busctl_err:+ (last busctl error: $busctl_err)}"
+        exit 1
+    fi
+    sleep 0.1
+    i=$((i + 1))
+done
+
+if ! systemd-notify --ready; then
+    log "systemd-notify --ready failed"
+    exit 1
+fi
+
+# Runs for the session. The theme daemon never exits on its own, so its end
+# is this unit's end, and systemd restarts it (Restart=on-failure).
+wait "$theme_pid"
+status=$(cat "$theme_status")
+log "the theme daemon exited ($status)"
+exit $((status == 0 ? 1 : status))
