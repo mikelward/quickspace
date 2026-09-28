@@ -39,12 +39,12 @@ and the guard's process-ancestry fallback has no grant to use.
 ## Grants through desktop entries
 
 The focus guard matches a grant against the window class alone (SPEC.md
-§14.3). `quickspace launch xdg-open URL` or `gio open FILE` therefore grants
-`xdg-open` or `gio`, which no window has, and the opened app starts
-unfocused. Until the launcher's desktop-entry index exists (M3), such a
-launch needs `--app` to name the app. Then resolve a program name through
-desktop entries' `Exec` and `StartupWMClass`, and an opener through the
-default handler for the file's type.
+§14.3). `quickspace launch xdg-open URL` or `gio open FILE` would grant
+`xdg-open` or `gio`, which no window has, leaving the opened app unfocused.
+Until the launcher's desktop-entry index exists (M3), such a launch grants
+`*` (the first window of any app) unless `--app` names the app. Then resolve
+a program name through desktop entries' `Exec` and `StartupWMClass`, and an
+opener through the default handler for the file's type.
 
 ## Fullscreen on open, under the focus guard
 

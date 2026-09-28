@@ -1207,6 +1207,12 @@ this spec.
   - **Used by** that app's first new window, or its first activation of a
     window it already had (a single-instance app reusing a window), within
     10 s.
+  - **A wildcard** (`quickspace launch --app '*'`) is used by the first
+    window of any app. It's for a key bound to a wrapper script, whose app
+    isn't known until its window appears. A grant naming the app is used
+    before it, and the same cancel rules apply. Matching grants through
+    desktop entries, a known gap below, will make it unneeded for launcher
+    entries.
   - **Canceled by** anything you do after launching: a key press, a mouse
     click anywhere (including inside the window you're already in), or
     focus moving to another window by any means (`Super+J`, a workspace
@@ -1231,7 +1237,8 @@ this spec.
     through desktop entries' `Exec` and `StartupWMClass`. `xdg-open` and
     `gio open` resolve through the default handler for the file's type.
     Not yet in M2: a grant matches the window class alone (TODO.md), so a
-    launch through an opener needs `--app` to name the app.
+    launch through `xdg-open` or `gio open` grants `*`, the first window of any
+    app, unless `--app` names the app.
 - **Process ancestry** is the fallback for a command that names no known
   app, such as a script that opens a window. The preexec hook's grant names
   its shell's pid, and a window whose process descends from that shell uses

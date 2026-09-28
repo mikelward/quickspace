@@ -8,9 +8,12 @@
 #     (SPEC.md §5.4, §14.3):
 #       1. records a one-shot focus grant for the app with the focus guard,
 #          so its first window may take focus. ID defaults to COMMAND's
-#          basename. It comes first, so a key press or focus change while
-#          the shell is still starting cancels it, and its 10 s run from
-#          the key press that launched it;
+#          basename; '*' grants the first window of any app, for a
+#          wrapper script whose app isn't known in advance, and the
+#          default for xdg-open and gio open. It comes
+#          first, so a key press or focus change while the shell is still
+#          starting cancels it, and its 10 s run from the key press that
+#          launched it;
 #       2. waits for the shell, so no app starts before the notification,
 #          tray and polkit owners exist. The wait is bounded (15 s, or
 #          $QUICKSPACE_LAUNCH_WAIT), and the app starts anyway after it,
@@ -81,7 +84,16 @@ launch() {
     if ! in_quickspace; then
         exec "$@"
     fi
-    test -n "$app" || app=${1##*/}
+    if test -z "$app"; then
+        case "${1##*/}" in
+            # They open whatever handles the file, whose app isn't known here
+            # (TODO.md: grants through desktop entries).
+            xdg-open) app='*' ;;
+            # Only `gio open` opens an app; `gio trash` and the rest don't.
+            gio) if test "${2:-}" = open; then app='*'; else app=gio; fi ;;
+            *) app=${1##*/} ;;
+        esac
+    fi
     grant "$app"
     wait_for_shell "$app"
     exec uwsm app -- "$@"
