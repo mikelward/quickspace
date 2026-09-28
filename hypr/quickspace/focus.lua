@@ -384,10 +384,10 @@ function M.on_key(_, _, key_state)
     end
 end
 
--- Records a one-shot grant for app, from `quickspace launch` or a
--- notification click.
--- pid, if given, is the process that asked (the zsh preexec hook passes its
--- shell's), which lets a window from one of its descendants use the grant.
+-- Records a one-shot grant for app, from `quickspace launch`, a
+-- notification click, or conf's shrc before each zsh or bash command.
+-- pid, if given, is the process that asked (shrc passes its shell's), which
+-- lets a window from one of its descendants use the grant.
 function M.grant(app, pid)
     local id = normalize(app)
     if not id then
