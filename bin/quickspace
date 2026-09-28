@@ -21,11 +21,17 @@
 #       3. runs it with `uwsm app`, in app-graphical.slice, so the app
 #          outlives a shell restart.
 #     Outside a quickspace session it just runs COMMAND.
+#
+#   quickspace doctor
+#
+#     Checks the running session and prints one line per problem, with
+#     its fix (SPEC.md §5.4); see quickspace-doctor.
 
 prog=${0##*/}
 
 usage() {
     echo "usage: $prog launch [--app ID] [--] COMMAND [ARG...]" >&2
+    echo "       $prog doctor" >&2
     exit 2
 }
 
@@ -101,5 +107,7 @@ launch() {
 
 case "${1:-}" in
     launch) shift; launch "$@" ;;
+    # Installed beside this script.
+    doctor) shift; exec sh "$(dirname "$0")/quickspace-doctor" "$@" ;;
     *) usage ;;
 esac

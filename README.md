@@ -39,6 +39,12 @@ waybar and swaync), a polkit agent, and swww for the wallpaper. It also runs
 conf's input setup once. It reports ready once swaync owns the notification
 name and waybar's tray owns the watcher (see `TODO.md`).
 
+`quickspace doctor` checks the running session and prints one line per
+problem, with its fix: units that aren't running, D-Bus names owned by the
+wrong process, daemons running twice or rivals to an owner, the portal
+config, Hyprland's config errors, and autostart entries that run in
+quickspace. It exits 1 if it found a problem.
+
 ## Mocks
 
 The mocks are plain HTML/CSS. To re-render the PNGs after editing one:

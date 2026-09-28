@@ -31,6 +31,24 @@ plus the first polkit agent found and swww for the wallpaper. It also runs
   Hyprland notification for each window it leaves waiting. Turn that off
   (`notify = false`) once the bar marks those windows.
 
+## The rest of `quickspace doctor`
+
+M2's `quickspace doctor` (`bin/quickspace-doctor`) checks units, D-Bus
+owners, duplicate and rival daemons, the portal config, Hyprland's config
+errors, and autostart entries. SPEC.md §5.4 also wants:
+
+- **Activatable services that could steal a name.** In M2 swaync's own
+  activation file names `org.freedesktop.Notifications`, so flagging every
+  activatable one would flag the owner. Check it once the shell owns the
+  name, naming the service file and the package that ships it.
+- **More than one top-anchored layer surface per monitor.** It needs
+  `hyprctl layers -j` parsed per monitor, which wants a JSON reader the
+  session doesn't have yet (jq, or the shell itself in M3).
+- **Generating the autostart drop-ins.** It reports each entry that would
+  run in quickspace and suggests `NotShowIn=quickspace;`. The spec's fix is
+  a `ConditionEnvironment=` drop-in for each entry's
+  `app-*@autostart.service`, which `doctor --fix` could write.
+
 ## Grants for terminal commands
 
 SPEC.md §14.3 has a preexec hook in `conf`'s zsh config write a grant for

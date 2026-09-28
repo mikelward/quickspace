@@ -1,0 +1,292 @@
+#!/bin/sh
+#
+# quickspace-doctor: what `quickspace doctor` runs. Checks the running
+# session for the problems SPEC.md §5.4 lists, and prints one line per
+# problem with its fix. Exits 1 if it found any, 0 if none, and 2 outside a
+# quickspace session, where there's nothing to check.
+#
+# This is the M2 subset, for the transitional shell (TODO.md "quickspace
+# doctor"):
+#   - the session's units are running;
+#   - each D-Bus name in §5.2 is owned by the unit that should own it;
+#   - no daemon runs twice, and no rival to an owner runs at all;
+#   - quickspace-portals.conf is installed and XDG_CURRENT_DESKTOP selects it;
+#   - Hyprland reports no config errors;
+#   - no XDG autostart unit ran in quickspace (the allowlist starts empty).
+
+prog=${0##*/}
+problems=0
+
+problem() {
+    printf '%s\n' "$*"
+    problems=$((problems + 1))
+}
+
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:quickspace:*) ;;
+    *)
+        echo "$prog: not in a quickspace session (XDG_CURRENT_DESKTOP is '${XDG_CURRENT_DESKTOP:-}'); run it from inside one" >&2
+        exit 2
+        ;;
+esac
+
+# Units.
+for unit in quickspace.service hypridle.service; do
+    state=$(systemctl --user is-active "$unit" 2>&1)
+    if test "$state" != active; then
+        problem "$unit is ${state:-not active}: see \`systemctl --user status $unit\` and \`journalctl --user -u $unit\`"
+    fi
+done
+
+# D-Bus names and the unit that should own each (§5.2). In M2 the
+# transitional shell's swaync and waybar own the first two, in
+# quickspace.service's cgroup.
+for pair in \
+    org.freedesktop.Notifications=quickspace.service \
+    org.kde.StatusNotifierWatcher=quickspace.service \
+    org.freedesktop.ScreenSaver=hypridle.service; do
+    name=${pair%%=*}
+    want=${pair#*=}
+    if ! out=$(busctl --user status "$name" 2>&1); then
+        problem "$name has no owner ($(printf '%s\n' "$out" | tail -n 1)): $want should own it; see \`systemctl --user status $want\`"
+        continue
+    fi
+    unit=$(printf '%s\n' "$out" | sed -n 's/^UserUnit=//p')
+    if test "$unit" != "$want"; then
+        comm=$(printf '%s\n' "$out" | sed -n 's/^Comm=//p')
+        problem "$name is owned by ${comm:-an unknown process} in ${unit:-no user unit}, not $want: stop that process and keep it from starting in quickspace"
+    fi
+done
+
+# Processes. `pgrep -x` matches the process name, which the kernel cuts to
+# 15 characters, so the long polkit agent names are matched by their start.
+# pgrep exits 1 for no match; anything else means it couldn't look, which is
+# reported once rather than read as "none running". pgrep takes an extended
+# regex, so a name's metacharacters (agent+foo) are escaped.
+uid=$(id -u)
+pids_of() {
+    pattern=$(printf '%s\n' "$1" | sed 's/[][\.*^$+?(){}|]/\\&/g')
+    pids=$(pgrep -u "$uid" -x "$pattern" 2>&1)
+    pstatus=$?
+    if test "$pstatus" -eq 0; then
+        printf '%s\n' "$pids"
+        return
+    fi
+    if test "$pstatus" -gt 1 && ! test -s "$pgrep_err"; then
+        echo "pgrep failed ($pstatus: $pids)" > "$pgrep_err"
+    fi
+}
+count() {
+    pids_of "$1" | grep -c .
+}
+# The unit a process runs in, from its cgroup: the scope it ends in (an
+# app-*.scope, not the user@.service above it), or else the last path part
+# ending in .service. $QUICKSPACE_PROC stands in for /proc in the tests.
+unit_of() {
+    sed -n -e 's|^0::.*/\([^/]*\.scope\)$|\1|p' -e t \
+        -e 's|^0::.*/\([^/]*\.service\)\(/.*\)\{0,1\}$|\1|p' "${QUICKSPACE_PROC:-/proc}/$1/cgroup" 2>/dev/null |
+        tail -n 1 # a process that has exited has no cgroup file; that's reported as no unit
+}
+pgrep_err=$(mktemp) || {
+    echo "$prog: couldn't create a temporary file" >&2
+    exit 1
+}
+trap 'rm -f "$pgrep_err"' EXIT
+# Each daemon runs once, in the unit that owns it: one started by hand or
+# left from another session isn't supervised or stopped with this one.
+for pair in hypridle=hypridle.service swaync=quickspace.service \
+    waybar=quickspace.service swww-daemon=quickspace.service; do
+    daemon=${pair%%=*}
+    want=${pair#*=}
+    pids=$(pids_of "$daemon")
+    n=$(printf '%s' "$pids" | grep -c .)
+    if test "$n" -gt 1; then
+        problem "$n $daemon processes are running: only one should; stop the ones outside $want"
+    elif test "$n" -eq 1; then
+        unit=$(unit_of "$pids")
+        if test "$unit" != "$want"; then
+            problem "$daemon (pid $pids) runs in ${unit:-no user unit}, not $want: stop it and \`systemctl --user restart $want\`"
+        fi
+    fi
+done
+# The agents quickspace-shell looks for, plus any set with
+# QUICKSPACE_POLKIT_AGENT or QUICKSPACE_POLKIT_AGENTS (a space-separated
+# list), read from the running shell's own environment. pgrep sees at most
+# 15 characters of a name. If that environment can't be read, a configured
+# agent could be missed, so "no polkit agent" isn't concluded.
+# One name per line, since a configured agent's name may hold spaces.
+agent_names="hyprpolkitagent
+polkit-gnome-au
+polkit-kde-auth"
+add_agent() {
+    name=$(printf '%.15s' "${1##*/}")
+    case "
+$agent_names
+" in
+        *"
+$name
+"*) ;;
+        *) agent_names="$agent_names
+$name" ;;
+    esac
+}
+agents_unknown=
+if ! main=$(systemctl --user show -p MainPID --value quickspace.service 2>&1); then
+    problem "couldn't read quickspace.service's MainPID ($main), so an agent set with QUICKSPACE_POLKIT_AGENT may be missed"
+    agents_unknown=1
+    main=
+fi
+case "$main" in
+    '' | 0) ;; # the shell isn't running; the unit check above reports it
+    *[!0-9]*)
+        problem "quickspace.service's MainPID is '$main', not a pid, so an agent set with QUICKSPACE_POLKIT_AGENT may be missed"
+        agents_unknown=1
+        ;;
+    *)
+        if env=$({ tr '\0' '\n' < "${QUICKSPACE_PROC:-/proc}/$main/environ"; } 2>&1); then
+            # QUICKSPACE_POLKIT_AGENT is one path, spaces and all;
+            # QUICKSPACE_POLKIT_AGENTS is a space-separated list, as
+            # quickspace-shell reads them.
+            while IFS= read -r line; do
+                case "$line" in
+                    QUICKSPACE_POLKIT_AGENT=?*) add_agent "${line#*=}" ;;
+                    QUICKSPACE_POLKIT_AGENTS=*)
+                        for path in ${line#*=}; do add_agent "$path"; done
+                        ;;
+                esac
+            done <<EOF
+$env
+EOF
+        else
+            problem "couldn't read quickspace.service's environment (pid $main: $env), so an agent set with QUICKSPACE_POLKIT_AGENT may be missed; if the shell just restarted, run doctor again"
+            agents_unknown=1
+        fi
+        ;;
+esac
+agent_pids=
+while IFS= read -r agent; do
+    agent_pids="$agent_pids $(pids_of "$agent" | tr '\n' ' ')"
+done <<EOF
+$agent_names
+EOF
+# shellcheck disable=SC2086  # one pid per word
+agents=$(printf '%s\n' $agent_pids | grep -c .)
+# Zero is only known when pgrep could look and the configured agents are
+# known; a failure of either is reported on its own.
+if test "$agents" -eq 0 && ! test -s "$pgrep_err" && test -z "$agents_unknown"; then
+    problem "no polkit agent is running, so apps can't ask for a password: install hyprpolkitagent or polkit-gnome, then \`systemctl --user restart quickspace.service\`"
+elif test "$agents" -gt 1; then
+    problem "$agents polkit agents are running: only quickspace.service's should; stop the others and remove them from autostart"
+elif test "$agents" -eq 1; then
+    # One agent, but it must be the shell's, not one started by hand or by
+    # another session's autostart.
+    # shellcheck disable=SC2086  # one pid per word
+    agent_pid=$(printf '%s\n' $agent_pids | head -n 1)
+    agent_unit=$(unit_of "$agent_pid")
+    if test "$agent_unit" != quickspace.service; then
+        problem "the polkit agent (pid $agent_pid) runs in ${agent_unit:-no user unit}, not quickspace.service: stop it and \`systemctl --user restart quickspace.service\`, whose shell starts its own"
+    fi
+fi
+for rival in dunst mako swaybar swayidle hyprpaper swaybg; do
+    if test "$(count "$rival")" -gt 0; then
+        problem "$rival is running, but quickspace owns its job (SPEC.md §5.2): stop it and remove it from autostart"
+    fi
+done
+# count runs in a subshell, so its failure comes back through the file.
+if test -s "$pgrep_err"; then
+    problem "$(cat "$pgrep_err"), so the process checks are incomplete: is procps installed?"
+fi
+
+# Portals: xdg-desktop-portal reads quickspace-portals.conf for the first
+# desktop in XDG_CURRENT_DESKTOP, from these directories.
+case "${XDG_CURRENT_DESKTOP}" in
+    quickspace:* | quickspace) ;;
+    *) problem "XDG_CURRENT_DESKTOP is '$XDG_CURRENT_DESKTOP': quickspace must come first, or portals ignore quickspace-portals.conf; start the session from its quickspace.desktop entry" ;;
+esac
+found=
+IFS_save=$IFS
+IFS=:
+for dir in "${XDG_CONFIG_HOME:-$HOME/.config}" ${XDG_CONFIG_DIRS:-/etc/xdg} \
+    "${XDG_DATA_HOME:-$HOME/.local/share}" ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do
+    if test -f "$dir/xdg-desktop-portal/quickspace-portals.conf"; then
+        found=$dir/xdg-desktop-portal/quickspace-portals.conf
+        break
+    fi
+done
+IFS=$IFS_save
+# xdg-desktop-portal reads only the first one it finds, so that's the one
+# that must select quickspace's backends. quickspace owns the file, so
+# rather than parse it the way GKeyFile would, the doctor checks it is the
+# one `make install` installs: this copy, which the tests keep in step with
+# xdg-desktop-portal/quickspace-portals.conf.
+shipped_portals_conf() {
+    cat <<'EOF'
+# Portal backends for XDG_CURRENT_DESKTOP=quickspace:Hyprland. xdg-desktop-portal
+# reads this before hyprland-portals.conf, so the choice is explicit: never
+# -kde, -gnome or -wlr, even when they're installed for other sessions.
+[preferred]
+default=hyprland;gtk
+EOF
+}
+if test -z "$found"; then
+    problem "quickspace-portals.conf isn't installed, so portals may pick the KDE or GNOME backend: run \`make install\` in the quickspace checkout"
+elif ! installed=$(cat "$found" 2>&1); then
+    problem "couldn't read $found ($installed): check its permissions, or reinstall it with \`make install\` in the quickspace checkout"
+elif test "$installed" != "$(shipped_portals_conf)"; then
+    problem "$found isn't the one quickspace ships (default=hyprland;gtk under [preferred]), so portals may pick the wrong backend: reinstall it with \`make install\` in the quickspace checkout"
+fi
+
+# Hyprland's config errors, one problem each.
+if ! errors=$(hyprctl configerrors 2>&1); then
+    problem "hyprctl configerrors failed ($errors): is Hyprland running?"
+else
+    printf '%s\n' "$errors" | while IFS= read -r line; do
+        test -n "$line" && printf 'Hyprland config error: %s: fix it in ~/.config/hypr\n' "$line"
+    done
+    n=$(printf '%s\n' "$errors" | grep -c .)
+    problems=$((problems + n))
+fi
+
+# XDG autostart. systemd's xdg-autostart generator turns each entry into an
+# app-*@autostart.service and applies the spec's rules itself (OnlyShowIn,
+# NotShowIn, Hidden, TryExec, Type, X-systemd-skip and the rest); an entry
+# that shouldn't run here is skipped, or stopped by its ExecCondition before
+# its command starts. So ask systemd which units started their command this
+# session: an ExecMainStartTimestampMonotonic after the session began,
+# whether the command is still running, failed, or ran and exited.
+autostart_ran() {
+    # On failure it prints systemctl's error instead, and returns false.
+    if ! names=$(systemctl --user list-units --all --plain --no-legend 'app-*@autostart.service' 2>&1); then
+        printf '%s' "$names"
+        return 1
+    fi
+    names=$(printf '%s\n' "$names" | awk 'NF { print $1 }')
+    test -n "$names" || return 0
+    # The user manager can outlive a login (lingering), so a unit counts only
+    # if it started after this session's graphical-session.target did.
+    if ! since=$(systemctl --user show -p ActiveEnterTimestampMonotonic --value graphical-session.target 2>&1); then
+        printf '%s' "$since"
+        return 1
+    fi
+    # shellcheck disable=SC2086  # one unit name per word
+    if ! shown=$(systemctl --user show -p Id -p ExecMainStartTimestampMonotonic -- $names 2>&1); then
+        printf '%s' "$shown"
+        return 1
+    fi
+    printf '%s\n' "$shown" | awk -F= -v since="${since:-0}" '
+        $1 == "Id" { id = $2 }
+        $1 == "ExecMainStartTimestampMonotonic" && $2 + 0 > 0 && $2 + 0 >= since + 0 { print id }
+    '
+}
+if ! ran=$(autostart_ran); then
+    problem "systemctl couldn't read the autostart units ($ran), so the autostart check is incomplete"
+else
+    for unit in $ran; do
+        problem "autostart unit $unit ran in quickspace, whose allowlist is empty: add NotShowIn=quickspace; to a copy of its .desktop file (\`systemctl --user cat $unit\` names it) in ~/.config/autostart"
+    done
+fi
+
+if test "$problems" -gt 0; then
+    exit 1
+fi
+echo "No problems found."
