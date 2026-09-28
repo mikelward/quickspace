@@ -1,0 +1,82 @@
+#!/bin/sh
+#
+# quickspace: the session's command-line helpers.
+#
+#   quickspace launch [--app ID] [--] COMMAND [ARG...]
+#
+#     Starts an app the way the key bindings and the launcher do
+#     (SPEC.md §5.4, §14.3):
+#       1. waits for the shell, so no app starts before the notification,
+#          tray and polkit owners exist. The wait is bounded (15 s, or
+#          $QUICKSPACE_LAUNCH_WAIT), and the app starts anyway after it,
+#          because a terminal is how you'd fix a stuck start;
+#       2. records a one-shot focus grant for the app with the focus guard,
+#          so its first window may take focus. ID defaults to COMMAND's
+#          basename;
+#       3. runs it with `uwsm app`, in app-graphical.slice, so the app
+#          outlives a shell restart.
+#     Outside a quickspace session it just runs COMMAND.
+
+prog=${0##*/}
+
+usage() {
+    echo "usage: $prog launch [--app ID] [--] COMMAND [ARG...]" >&2
+    exit 2
+}
+
+in_quickspace() {
+    case ":${XDG_CURRENT_DESKTOP:-}:" in
+        *:quickspace:*) return 0 ;;
+    esac
+    return 1
+}
+
+# `systemctl start` blocks until the shell reports ready, and returns at once
+# when it already has. The bound is our own: the units' timeouts chain (the
+# shell's starts only after hypridle's), so they don't bound this.
+wait_for_shell() {
+    if ! err=$(timeout "${QUICKSPACE_LAUNCH_WAIT:-15}" \
+            systemctl --user start quickspace.service 2>&1); then
+        echo "$prog launch: the shell isn't ready (${err:-no answer in ${QUICKSPACE_LAUNCH_WAIT:-15} s}); starting $1 anyway" >&2
+    fi
+}
+
+# The guard lives in Hyprland's Lua config (hypr/quickspace/focus.lua), so the
+# grant goes in through `hyprctl eval`, with the ID escaped for a Lua string.
+grant() {
+    if ! command -v hyprctl >/dev/null 2>&1; then
+        echo "$prog launch: no hyprctl, so $1 gets no focus grant" >&2
+        return
+    fi
+    lua_id=$(printf '%s' "$1" | sed 's/[\\"]/\\&/g')
+    reply=$(hyprctl eval "quickspace_focus.grant(\"$lua_id\")" 2>&1)
+    if test "$reply" != ok; then
+        echo "$prog launch: couldn't record a focus grant for $1: $reply" >&2
+    fi
+}
+
+launch() {
+    app=
+    while test $# -gt 0; do
+        case "$1" in
+            --app) test $# -ge 2 || usage; app=$2; shift 2 ;;
+            --app=*) app=${1#--app=}; shift ;;
+            --) shift; break ;;
+            -*) usage ;;
+            *) break ;;
+        esac
+    done
+    test $# -gt 0 || usage
+    if ! in_quickspace; then
+        exec "$@"
+    fi
+    test -n "$app" || app=${1##*/}
+    wait_for_shell "$app"
+    grant "$app"
+    exec uwsm app -- "$@"
+}
+
+case "${1:-}" in
+    launch) shift; launch "$@" ;;
+    *) usage ;;
+esac
