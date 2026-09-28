@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: screen-share picker</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .stage {
+    position: relative;
+    height: 760px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #2a2a30;
+    background:
+      radial-gradient(500px 300px at 20% 25%, #123338, transparent 70%),
+      radial-gradient(700px 420px at 85% 80%, #2b1c3f, transparent 70%),
+      #16213a;
+  }
+  .stage .scrim { position: absolute; inset: var(--bar-h) 0 0 0; background: rgba(0,0,0,.45); }
+  .dlg { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); width: 960px; padding: 20px 22px 18px; }
+  .dlg .hd { display: flex; align-items: center; gap: 12px; }
+  .dlg .hd .t { font-size: 18px; font-weight: 700; }
+  .dlg .hd .s { font-size: 12.5px; color: var(--fg-dim); margin-top: 2px; }
+  .sec { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); margin: 18px 0 8px; display: flex; gap: 8px; align-items: baseline; }
+  .sec span { text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .opts { display: flex; gap: 12px; }
+  .opt { border-radius: 12px; padding: 6px; background: var(--surface-2); }
+  .opt.sel { box-shadow: 0 0 0 2px var(--accent-bg); background: color-mix(in srgb, var(--accent-bg) 18%, var(--surface-2)); }
+  .opt .th { border-radius: 7px; overflow: hidden; position: relative; background: #16213a; }
+  .opt .lb { display: flex; align-items: center; gap: 7px; padding: 7px 4px 2px; font-size: 12.5px; font-weight: 600; }
+  .opt .lb small { color: var(--fg-dim); font-weight: 500; margin-left: auto; }
+  .th .w { position: absolute; }
+  .foot { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+  .chk { width: 18px; height: 18px; border-radius: 5px; background: var(--accent-bg); display: flex; align-items: center; justify-content: center; color: #fff; }
+  .chk .ms { font-size: 15px; }
+  .foot .sp { flex: 1; }
+</style>
+</head>
+<body class="sheet" data-width="1320" data-scale="2">
+
+<h1>Screen-share picker</h1>
+<p class="lede">When an app (Chrome, for Meet) asks the portal to share, <code>xdg-desktop-portal-hyprland</code> runs quickspace’s picker instead of its own. One dialog lists screens, windows and areas. <b>Enter</b> shares the highlighted choice, and arrow keys move through them. While anything is being shared, the bar shows a red <b>Sharing</b> pill; while a screen or area is shared, popups are held too.</p>
+
+<div class="stage theme-dark">
+  <div class="bar">
+    <div class="bar-left">
+      <div class="ws occupied"><span class="n">1</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span></span></div>
+      <div class="ws active"><span class="n">2</span><span class="apps"><span class="appicon app-web"><i class="ms">public</i></span><span class="appicon app-meet"><i class="ms">videocam</i></span></span></div>
+      <div class="ws empty"><span class="n">3</span></div><div class="ws empty"><span class="n">4</span></div>
+      <span class="layout-sym">[]=</span>
+    </div>
+    <div class="bar-right">
+      <span class="pill mic"><i class="ms fill">mic</i></span>
+      <span class="sep"></span>
+      <span class="sicon"><i class="ms fill">wifi</i></span>
+      <span class="sicon"><i class="ms fill">volume_up</i></span>
+      <span class="sicon badge"><i class="ms">notifications</i></span>
+      <span class="sep"></span>
+      <div class="clocks">
+        <span class="clock"><span class="tz">SF</span><span class="t">10:45</span></span>
+        <span class="clock"><span class="tz">NYC</span><span class="t">13:45</span></span>
+        <span class="clock"><span class="tz">LON</span><span class="t">18:45</span></span>
+        <span class="clock local"><span class="tz">Sep 28</span><span class="t">19:45</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+
+  <div class="dlg card">
+    <div class="hd">
+      <span class="appicon xl app-shell"><i class="ms">present_to_all</i></span>
+      <div><div class="t">Share your screen</div><div class="s">An app asked to share. Pick what it gets.</div></div>
+    </div>
+
+    <div class="sec">Screens</div>
+    <div class="opts">
+      <div class="opt">
+        <div class="th" style="width:250px;height:105px">
+          <div class="w" style="left:0;top:0;right:0;height:5px;background:#16161a"></div>
+          <div class="w" style="left:0;top:5px;width:30%;bottom:0;background:#26262c"></div>
+          <div class="w" style="left:30%;top:5px;width:45%;bottom:0;background:#f3f4f7"></div>
+          <div class="w" style="left:75%;top:5px;right:0;height:48%;background:#202124"></div>
+          <div class="w" style="left:75%;top:53%;right:0;bottom:0;background:#eaf4ea"></div>
+        </div>
+        <div class="lb"><i class="ms">monitor</i>DP-1<small>3440×1440</small></div>
+      </div>
+      <div class="opt">
+        <div class="th" style="width:168px;height:105px">
+          <div class="w" style="left:0;top:0;right:0;height:5px;background:#16161a"></div>
+          <div class="w" style="left:0;top:5px;right:0;bottom:0;background:#1e1f26"></div>
+        </div>
+        <div class="lb"><i class="ms">laptop</i>eDP-1<small>1920×1200</small></div>
+      </div>
+    </div>
+
+    <div class="sec">Windows <span>on every workspace, current one first</span></div>
+    <div class="opts">
+      <div class="opt sel">
+        <div class="th" style="width:196px;height:110px;background:#f3f4f7">
+          <div class="w" style="left:0;top:0;right:0;height:12px;background:#dfe3ea"></div>
+          <div class="w" style="left:14px;top:26px;width:110px;height:9px;border-radius:4px;background:#1f1f24"></div>
+          <div class="w" style="left:14px;top:44px;width:160px;height:6px;border-radius:3px;background:#dcdfe5"></div>
+          <div class="w" style="left:14px;top:56px;width:150px;height:6px;border-radius:3px;background:#dcdfe5"></div>
+          <div class="w" style="left:14px;top:68px;width:165px;height:6px;border-radius:3px;background:#dcdfe5"></div>
+        </div>
+        <div class="lb"><span class="appicon app-web"><i class="ms">public</i></span>SPEC.md — quickspace<small>2</small></div>
+      </div>
+      <div class="opt">
+        <div class="th" style="width:196px;height:110px;background:#1c1c22">
+          <div class="w" style="left:10px;top:12px;width:120px;height:5px;background:#8ff0a4;border-radius:2px"></div>
+          <div class="w" style="left:10px;top:24px;width:90px;height:5px;background:#5d5d68;border-radius:2px"></div>
+          <div class="w" style="left:10px;top:36px;width:140px;height:5px;background:#5d5d68;border-radius:2px"></div>
+        </div>
+        <div class="lb"><span class="appicon app-term"><i class="ms">terminal</i></span>kitty<small>1</small></div>
+      </div>
+      <div class="opt">
+        <div class="th" style="width:196px;height:110px;background:#1e1f26">
+          <div class="w" style="left:10px;top:12px;width:70px;height:5px;background:#c792ea;border-radius:2px"></div>
+          <div class="w" style="left:24px;top:24px;width:110px;height:5px;background:#82aaff;border-radius:2px"></div>
+          <div class="w" style="left:24px;top:36px;width:90px;height:5px;background:#c3e88d;border-radius:2px"></div>
+        </div>
+        <div class="lb"><span class="appicon app-code"><i class="ms">code</i></span>Editor<small>3</small></div>
+      </div>
+      <div class="opt">
+        <div class="th" style="width:196px;height:110px;background:#f6f7f9">
+          <div class="w" style="left:0;top:0;right:0;height:16px;background:#fff;border-bottom:1px solid #e3e3e8"></div>
+          <div class="w" style="left:10px;top:26px;width:110px;height:16px;border-radius:8px;background:#fff"></div>
+          <div class="w" style="right:10px;top:50px;width:90px;height:16px;border-radius:8px;background:#d3e3fd"></div>
+        </div>
+        <div class="lb"><span class="appicon app-chat"><i class="ms">chat</i></span>Design review<small>4</small></div>
+      </div>
+    </div>
+
+    <div class="sec">Area</div>
+    <div class="opts">
+      <div class="opt">
+        <div class="th" style="width:250px;height:105px">
+          <div class="w" style="left:0;top:0;right:0;bottom:0;background:#26262c"></div>
+          <div class="w" style="left:24%;top:0;width:52%;bottom:0;box-shadow:0 0 0 2px #78aeed inset;background:rgba(120,174,237,.12)"></div>
+        </div>
+        <div class="lb"><i class="ms">crop_16_9</i>16:9 in the middle of DP-1<small>2560×1440</small></div>
+      </div>
+      <div class="opt">
+        <div class="th" style="width:250px;height:105px;display:flex;align-items:center;justify-content:center;color:var(--fg-dim)">
+          <i class="ms" style="font-size:34px">highlight_alt</i>
+        </div>
+        <div class="lb"><i class="ms">crop_free</i>Select a region…</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span class="chk"><i class="ms">check</i></span><span>Let this app reuse this choice</span>
+      <span class="sp"></span>
+      <span class="btn">Cancel</span>
+      <span class="btn primary"><i class="ms">present_to_all</i>Share window</span>
+    </div>
+  </div>
+</div>
+<p class="note"><b>Why an “Area” option:</b> a whole 3440×1440 ultrawide shared to Meet arrives letterboxed and unreadable. A 16:9 slice of it (or a single window) fills viewers’ screens. <b>Reuse</b> grants a portal restore token (the <code>r</code> flag), for apps that ask to persist. Chrome opens several portal sessions for one share, so a repeat request within 10&nbsp;s opens with the last choice preselected: one <b>Enter</b>, never a silent reuse. The portal doesn’t say which app is asking, so the title stays generic. <b>Ultrawide default:</b> the focused window is preselected, not the whole screen.</p>
+
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: screenshot</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .stage { position: relative; height: 660px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px #2a2a30; }
+  .frozen { position: absolute; inset: 0; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.5); clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, 7% 40%, 7% 72%, 55% 72%, 55% 40%, 7% 40%); }
+  .selr { position: absolute; left: 7%; top: 40%; width: 48%; height: 32%; box-shadow: 0 0 0 1.5px #fff, 0 0 0 4px rgba(53,132,228,.55); }
+  .selr i { position: absolute; width: 9px; height: 9px; background: #fff; border-radius: 2px; }
+  .size { position: absolute; left: 7%; top: calc(72% + 8px); font: 600 12px/1 var(--font-mono); background: rgba(0,0,0,.72); color: #fff; padding: 5px 8px; border-radius: 6px; white-space: nowrap; }
+  .tb { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 4px; padding: 6px; border-radius: 14px; align-items: center; }
+  .tb .b { white-space: nowrap; height: 34px; padding: 0 12px; border-radius: 9px; display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 12.5px; }
+  .tb .b.on { background: var(--accent-bg); color: #fff; }
+  .tb .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+  .tb .ms { font-size: 18px; }
+  .hover-win { position: absolute; box-shadow: inset 0 0 0 3px #78aeed; background: rgba(120,174,237,.10); }
+</style>
+</head>
+<body class="sheet" data-width="1320" data-scale="2">
+
+<h1>Screenshots</h1>
+<p class="lede">Every capture goes to the clipboard <i>and</i> <code>~/Pictures/Screenshots/YYYY-MM-DD_HH-MM-SS.png</code>, then posts a notification with a thumbnail and Open / Annotate / Delete (see the notifications mock). Screen and window captures are instant. Region freezes the screen first, so hover menus and tooltips can be caught.</p>
+
+<div class="row" style="flex-wrap:nowrap">
+<div style="flex:1.3">
+<div class="stage theme-dark">
+  <div class="frozen screen theme-dark" style="width:100%;height:100%">
+    <div class="bar" style="justify-content:space-between">
+      <div class="bar-left"><div class="ws active"><span class="n">2</span></div><div class="ws empty"><span class="n">3</span></div><span class="layout-sym">[]=</span></div>
+      <div class="clocks"><span class="clock local"><span class="tz">Sep 28</span><span class="t">19:39</span></span></div>
+    </div>
+    <div class="win t-web" style="left:0;top:var(--bar-h);width:58%;bottom:0">
+      <div class="tabs"><div class="tab on">SPEC.md — quickspace</div></div>
+      <div class="page" style="padding:22px 28px">
+        <h3 style="font-size:20px">quickspace — design spec</h3>
+        <div class="bars"><span style="width:92%"></span><span style="width:80%"></span><span style="width:88%"></span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px">
+          <div style="height:120px;border-radius:10px;background:#eef2f9"></div>
+          <div style="height:120px;border-radius:10px;background:#f3eef9"></div>
+        </div>
+        <div class="bars" style="margin-top:18px"><span style="width:90%"></span><span style="width:70%"></span></div>
+      </div>
+    </div>
+    <div class="win inactive t-term" style="left:58%;top:var(--bar-h);right:0;bottom:0;font-size:11.5px">
+      <div><span class="p">$</span> screenshot --region</div>
+      <div class="m">frozen 1 output; drag to select</div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+  <div class="selr"><i style="left:-5px;top:-5px"></i><i style="right:-5px;top:-5px"></i><i style="left:-5px;bottom:-5px"></i><i style="right:-5px;bottom:-5px"></i></div>
+  <div class="size">1320 × 460</div>
+  <div class="tb card theme-dark">
+    <span class="b on"><i class="ms">crop</i>Region</span>
+    <span class="b"><i class="ms">select_window</i>Window</span>
+    <span class="b"><i class="ms">monitor</i>Screen</span>
+    <span class="sep"></span>
+    <span class="b"><i class="ms">timer</i>0 s</span>
+    <span class="sep"></span>
+    <span class="b"><i class="ms">content_copy</i>Copy + save</span>
+  </div>
+</div>
+<div class="cap"><b>Region</b> (<kbd>Shift+Print</kbd>, <kbd>Super+Print</kbd>): drag, fine-tune with the handles, then press <b>Enter</b> (or double-click inside) to capture; releasing the drag only sets the region. <b>Space</b> switches to window mode, <b>Esc</b> cancels, and the size is shown in physical pixels. The toolbar can also switch mode or set a delay.</div>
+</div>
+
+<div style="flex:1">
+<div class="stage theme-dark">
+  <div class="frozen screen theme-dark" style="width:100%;height:100%">
+    <div class="bar" style="justify-content:space-between">
+      <div class="bar-left"><div class="ws active"><span class="n">2</span></div><span class="layout-sym">|M|</span></div>
+      <div class="clocks"><span class="clock local"><span class="tz">Sep 28</span><span class="t">19:39</span></span></div>
+    </div>
+    <div class="win t-term" style="left:0;top:var(--bar-h);width:25%;bottom:0;font-size:10px"></div>
+    <div class="win t-web" style="left:25%;top:var(--bar-h);width:50%;bottom:0">
+      <div class="tabs"><div class="tab on" style="min-width:0">SPEC.md</div></div>
+      <div class="page" style="padding:18px 20px"><div class="bars"><span style="width:92%"></span><span style="width:80%"></span><span style="width:88%"></span><span style="width:60%"></span></div></div>
+    </div>
+    <div class="win t-meet" style="left:75%;top:var(--bar-h);right:0;height:48%"></div>
+    <div class="win t-chat" style="left:75%;top:calc(var(--bar-h) + 48%);right:0;bottom:0"></div>
+  </div>
+  <div class="scrim" style="background:rgba(0,0,0,.4);clip-path:polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, 25% var(--bar-h), 25% 100%, 75% 100%, 75% var(--bar-h), 25% var(--bar-h))"></div>
+  <div class="hover-win" style="left:25%;top:var(--bar-h);width:50%;bottom:0"></div>
+  <div class="size" style="left:calc(25% + 10px);top:auto;bottom:14px">SPEC.md — quickspace · 1720 × 1406</div>
+</div>
+<div class="cap"><b>Window</b> (<kbd>Alt+Print</kbd>, or the launcher action): captures the window that had focus <i>before</i> the launcher opened, with no clicking. Only the explicit “pick a window” mode, shown here, highlights windows under the pointer. The capture is <code>grim -T</code> on the window’s id: the window’s own contents, even where a popup covers it.</div>
+</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1568 @@
+# quickspace: design spec (milestone 1)
+
+quickspace is a small Wayland desktop: **Hyprland** tiles the windows, one
+**Quickshell** process draws everything else (bar, launcher, notifications,
+OSDs, share picker), the same QML draws the lock and login screens, and
+**greetd** logs you in. It is
+built for one workflow, dwm/Krohnkite-style tiling on an ultrawide plus a
+laptop, rather than as a general-purpose desktop. It aims to be lighter than
+KDE and not to fight itself.
+
+This document is milestone 1: the options, the decisions, and what
+"done" looks like for each later milestone. Mocks are in
+[`docs/mocks/`](docs/mocks/); every claim about an upstream project was
+checked against its current release on 2026-09-28 (see
+[Sources](#sources)).
+
+Contents:
+[Goals](#1-goals) ·
+[Mocks](#2-mocks) ·
+[Decisions](#3-decisions) ·
+[Requirements](#4-requirements-and-how-each-is-met) ·
+[Session](#5-session-one-owner-per-job) ·
+[Windows](#6-windows-and-layouts) ·
+[Bar](#7-bar) ·
+[Launcher](#8-launcher) ·
+[Notifications](#9-notifications) ·
+[Idle and lock](#10-idle-screensaver-and-lock) ·
+[Login](#11-login) ·
+[Screen sharing](#12-screen-sharing-google-meet) ·
+[Screenshots](#13-screenshots) ·
+[Focus](#14-focus-and-attention) ·
+[Theme](#15-theme) ·
+[Settings and apps](#16-settings) ·
+[Known problems](#17-known-problems-and-how-this-design-avoids-them) ·
+[Repos](#18-where-things-live) ·
+[Milestones](#19-milestones) ·
+[Testing](#20-testing) ·
+[Open questions](#21-open-questions)
+
+---
+
+## 1. Goals
+
+**Must have**
+
+- Tiling in the dwm/Krohnkite style, never binary-space partitioning:
+  master + stack, three columns, two columns + a stack, monocle. Layout is
+  per workspace. Any window can be maximized or made fullscreen on its own,
+  and dialogs always float.
+- A lone window is centered at **80%** width on an ultrawide and fills
+  **100%** on a 16:9 or 16:10 monitor.
+- Inactive windows are **darkened**. That is the focus cue: no borders, no
+  gaps.
+- One full-width bar: every workspace on the left, with **urgency** shown on
+  the workspace that wants attention. The tray, network, volume, Bluetooth,
+  power and notifications sit on the right, then four clocks:
+  **US/Pacific**, **US/Eastern** and **Europe/London**, labeled `SF`, `NYC`,
+  `LON`, and local (no label; the date in its place).
+- A launcher on a **tap of Super**: fuzzy search over `.desktop` entries plus
+  quick actions (screenshot window/screen, log out, settings, …).
+- Desktop notifications with history and do-not-disturb.
+- **Automatic light and dark modes**: light from 07:00 to 19:00 by default.
+  The shell, GTK apps and kitty switch live with no restarts; Qt apps switch
+  live where their theme allows, otherwise at their next launch (§15).
+- A screensaver/idle policy, and a lock screen that is the **same screen as
+  the login screen**, showing the short hostname.
+- **Google Meet screen sharing** that works in Chrome, including sharing a
+  single window or a 16:9 slice of an ultrawide.
+- Screenshots of a window, a screen or a region.
+- A session that starts **exactly one of each thing** and nothing twice.
+
+**Non-goals**
+
+- Writing a compositor, or reimplementing tiling in the shell.
+- A settings suite, file manager, widget system or app store. quickspace
+  links to existing GTK tools where a GUI is needed (§16).
+- An X11 session. XWayland apps work, but nothing is designed for X11.
+- Being a framework. Settings exist where hardware differs (monitors,
+  clocks, idle timings), not for their own sake.
+
+**Principles**
+
+1. **One owner per job.** Every job in the session is done by exactly one
+   named component, and everything else that could do it is kept out (§5).
+2. **One process for everything you see.** The bar, launcher, notifications,
+   OSD, polkit prompt, tray host and share picker are all in the shell. With
+   nothing to fight over, there is one theme and one place to debug. The one
+   deliberate exception is the **lock**. It uses the same QML, but runs as its
+   own short-lived process, so a bar crash or a hot reload can never break a
+   locked screen.
+3. **The compositor does windows.** The shell reads compositor state and sends
+   commands; it never computes window geometry.
+4. **Nothing restarts to change theme or reload config.**
+5. **Every requirement names its mechanism** (§4), and each mechanism is
+   verified on the pinned versions before it's relied on.
+
+## 2. Mocks
+
+The mocks are HTML/CSS in [`docs/mocks/`](docs/mocks/), rendered to PNG with
+`make mocks`. Colors, spacing and type are the proposed defaults: a
+libadwaita palette, with Inter for UI text and Ubuntu Mono for code. The
+fonts mock shows the pairings that were compared.
+
+| | |
+|---|---|
+| **Desktop**: 3440×1440, three-column layout, focused master in the middle, the rest dimmed. Workspace 4 is urgent. [`desktop.png`](docs/mocks/desktop.png) | ![desktop](docs/mocks/desktop.png) |
+| **Bar**: dark and light, every workspace and status state, the clock rules. [`bar.png`](docs/mocks/bar.png) | ![bar](docs/mocks/bar.png) |
+| **Layouts**: tile, three-column, two columns + stack, monocle, the single-window rule, and how three-column fills up. [`layouts.png`](docs/mocks/layouts.png) | ![layouts](docs/mocks/layouts.png) |
+| **Launcher**: empty query and a fuzzy query. [`launcher.png`](docs/mocks/launcher.png) | ![launcher](docs/mocks/launcher.png) |
+| **Notifications**: popups, OSD, the notification center while sharing. [`notifications.png`](docs/mocks/notifications.png) | ![notifications](docs/mocks/notifications.png) |
+| **Clocks popover**: zones, working-hours strips, DST warning, calendar. [`clocks.png`](docs/mocks/clocks.png) | ![clocks](docs/mocks/clocks.png) |
+| **Login and lock**: greeter, lock, failure, screensaver. [`lock.png`](docs/mocks/lock.png) | ![lock](docs/mocks/lock.png) |
+| **Screen-share picker**: screens, windows, 16:9 area. [`share-picker.png`](docs/mocks/share-picker.png) | ![share picker](docs/mocks/share-picker.png) |
+| **Screenshots**: region and window modes. [`screenshot.png`](docs/mocks/screenshot.png) | ![screenshot](docs/mocks/screenshot.png) |
+| **Fonts**: the same pieces in Ubuntu + Ubuntu Mono, Ubuntu Sans + Ubuntu Sans Mono, and Inter + JetBrains Mono. [`fonts.png`](docs/mocks/fonts.png) | ![fonts](docs/mocks/fonts.png) |
+
+## 3. Decisions
+
+### 3.1 Compositor: Hyprland 0.56+, configured in Lua
+
+| | tile | three-col | two cols + stack | lone window 80% / 100% | per-workspace layout | urgency | fit |
+|---|---|---|---|---|---|---|---|
+| **Hyprland 0.56** | master | master `orientation center` | Lua layout (~50 lines) | Lua layout, or a `w[tv1] m[…]` gaps rule | yes (0.54+) | `urgent>>` event, per-window flag | **chosen** |
+| river 0.4 + kwm / river-classic + filtile | yes | yes | own generator | filtile `smart-padding-h` | per tag | none in river 0.4's protocol | runner-up |
+| MangoWC 0.17 | tile | `center_tile` | C patch | `center_tile` at mfact | per tag | yes | close |
+| niri 26.04 | — | — | — | `default-column-width 0.8` | — | yes | scrolling, not dwm |
+| Sway 1.12 | persway `stack_main` | — | — | `smart_gaps` hack | — | yes | manual tree |
+| KWin + Krohnkite | yes | yes | — | `soleWindowWidth` per output | yes | yes | not light |
+
+**Why Hyprland.**
+
+- Its master layout already does tile and three-column.
+- Since 0.54 a layout can be set **per workspace**, and monocle is built in.
+- Since 0.55 a custom layout can be written in **Lua** (`hl.layout.register`)
+  with no C++ plugin to rebuild. One Lua layout covers all four modes,
+  including the one Hyprland lacks (two columns + stack), and the
+  single-window width rule.
+- `xdg-desktop-portal-hyprland` shares single windows and regions, and it
+  accepts a custom picker.
+- Its IPC reports urgency.
+- The existing config in `conf` is a head start.
+
+**What it costs.** Hyprland breaks config often: window rules changed syntax
+in 0.53, layouts were rewritten in 0.54, Lua arrived in 0.55, `.conf` was
+deprecated in 0.56.1 and is due to be removed in 0.57. The mitigations are:
+
+- Write the config in Lua now.
+- Pin the Hyprland version `setup` installs.
+- Make CI load the config under the pinned Hyprland (`hypr_test.sh` already
+  exists in `conf`).
+- Treat each Hyprland upgrade as its own PR.
+
+The Lua layout API is two releases old, so it is the riskiest dependency.
+If it breaks, the fallback is Hyprland's built-in master and monocle layouts
+with a gaps rule for the lone window. That loses two columns + stack, not
+Hyprland.
+
+**Runner-up: river-classic plus a small layout generator**. The
+river-layout-v3 protocol is tiny and stable, and a generator is a few
+hundred lines in any language. It loses on the shell side: Quickshell has
+no river module, and river 0.4's window-management protocol has no urgency.
+
+### 3.2 Shell: Quickshell (QML), written from scratch
+
+| | covers the list | toolkit | upkeep | verdict |
+|---|---|---|---|---|
+| **Quickshell 0.3** config of our own | everything built in (below) | Qt/QML, custom-drawn | small config; Quickshell tags 2–3 releases a year | **chosen** |
+| DankMaterialShell 1.6 | everything and much more | Qt/QML (Quickshell) + Go backend | a large, fast-moving product; its UI is compiled into the binary since 1.6 | borrow from it (MIT), don't fork |
+| AGS 3 / Astal | nearly everything (Hyprland, tray, notifd, wireplumber, network, bluetooth, auth, idle-notify, fuzzy app search) | real GTK4 widgets | TypeScript/GJS; Astal is an unreleased rolling branch | the GTK fallback |
+| waybar + fuzzel + swaync + hyprlock/hypridle | yes, loosely | GTK3/4, several | four config dialects; the setup that fought itself before | stopgap only |
+
+Quickshell's built-ins cover every job:
+
+- **Hyprland**: workspaces and toplevels with `urgent`, and `dispatch()`.
+- **SystemTray**: SNI + DBusMenu.
+- **NotificationServer**.
+- **Pipewire**.
+- **UPower**, with power profiles.
+- **Bluetooth**.
+- **Networking** (NetworkManager).
+- **Pam** and **Greetd**.
+- **Polkit** agent (0.3).
+- **WlSessionLock**.
+- **IdleMonitor** / **IdleInhibitor**.
+- **ScreencopyView**, for live thumbnails.
+- **ToplevelManager**.
+- **DesktopEntries**, including desktop actions.
+- `qs ipc call <target> <fn>`, for keybinds.
+- Hot reload.
+
+The one thing to write ourselves is a small fuzzy scorer for the launcher.
+Quickshell has no logind binding and no public D-Bus server module. That is
+why hypridle keeps two jobs (§10): serving Chrome's idle inhibits and
+bridging logind's lock and sleep signals.
+
+**GTK or Qt.** A shell draws its own widgets, so its toolkit doesn't show; what
+has to match is the palette, the type and the corner radii. Apps stay GTK, and
+portal dialogs (file chooser) are GTK via `xdg-desktop-portal-gtk`. One
+palette file drives the shell, GTK 3 (adw-gtk3), GTK 4/libadwaita and Qt
+(qt6ct colors), and kitty follows the light/dark switch with its own themes
+(§15). If real GTK widgets matter more than that,
+AGS/Astal is the drop-in alternative with the same architecture. Nothing
+else in this spec changes.
+
+**Risks.**
+
+- **Qt coupling.** Quickshell uses private Qt APIs and must be rebuilt for
+  each Qt release.
+- **Packaging.** Arch ships it in `extra`, Debian in testing/sid, and Fedora
+  via COPR (the official package is unverified). Ubuntu has only a third-party
+  PPA. `setup` should prefer the distro package and fall back to a pinned
+  source build against the distro's Qt.
+- **Memory** is unmeasured; M2 measures it and sets a budget.
+
+### 3.3 Session: uwsm and systemd user units
+
+Every long-running piece is a systemd user unit under a
+[uwsm](https://github.com/Vladimir-csp/uwsm) session. It is ordered, restarted
+on failure, scoped to this session only, and visible in one
+`systemctl --user status`. §5 is the detail.
+
+### 3.4 Login: greetd plus the quickspace greeter
+
+greetd runs a minimal compositor (`cage` or a stripped Hyprland) with the
+quickspace greeter, the same QML screen as the lock (§11).
+
+### 3.5 Look
+
+- **Palette:** libadwaita, dark and light.
+- **Type:** Inter for UI, Ubuntu Mono for code (decided; the pairings
+  compared are in [`fonts.png`](docs/mocks/fonts.png)).
+- **Radii:** 10–16 px.
+- **Windows:** no gaps, no borders, inactive dim 0.15.
+- **Bar:** 34 px.
+
+## 4. Requirements and how each is met
+
+| # | Requirement | Mechanism | Kind |
+|---|---|---|---|
+| R1 | Tile (master + stack) | Lua layout `lua:quickspace`, mode `tile`, `mfact 0.55` | Lua |
+| R2 | Three columns | mode `threecol` (center from 3 windows) | Lua |
+| R3 | Two columns + stack | mode `twocol` | Lua |
+| R4 | Lone window 80% on ultrawide, 100% otherwise | the layout reads the work area's aspect, in every mode | Lua |
+| R5 | Monocle, and maximize or fullscreen the current window | mode `monocle`; Hyprland `fullscreen` states 1 and 0 (§6.3) | Lua / native |
+| R6 | Layout per workspace | the layout keeps a mode per workspace | Lua |
+| R7 | Dim inactive; no borders, gaps | `decoration:dim_inactive`, `dim_strength 0.15`, `border_size 0`, gaps 0 | native |
+| R8 | One full-width bar, flush to the edges, all workspaces | Quickshell `PanelWindow` per monitor + `Quickshell.Hyprland` | shell |
+| R9 | Tray icons | `Quickshell.Services.SystemTray`; the shell is the SNI watcher | shell |
+| R10 | Network, volume, Bluetooth, power | `Networking`, `Pipewire`, `Bluetooth`, `UPower` | shell |
+| R11 | Labeled clocks for US/Pacific, US/Eastern, Europe/London | fixed place labels `SF` / `NYC` / `LON` by default; tzdata abbreviations (PDT/PST …), **not** CLDR, in the popover or on request (§7.3) | shell |
+| R12 | Local clock shows the date | `MMM d` in place of a label | shell |
+| R13 | Urgency on the workspace widget | Hyprland `urgent` on toplevel/workspace, plus attention derived from notifications, since Chrome can't flag urgency on Wayland (§14) | native + shell |
+| R14 | Tap Super for the launcher | a release bind on `SUPER_L` → a Hyprland global shortcut → Quickshell `GlobalShortcut`. Fixed only on Hyprland main (after 0.56.2); `Super+Space` until the pinned version has it (§8) | native + shell |
+| R15 | Fuzzy search of `.desktop` apps | `DesktopEntries` + our scorer | shell |
+| R16 | Quick actions | a built-in action list | shell |
+| R17 | Screenshots | `screenshot` script (grim, including `grim -T` for a window; slurp; wl-copy); region picked on one frozen `grim` capture, then cropped from it (§13) | scripts + shell |
+| R18 | Notifications | `NotificationServer`; the shell owns the name | shell |
+| R19 | Screensaver, idle, lock | §10 | shell + hypridle |
+| R20 | Meet screen sharing | PipeWire + xdph + our picker | portal + shell |
+| R21 | Login = lock screen, short hostname | greetd + `Greetd` + `WlSessionLock` sharing one component | shell |
+| R22 | Automatic light/dark (light 07:00–19:00 by default, or sunrise to sunset) | the shell's schedule → gsettings `color-scheme` + adw-gtk3 + palette (§15) | shell |
+| R23 | Nothing started twice | §5 | session |
+| R24 | Dialogs float | Hyprland floats windows with a parent, modal or fixed-size windows; rules cover the rest; centered on the parent (§6.4) | native |
+
+## 5. Session: one owner per job
+
+### 5.1 What went wrong before
+
+The July 2026 commit that removed Hyprland and Sway recorded no reason. What
+is remembered: **two top bars** at once, a bar with rounded corners and gaps
+to the screen edge instead of a plain rectangle, and "some stuff didn't
+work". The old setup shows how it fought itself:
+
+- **Two bars.** waybar was relaunched by `theme.sh`, not owned by anything.
+  Under sway, a distro default config's `bar {}` block starts swaybar too;
+  Debian's `/etc/sway/config` ships one. Either way, two things could draw a
+  bar and nothing stopped the second.
+- **A bar that floated.** waybar's CSS gave the bar margins and 6 px radii.
+- **A notification daemon that wouldn't stay away.** `setup --purge-obsolete`
+  exists because a packaged **swaync user unit kept starting**, even after the
+  move to KDE. Packages ship user units and D-Bus activation files that start
+  themselves in *every* session unless something scopes them.
+- **Restarts as a feature.** `theme.sh` `pkill`s and relaunches waybar and
+  swaync at 07:00 and 19:00.
+  - Each restart drops the notification history.
+  - It drops every tray registration; apps that don't re-register lose their
+    icons.
+  - It opens a window in which any D-Bus-activatable daemon (dunst, mako) can
+    claim `org.freedesktop.Notifications` first.
+- **Double starts.** `nm-applet` and `blueman-applet` were started by
+  `exec-once` *and*, under uwsm, by their own XDG autostart entries.
+- **Missing owners.** No polkit agent was enabled (the line is commented
+  out), so GUI privilege prompts silently failed.
+- **Races.** `sleep 1 && swww img` papered over the wallpaper daemon's
+  startup.
+- **Two desktops sharing one script tree.** The sway config ran scripts
+  under `config/hypr/`.
+- **KDE alongside.** Plasma's own XDG autostart entries without
+  `OnlyShowIn=KDE` also run in other sessions.
+
+### 5.2 Who owns what
+
+| Job | Owner | Started by | Kept out |
+|---|---|---|---|
+| Compositor | Hyprland | uwsm `wayland-wm@hyprland.desktop.service` | — |
+| Bar (exactly one per monitor), launcher, OSD, wallpaper | quickspace (`qs -c quickspace`) | `quickspace.service` | waybar, swaybar, swww/swaybg, fuzzel/rofi aren't started; `doctor` counts top-layer bars |
+| Notifications (`org.freedesktop.Notifications`) | quickspace | `quickspace.service`, before any app | dunst/mako/swaync: not installed; `doctor` flags any activatable one |
+| Tray host (`org.kde.StatusNotifierWatcher`) | quickspace | `quickspace.service`, before any app | `nm-applet`, `blueman-applet`, `xembedsniproxy` not run |
+| Polkit agent | quickspace (`Quickshell.Services.Polkit`) | `quickspace.service` | polkit-gnome/-kde agents not run |
+| Lock screen | `quickspace-lock`, a separate Quickshell process with the same QML (`WlSessionLock` + PAM service `quickspace-lock`) | hypridle's `lock_cmd`, on logind's `Lock` signal → `quickspace-lock.service` | hyprlock not installed |
+| Idle timeline, `org.freedesktop.ScreenSaver`, logind lock and sleep bridge | hypridle (§10) | `hypridle.service` | swayidle not run; the shell does not time idle |
+| Screen-share picker | quickspace, via xdph `custom_picker_binary` | xdph, on demand | `hyprland-share-picker` |
+| Portals | `xdg-desktop-portal` + `-hyprland` + `-gtk` | D-Bus activation | `-kde`, `-gnome`, `-wlr` never selected: `quickspace-portals.conf` names `hyprland;gtk` |
+| Theme schedule | quickspace | `quickspace.service` | `theme-daemon.sh` retired |
+| Audio | PipeWire + WirePlumber | their own socket units | PulseAudio |
+| Network, Bluetooth | NetworkManager, BlueZ (system) | system units | tray applets |
+| Secrets | gnome-keyring, unlocked by PAM at login | greetd PAM + `gnome-keyring-daemon.socket` | KWallet in this session |
+| Lid, power button | logind's defaults (`HandleLidSwitch=suspend`, `HandleLidSwitchDocked=ignore`), plus a Hyprland `bindl` pair on the lid switch: closing it with an external monitor attached disables the internal panel, and opening it re-enables the panel with its configured mode and returns the panel's workspaces to it | logind / Hyprland | `lid.sh`'s own suspend logic, and the `HandleLidSwitch=ignore` drop-in the old `setup-hypr` installed |
+| "Show in folder" (`org.freedesktop.FileManager1`) | Nautilus (§16.2) | D-Bus activation via quickspace's user-level service file → `quickspace-filemanager.service`, whose launcher picks Dolphin under Plasma and which stops with the session | the arbitrary pick between Dolphin's and Nautilus's system activation files |
+| Terminal for `Terminal=true` apps | kitty, via `xdg-terminal-exec` | on demand | GLib's fallback list (Konsole) |
+| Apps | you | `quickspace launch` from keybinds and the launcher, which waits for the shell to be ready, then runs `uwsm app --` (§5.4) | — |
+
+### 5.3 Start order
+
+```mermaid
+flowchart TD
+  G[greetd + quickspace greeter] -->|PAM: auth, unlock keyring| U["uwsm start -D quickspace:Hyprland hyprland.desktop"]
+  U --> W["wayland-wm@hyprland.desktop.service (Hyprland)"]
+  W -->|"the only exec-once: uwsm finalize"| GS[graphical-session.target]
+  GS --> Q["quickspace.service: bar, launcher, notifications, tray watcher, polkit"]
+  GS --> I["hypridle.service (Type=dbus: ready once it owns org.freedesktop.ScreenSaver)"]
+  I -->|"lock_cmd, on logind Lock"| L["quickspace-lock.service (on demand)"]
+  I -->|Before=| Q
+  Q -->|Before=| A["xdg-desktop-autostart.target (allowlist only)"]
+  A --> APPS[apps via uwsm app]
+```
+
+`-D` sets uwsm's desktop names (`XDG_CURRENT_DESKTOP`); M2 confirms the
+flag against the packaged uwsm.
+
+### 5.4 Guards that keep it that way
+
+- **Scoped units.** quickspace's units are `WantedBy=` uwsm's Hyprland session
+  target and `PartOf=graphical-session.target`, never plainly
+  `WantedBy=graphical-session.target`. Plasma also reaches that target, and
+  that is exactly how swaync leaked into KDE. Nothing quickspace installs
+  starts in a KDE session.
+- **Owners before clients.** `quickspace.service` is
+  `Before=xdg-desktop-autostart.target`, and it counts as started only once
+  the shell says every owner it hosts is ready. hypridle, the one owner
+  outside the shell, comes first.
+  - The `hypridle.service` drop-in makes it `Type=dbus` with
+    `BusName=org.freedesktop.ScreenSaver`, so it counts as started only once
+    it owns the name, and `quickspace.service` is `After=` and `Wants=` it.
+    Chrome uses the D-Bus inhibitor only if that name is already owned, so
+    an app started before hypridle would silently lose its inhibits.
+  - Both autostart and `quickspace launch` wait for `quickspace.service`,
+    so they wait for hypridle too. If hypridle fails, the shell still
+    starts (`Wants=`, not `Requires=`), and `doctor` reports it. Ordering alone isn't enough,
+  because a plain service is "started" the moment `qs` is launched.
+  - The unit is `Type=notify` with `NotifyAccess=all`.
+  - The shell runs `systemd-notify --ready` only after all of these report
+    ready:
+    - the notification server owns `org.freedesktop.Notifications`;
+    - the tray owns `org.kde.StatusNotifierWatcher`;
+    - the polkit agent has registered with polkitd.
+
+    Waiting on a list of names from outside would miss any owner that isn't
+    a name, like the polkit agent. The shell is the one place that knows
+    when all of its jobs are up.
+  - `TimeoutStartSec=15`: a shell that never gets ready fails the unit,
+    and its log says which owner didn't report.
+  - So no app starts before the owners exist, and D-Bus activation never
+    gets the chance to start a stray daemon. A job added to the shell later
+    joins the same ready check.
+- **One `exec-once`.** Hyprland's config starts nothing but
+  `uwsm finalize`, and a test in `conf` asserts it.
+- **Autostart is an allowlist.** XDG autostart entries run in quickspace only
+  if they are on its list (initially: none). Everything else gets a
+  quickspace-only condition drop-in (`ConditionEnvironment=`, matched on
+  `XDG_CURRENT_DESKTOP`), so the same entries still run under KDE. `doctor`
+  generates and checks these.
+- **`XDG_CURRENT_DESKTOP=quickspace:Hyprland`.**
+  - xdg-desktop-portal reads `quickspace-portals.conf` first, which names the
+    backends explicitly.
+  - Autostart `OnlyShowIn=Hyprland` entries still match.
+  - quickspace's own entries can say `OnlyShowIn=quickspace`.
+- **Apps outlive the shell.** Keybinds and the launcher start apps through
+  `quickspace launch`, which ends in `uwsm app --`. That puts them in
+  `app-graphical.slice`, so restarting or crashing the shell never takes an
+  app with it.
+- **Key-bound launches wait for the shell too.** Autostart waits for the
+  shell's ready signal, and so does `quickspace launch`: a key pressed in
+  the first second after login can't start an app before the notification,
+  tray and polkit owners exist.
+  - `systemctl --user start quickspace.service` blocks until the shell
+    reports ready, and returns at once when it already has, so a launch
+    later in the session costs nothing extra.
+  - The wait has its own bound: `quickspace launch` gives up after 15 s
+    in total and launches the app anyway, because a terminal is how you'd
+    fix a stuck start. It doesn't rely on the units' timeouts, which chain
+    (the shell waits for hypridle before its own timer starts).
+  - The hypridle drop-in also sets `TimeoutStartSec=10`, so a hypridle
+    that never claims its name fails quickly and the shell starts without
+    it, rather than waiting out systemd's 90 s default.
+  - `quickspace launch` also records the launch for the focus guard (§14.3).
+- **No restarts for theme or config.** Theme is a property change, and
+  Quickshell hot-reloads its config.
+- **`quickspace doctor`** checks the running session for:
+  - who owns each D-Bus name in §5.2;
+  - activatable services that could steal those names;
+  - duplicate processes (two idle daemons, two polkit agents);
+  - more than one top-anchored layer surface per monitor (a second bar);
+  - portal backend selection;
+  - `hyprctl configerrors`;
+  - unscoped autostart entries.
+
+  It prints one line per problem, with the fix.
+
+### 5.5 Coexisting with KDE
+
+KDE Plasma stays installed as the fallback session.
+quickspace's units are scoped to its own session, its portal config is
+desktop-specific, and it installs no global D-Bus activation files. Logging
+into Plasma is therefore unaffected. The reverse direction is the autostart
+allowlist above.
+
+## 6. Windows and layouts
+
+See [`layouts.png`](docs/mocks/layouts.png).
+
+### 6.1 Layouts
+
+| Symbol | Layout | Shape | Default for |
+|---|---|---|---|
+| `[]=` | Tile | master left (55%), stack right | 16:9, 16:10 |
+| `\|M\|` | Three-column | master centered (50%), stacks either side; 2 windows are 50/50, 3+ center the master | ultrawide (aspect ≥ 2.1) |
+| `\|\|=` | Two columns + stack | two full-height masters side by side, rest stacked on the right | — |
+| `[M]` | Monocle | one window fills the area; the bar shows `[n]`, the hidden count | — |
+
+- **New windows** join the stack at the end, and the master stays put
+  as today.
+- **Per workspace.** Each workspace remembers its layout. The default comes
+  from its monitor's aspect ratio. `mfact` and master count are per
+  workspace too, and per mode.
+- **The single-window rule.** A workspace with one tiled window centers it at
+  **80%** width when the monitor's aspect is ≥ 2.1 (21:9 and wider).
+  Otherwise it is 100%.
+  - Both numbers are per-output settings.
+  - A 32:9 monitor probably wants 60%.
+  - Floating and fullscreen windows don't count toward "one window".
+- **Implementation.** One Lua layout, `lua:quickspace`, owns all four
+  modes, so the single-window rule lives in one place. It keeps each
+  workspace's mode, `mfact` and master count, and checks its settings when
+  the config loads, so a typo is an error rather than silently ignored.
+- **The bar learns the layout** from Hyprland's event socket. The layout
+  keys are Lua bindings in the Hyprland config, so they work even while the
+  shell restarts, and each one announces the new mode as
+  `custom>>quickspace-layout>>WORKSPACE,MODE`.
+
+### 6.2 Focus cue: dim, nothing else
+
+- `dim_inactive` at **0.15**, the same strength as the KDE setup, with no
+  borders and no gaps.
+- A workspace with one visible window never dims. With nothing to tell
+  apart, a dimmed lone window just looks wrong.
+- Video, picture-in-picture and screen-share preview windows get a `nodim`
+  window rule, so a call on the other monitor doesn't look washed out.
+- 0.15 is subtle on dark apps: a dark terminal next to a dark editor.
+  Strength is a setting; if dark-on-dark focus is hard to see, 0.25 is the
+  first thing to try.
+
+### 6.3 One window big: monocle, maximize, fullscreen
+
+There are three ways to give the current window the whole screen. They differ
+in how long they last and what stays visible:
+
+| | Keys | What happens | Bar |
+|---|---|---|---|
+| **Monocle** (a layout) | ``Super+` `` | Every window on the workspace fills the tiling area. `Super+J` / `K` flip between them, and new windows open full-size too. The same key goes back to the workspace's previous layout. | visible, showing `[n]` |
+| **Maximize** (this window) | `Super+Up` | Just the current window covers the tiling area; the others stay tiled behind it. It lasts until you toggle it, close the window, or focus another window on the workspace. | visible |
+| **Fullscreen** (this window) | `Super+Shift+Up`, or the app's own `F11` | The window covers the whole monitor, bar included. | hidden |
+
+- `Super+Down` returns the current window to the tiled layout from either
+  maximize or fullscreen.
+- **Hyprland pieces.** Maximize and fullscreen are Hyprland's own `fullscreen`
+  states: 1 is maximized, 0 is fullscreen. Monocle is a mode of the
+  quickspace layout.
+- **The bar** marks a workspace with a maximized or fullscreen window with a
+  small corner glyph, so a hidden stack of windows is never a surprise.
+- **Popups over fullscreen.** Popups still appear over a fullscreen window,
+  except while it's playing video fullscreen. Then they're held, as during a
+  screen share (§9).
+
+### 6.4 Dialogs and other floating windows
+
+- **Dialogs float, always.** A window floats when any of these is true:
+  - it has a parent: Wayland `xdg_toplevel.set_parent`, or X11
+    `WM_TRANSIENT_FOR`;
+  - it is modal;
+  - it is an X11 dialog, utility or splash window;
+  - it asks for a fixed size (minimum = maximum).
+
+  Hyprland floats most of these on its own. Window rules catch the rest by
+  class or title: `pavucontrol`, `nm-connection-editor`, `blueman-manager`,
+  portal file choosers, "Open File" / "Save File" / "Save As" titles.
+- **Placement.** A dialog is centered on its parent, or on the focused
+  monitor if it has no parent.
+  - Its size is whatever it asks for, capped at 80% of the monitor.
+  - It stays above its parent and follows it to another workspace.
+- **Focus.** A new dialog from the app you're in takes focus, so its parent
+  dims like any other inactive window. Closing the dialog returns focus to
+  the parent. A dialog from any other app opens unfocused and is marked
+  urgent (§14).
+- **Any window can be floated** with `Super+Shift+F` / `Super+Insert`.
+  Floating windows remember their size and position per app for the session.
+- **Picture-in-picture** floats and is pinned, visible on every workspace, in
+  the bottom-right corner of its monitor.
+- **Floating windows are left out of tiling.** They never take a tile, and
+  never count toward the single-window rule.
+- **M2 checklist.** Every one of these must open floating and centered:
+  - the portal file chooser (from Chrome and from a GTK app);
+  - Chrome's "Save as";
+  - a GTK "About" dialog;
+  - `zenity --question` from kitty;
+  - blueman's pairing dialog;
+  - an Electron dialog;
+  - an XWayland dialog.
+
+### 6.5 Monitors
+
+- There is one bar per monitor. Each monitor shows one workspace at a time,
+  from a shared pool of 1–9. That is Hyprland's native model and dwm's.
+- The bar on every monitor lists all nine. A workspace visible on *another*
+  monitor gets the accent outline.
+- Closing the laptop lid with an external display attached disables the
+  internal panel and moves its workspaces over. With no external display,
+  logind suspends.
+- **Decided: per-monitor, not KDE-style desktops that span every monitor.**
+  Multi-monitor use is occasional, and with one monitor the two models are
+  identical, so the native one costs nothing to build. Spanning would
+  touch keys, urgency and the bar. If it ever matters, switching workspace
+  *n* on every monitor together is a shell and keybinding change, not a
+  redesign.
+
+### 6.6 Keys
+
+Carried over from the current Hyprland and KDE setups (same muscle memory),
+with new keys in **bold**:
+
+| Keys | Action |
+|---|---|
+| **tap `Super`**, `Super+Space` | launcher |
+| `Super+T` / `W` / `G` / `F` / `Shift+G` / `E` / `B` / `C` / `Shift+C` / `H` / `I` / `M` / `N` / `R` / `Y` | the existing app launchers (`runenv` helpers) |
+| `Super+Backspace` | close window |
+| `Super+L` | lock |
+| `Super+1…9` / `Super+Shift+1…9` | go to / send window to workspace |
+| `Super+Left` / `Right` | previous / next workspace (as in KDE and on the Mac) |
+| `Super+Shift+Left` / `Right` | move window to the previous / next workspace |
+| `Super+J` / `K`, `Super+Shift+J` / `K` | focus / move down and up the stack |
+| `Super+Return` | swap focused window with the master |
+| `Super+\` / `Super+/` | grow / shrink master (`mfact` ±0.025) |
+| `Super+=` / `Super+-` | add / remove a master |
+| `Super+.` / `Super+,` | next / previous layout |
+| ``Super+` `` | toggle monocle |
+| **`Super+Up`** / **`Super+Shift+Up`** / **`Super+Down`** | maximize / fullscreen / restore the current window |
+| `Super+Shift+F`, `Super+Insert` | toggle floating |
+| `Super+Shift+R` | resize mode (floating windows) |
+| **`Super+U`** | focus the most recent urgent window |
+| **`Super+Shift+N`** | notification center |
+| `Print` / **`Alt+Print`** / `Shift+Print`, `Super+Print` | screenshot screen / window / region |
+| **`XF86AudioMicMute`**, **`Super+Shift+M`** | toggle microphone mute (system-wide) |
+| media, brightness, volume keys | as today, with OSD |
+
+Two keys are dropped: `Super+Shift+\` (toggle to BSP) and `Super+P`
+(pseudo-tile). Both exist only for dwindle, which quickspace doesn't use.
+`Super+O` (rotate master) goes too, since the layouts replace it.
+
+## 7. Bar
+
+See [`bar.png`](docs/mocks/bar.png).
+
+### 7.1 Layout
+
+- The bar is a top layer-shell panel on every monitor, 34 px tall, with an
+  exclusive zone so tiling starts below it.
+- **It is a plain rectangle flush with the top edge and both sides:** no
+  margin, no corner radius, no shadow, no floating pill. Rounded corners
+  belong only to things that pop up (popovers, notifications, the launcher).
+- **Left:** workspaces 1–9, always all nine, then the layout symbol.
+- **Right:** privacy pills (screen shared, mic live), third-party tray icons,
+  then the built-in status icons: keep-awake (only when on), Bluetooth,
+  network, volume, battery %, notifications, session. The four clocks come
+  last.
+- **Middle:** empty. The window title is left out on purpose: the dim already
+  says which window is focused, and titles leak into screenshots.
+
+### 7.2 Workspaces
+
+| State | Look |
+|---|---|
+| current | accent fill |
+| occupied | surface fill, one app icon per window (up to 5, then `+n`) |
+| shown on another monitor | accent outline |
+| empty | faint number |
+| urgent | amber fill and ring, a dot, and the urgent window's icon ringed |
+
+- **Click** a workspace to go there.
+- **Scroll** over the workspaces to move through them.
+- **Middle-click** an app icon to focus that window.
+- **Right-click** a workspace to change its layout.
+
+### 7.3 Clocks
+
+- **Zones:** US/Pacific, US/Eastern, Europe/London, then local. They show as
+  **`SF HH:MM`**, **`NYC HH:MM`** and **`LON HH:MM`** in 24-hour time with
+  tabular figures; local is `MMM d HH:MM`.
+- **Place labels don't change at DST**, so the bar looks the same all year.
+  A label can be switched per zone to `"abbr"`, tzdata's current abbreviation
+  (PDT↔PST, EDT↔EST, BST↔GMT), or to any fixed text.
+- **Abbreviations come from tzdata**, the same source as `date +%Z`. They
+  appear in the popover, and on the bar for any zone set to `"abbr"`.
+  CLDR/ICU, which QML's `Intl` and most JS libraries use, can't produce the
+  three in any single locale:
+  - **en-US** gives `PDT`, `EDT`, but **`GMT+1`** for London in summer.
+  - **en-GB** gives `BST`, but `GMT-7` for Los Angeles.
+
+  (Verified with Node's ICU on 2026-09-28.) So the shell reads abbreviations
+  via `QTimeZone` (a tiny C++ plugin) or `TZ=<zone> date +%Z`, re-read at
+  each transition. Tests pin both sides of every DST change (§20).
+- **Local is always last, on the far right.** Any listed zone that is the
+  same zone as local is hidden, whichever zone that is: in London the bar
+  shows SF, NYC and local, and in New York it shows SF, LON and local.
+  Decided in review of this spec.
+  - "Same zone" compares canonical tzdata IDs after resolving links, so
+    `US/Pacific` matches `America/Los_Angeles`. A zone that only shares the
+    current offset (Arizona against Los Angeles in summer) stays, so no
+    clock appears and disappears at a DST change.
+  - The popover still lists the hidden zone, marked as local.
+- **Different day.** A zone whose date differs from local shows a small
+  `−1` or `+1`.
+- **Popover** ([`clocks.png`](docs/mocks/clocks.png)): opened by a click on
+  any clock. It shows:
+  - each zone with its city, current abbreviation and offset from local;
+  - a 24-hour strip of night, day and working hours, with a "now" line;
+  - the **next DST change**. For example: "London moves to GMT on Sun Oct 25,
+    a week before SF and NYC" — the week when the usual gap to London is off
+    by an hour;
+  - a month calendar with ISO week numbers.
+- **Scroll** over the clocks to scrub time in 15-minute steps, so all four
+  answer "what's 3 pm in SF here?". The clocks snap back when the pointer
+  leaves.
+- **Config:** a list of `{zone, label}` in `~/.config/quickspace/clocks.json`,
+  defaulting to the three above. A machine that needs other zones sets its
+  own list in **`clocks.local.json`**, which replaces the shared list
+  (§16.1). `setup` can seed the local file from the existing `~/.timezones`
+  that the `clocks` script reads.
+
+### 7.4 Status icons
+
+| Icon | Shows | Click | Scroll / other |
+|---|---|---|---|
+| Privacy: **Sharing** (red) | an xdph PipeWire screencast stream has a consumer (§12) | what is being shared (screen, window or area); stop it from the app | — |
+| Privacy: mic (orange) | any app is capturing the microphone | per-app list with mute | — |
+| Tray items | SNI icons from apps | the app's menu (DBusMenu) | as the app defines |
+| Keep awake | on only while you asked for it, or while the mic is live | turn off | — |
+| Bluetooth | off / on / connected | device list, connect/disconnect; *pair* opens `blueman-manager` | — |
+| Network | Wi-Fi strength / wired / VPN lock / offline | network list, VPNs; *settings* opens `nm-connection-editor` | — |
+| Volume | output level and mute | output and input devices, per-app levels, mute | scroll changes by 5% |
+| Battery | % and charging, red below 15% | power profile (performance / balanced / saver), time left | — |
+| Notifications | dot when unread, a bell with *z* for DND | notification center | middle-click toggles DND |
+| Session | — | lock, log out, suspend, restart, shut down | — |
+
+Critical battery (7%) is a critical notification. At 3% the machine
+hibernates if hibernation is set up, and otherwise suspends.
+
+## 8. Launcher
+
+See [`launcher.png`](docs/mocks/launcher.png).
+
+- **Open.** Tap `Super` alone, or press `Super+Space`. A second tap or `Esc`
+  closes it.
+  - The tap is a release bind on `SUPER_L` that fires a Hyprland global
+    shortcut, `quickspace:launcher`, handled by Quickshell's `GlobalShortcut`.
+    That is faster than spawning `qs ipc` per keypress.
+  - **Caveat:** on Hyprland 0.56.x a release bind on `SUPER_L` fires on
+    *every* Super release, including after `Super+T`. The keybind refactor
+    that fixes this (hyprwm/Hyprland#15568, then #15904) landed on main after
+    0.56.2.
+  - So M3 ships `Super+Space` and turns the tap on only once the pinned
+    Hyprland passes three checks: `Super+T`, `Super`+drag and `Super`+click
+    must not open the launcher.
+- **Where.** Centered near the top of the focused monitor, over a dimmed
+  backdrop. Keyboard focus is exclusive while it's open.
+- **What it searches.**
+  - Every `.desktop` entry on `XDG_DATA_DIRS`, including its desktop actions
+    (such as "New Incognito Window").
+  - The built-in quick actions.
+  - The existing launcher scripts (`browser1`, `google-meet`, …), which `conf`
+    gets `.desktop` files for, so they appear by name with their key hint.
+- **Matching.**
+  - Fuzzy subsequence matching, scored fzf-style: consecutive runs and word
+    starts beat scattered hits.
+  - Searched fields: name, generic name, keywords, and the exec basename.
+  - Results are then boosted by frecency.
+  - The top hit is preselected, so `Super`, `s c r`, `Enter` is a window
+    screenshot.
+- **Keys.**
+  - `↑`/`↓` or `Ctrl+N`/`Ctrl+P` move the selection.
+  - `Enter` runs the selection.
+  - `Ctrl+Enter` runs it on a new empty workspace.
+  - `Tab` jumps to the next section.
+- **Quick actions:**
+  - Screenshot window / screen / region.
+  - Lock, log out, suspend, restart, shut down.
+  - Settings.
+  - Do not disturb, keep awake, and theme (dark / light / automatic).
+  - Reload shell.
+
+  Power actions check logind inhibitors and ask only when something is
+  blocking them.
+- **Remembering the previous window.** Opening the launcher records the
+  focused window's Hyprland `stableId`, so "Screenshot window" means the
+  window you were in, not the launcher.
+- **Launching.** Apps start via `quickspace launch` (§5.4), and the app's
+  first window takes focus when it maps, unless you've typed or moved focus
+  since (§14.1).
+
+## 9. Notifications
+
+See [`notifications.png`](docs/mocks/notifications.png).
+
+### Popups
+
+- **Where.** Popups appear top-right of the focused monitor, under the bar,
+  newest on top. At most three show at once; the rest queue.
+- **Timeouts.** Low urgency lasts 4 s and normal 6 s; hovering pauses the
+  timer. Critical stays until dismissed.
+- **Content.** Popups support body markup, images, action buttons, and inline
+  reply where the sender offers it.
+- **Capabilities.** The server advertises `body`, `actions`, `body-markup`,
+  `icon-static`, `persistence` and `inline-reply`. Chrome sends native
+  notifications only if `body` and `actions` are advertised, and Quickshell's
+  `actionsSupported` defaults to false, so it has to be switched on.
+- **Clicking.** A click runs the default action, and the shell then brings
+  up **the window that sent it**, switching workspace. An app can have
+  several windows (Chrome, Nautilus), so matching the `desktop-entry` hint
+  or app name alone can't say which one. So:
+  - The click writes a launch grant for that app (§14.3), the same one-shot
+    grant a launcher launch gets. The app's own activation request
+    (`urgent>>ADDRESS`) or its first new window within 10 s takes focus,
+    so an app with no window yet, or a slow one, still comes up focused.
+    Apps such as Chrome activate the right window when a notification is
+    clicked, and the shell focuses exactly that window.
+  - If nothing arrives and the app already has windows, it focuses the app's
+    most recently focused window.
+  - Quickshell doesn't emit `ActivationToken`, so the app's activation is
+    what identifies the window.
+- **Replacement.** Replacing notifications (`replaces_id`,
+  `x-canonical-private-synchronous`) update in place.
+
+### History
+
+- The **notification center** opens from the bell or `Super+Shift+N`.
+- It groups entries by app and survives a shell restart (stored in
+  `$XDG_STATE_HOME/quickspace/notifications.json`, capped at 200 entries).
+- **Clear all** empties it, and each group has its own ✕.
+
+### Do not disturb
+
+- **Manual:** from the center, the bell (middle-click), or the launcher.
+- **Automatic while sharing a screen or region:** popups are held and counted
+  in the "held while you were sharing" banner.
+  - A **window** share holds nothing, since popups aren't in that stream.
+  - Popup surfaces also carry Hyprland's `no_screen_share` layer rule, so
+    even a popup that does show (a critical one) is blacked out of the
+    stream.
+- **Critical during a full-screen share:** shown on a monitor that isn't
+  being shared if there is one; otherwise held, with the bar's bell flashing.
+- **Which "critical" gets through manual DND.** Only criticals from system
+  senders (battery, the shell, polkit) do. Chrome marks every
+  `requireInteraction` web notification critical unless the server calls
+  itself "Plasma", so browser criticals are treated as normal and persistent.
+
+### Not a notification
+
+- Volume, brightness and mic-mute changes show as an **OSD** drawn by the
+  shell, not as notifications, so they never reach the history.
+- The OSD is a pill at the bottom center of the focused monitor, visible for
+  1.2 s.
+
+## 10. Idle, screensaver and lock
+
+See [`lock.png`](docs/mocks/lock.png).
+
+**Timeline.** It is cumulative from the last input, with the same numbers as
+today's `hypridle.conf`:
+
+| After | What happens |
+|---|---|
+| 2 min 30 s | dim: backlight to 10% (saving the level first), and a 40% black overlay on outputs with no backlight; any input undoes both |
+| 5 min | lock (`loginctl lock-session`); the lock opens in its **screensaver face** |
+| 5 min 30 s | displays off (DPMS); back on at any input |
+| 30 min | suspend, on battery only. On AC it never suspends; the displays just stay off. Decided in review of this spec. |
+
+- **Unplugging while idle.** If you unplug after the 30 minutes have
+  passed, the machine suspends then. The 30-minute step runs
+  `quickspace idle-suspend`, which suspends on battery and otherwise leaves
+  a flag. The shell checks that flag when UPower reports the switch to
+  battery, and any input clears it.
+
+- **Undoing the dim.** The dim listener's `on-resume` restores the saved
+  backlight level (`brightnessctl -r` after `brightnessctl -s set 10%`)
+  and tells the shell to remove its overlay. Input after the lock or DPMS
+  steps undoes the dim the same way, as well as turning displays back on.
+
+**The screensaver** is the lock's idle face, not a separate program:
+
+- a black screen with the hostname, a large time and the zone clocks in low
+  contrast;
+- it moves to a new spot each minute to spare OLED panels;
+- any input brings back the password face, and a typed key lands in the
+  password field.
+
+**Idle detection** is hypridle's job, not the shell's (§5.2):
+
+- Chrome inhibits idle in two ways at once: Wayland `zwp_idle_inhibit`, and
+  D-Bus `org.freedesktop.ScreenSaver.Inhibit`. It uses the D-Bus route only if
+  something already owns that name; Chrome never starts an owner itself.
+- hypridle owns `org.freedesktop.ScreenSaver`, and it honors:
+  - Wayland inhibitors (fullscreen video, the shell's own *keep awake*);
+  - D-Bus inhibits;
+  - logind idle inhibitors.
+- Its listeners run the timeline above: `loginctl lock-session`,
+  `hyprctl dispatch dpms`, and `quickspace idle-suspend`.
+
+Quickshell's `IdleMonitor` sees Wayland inhibitors only, and Quickshell has no
+D-Bus server module to own the ScreenSaver name. A shell-only idle timer
+would therefore lose Chrome's D-Bus inhibits (Omarchy hit exactly this and
+had to add a daemon).
+
+Chromium 146 was reported to hold an inhibitor on ordinary pages, so the
+screen never blanked. M5 checks the pinned Chrome. If it still does this,
+both of Chrome's paths need handling, because a window rule reaches only
+one of them:
+- **Wayland:** a per-window `idle_inhibit none` rule for non-media Chrome
+  windows covers the Wayland inhibitor.
+- **D-Bus:** hypridle can't filter by app; its only switch,
+  `ignore_dbus_inhibit`, drops every app's D-Bus inhibits, not just
+  Chrome's. So if M5 confirms the bug, the D-Bus side is a choice for
+  then:
+  - **A filter.** A small owner of `org.freedesktop.ScreenSaver` sits in
+    front of hypridle. It drops Chrome's ordinary-page inhibits and turns
+    every other app's into a logind idle inhibitor, which hypridle honors.
+    Other apps keep working; the cost is one more component.
+    - It takes over the readiness role: the filter's unit becomes the
+      `Type=dbus` one with `BusName=org.freedesktop.ScreenSaver`, and
+      `quickspace.service` orders after it. hypridle's drop-in goes back
+      to a plain service with `ignore_dbus_inhibit = true`, since it no
+      longer owns the name and gets the filtered inhibits through logind.
+  - **The global switch.** Turn on `ignore_dbus_inhibit` and accept that
+    D-Bus-only apps no longer hold the screen awake. Calls stay awake
+    through keep-awake-while-the-mic-is-live below, and fullscreen video
+    through its Wayland inhibitor.
+
+  Neither is needed if the pinned Chrome no longer has the bug.
+
+**Keep awake.**
+
+- A bar and launcher toggle holds an `IdleInhibitor` on the bar's surface.
+  It turns itself off after 2 hours unless re-armed.
+- It also switches on automatically **while the microphone is live**, so an
+  audio-only call with no video on screen doesn't blank.
+
+**Lock.**
+
+- **One lock implementation**: `quickspace-lock`, a separate Quickshell
+  process built from the same QML component as the greeter, using
+  `WlSessionLock` and PAM.
+  - It has its own PAM service file, `quickspace-lock`, rather than
+    Quickshell's default `login`.
+  - Its file watcher is off (`QS_DISABLE_FILE_WATCHER`), so editing the
+    shell never reloads a live lock.
+- **Triggers:** `Super+L`, idle, suspend, and lid-close without an external
+  display.
+- **All of them go through logind.** `loginctl lock-session` raises logind's
+  `Lock` signal; hypridle's `lock_cmd` then starts `quickspace-lock.service`.
+  There is one path to test.
+- **Before sleep.** hypridle runs `before_sleep_cmd` on `PrepareForSleep`.
+  `inhibit_sleep = 3` holds the suspend until an ext-session-lock client has
+  actually locked, so you always wake to the lock.
+- **Crash safety.**
+  - If the lock process dies, Hyprland keeps the session locked (the
+    "lockscreen dead" screen).
+  - `misc:allow_session_lock_restore` lets systemd's restart of
+    `quickspace-lock.service` take the lock back. You then unlock with your
+    password as usual.
+  - `loginctl unlock-session` is **not** a way out. It changes only logind's
+    state; ext-session-lock requires the compositor to stay locked after its
+    client dies.
+  - The ways out from a TTY, in order:
+    1. `systemctl --user restart quickspace-lock.service`, which re-locks;
+       switch back to the session and unlock with your password;
+    2. Hyprland 0.56's `hl.clear_crashed_lockscreen()` via
+       `hyprctl --instance 0 eval`, if M5 confirms it works from outside
+       the session;
+    3. `loginctl terminate-session <id>`, which loses the session. The id
+       of the graphical session is
+       `loginctl show-user "$USER" -p Display --value`.
+
+    M5 crashes the lock on purpose and walks all three.
+- **Remote desktop.** Inside a Chrome Remote Desktop session the lock is
+  skipped, as `lock-screensaver` does today.
+
+## 11. Login
+
+- **greetd** runs the **quickspace greeter**: Quickshell with the `Greetd`
+  service, inside `cage`, or inside a stripped Hyprland config if `cage`
+  misbehaves with multiple monitors.
+- **Same face as the lock.** Login and lock are one QML component with two
+  modes ([`lock.png`](docs/mocks/lock.png)).
+- **Hostname.** It leads with the short hostname: the first label, with a
+  leading `<user>-` removed, the same rule as `i3statusdwm`.
+- **Clocks** sit below the hostname.
+- **Greeter extras:**
+  - the last user is preselected, with a user picker;
+  - a session chip lists the `wayland-sessions` entries (quickspace first),
+    plus a plain shell as the way out if the desktop is broken;
+  - restart and shut-down buttons.
+- **Keyboard.** The greeter uses the session's layout (US Dvorak,
+  Compose on Caps) and shows a layout badge by the password field.
+- **Keyring.** PAM unlocks gnome-keyring with the login password, so Chrome
+  and other secret users don't prompt again.
+- **PAM messages** (faillock countdowns, fingerprint prompts) show verbatim
+  under the field.
+
+## 12. Screen sharing (Google Meet)
+
+See [`share-picker.png`](docs/mocks/share-picker.png).
+
+- **The stack.**
+  - PipeWire and WirePlumber.
+  - `xdg-desktop-portal`, with `-hyprland` for ScreenCast/Screenshot and
+    `-gtk` for everything else, named in `quickspace-portals.conf`.
+  - Chrome's native Wayland PipeWire capture; no flags needed on current
+    Chrome.
+- **The picker.** xdph's `screencopy:custom_picker_binary` runs
+  `quickspace-share-picker`, a small script.
+  - It reads xdph's two lists: `XDPH_OUTPUT_SHARING_LIST`, entries of
+    `<len>:<name>:<x>:<y>:<w>:<h>;`, and `XDPH_WINDOW_SHARING_LIST`, entries
+    of `<id>[HC>]<class>[HT>]<title>[HE>]<addr>[HA>]`.
+  - It asks the running shell (`qs ipc`) to show the dialog.
+  - It prints one line: `[SELECTION]<flags>/screen:<output>`,
+    `…/window:<id>`, or `…/region:<output>@<x>,<y>,<w>,<h>`. No
+    `[SELECTION]` means cancel.
+
+  The dialog offers:
+  - **Screens:** each output, with a live `ScreencopyView` thumbnail.
+  - **Windows:** every window, current workspace first.
+  - **Area:** a **16:9 slice** centered on the ultrawide. For 3440×1440 that
+    is `region:DP-1@440,0,2560,1440`. Or drag a region.
+  - **Default on an ultrawide:** the focused window, since a whole 3440×1440
+    screen arrives letterboxed and unreadable in Meet.
+- **Chrome asks more than once.** Chromium opens 2–4 portal sessions for one
+  share.
+  - The picker still **shows the dialog for every request**, because it isn't
+    told which app is asking and so can't prove that two requests belong to
+    the same share. A silent reuse could hand a different app your screen.
+  - Instead, a request within 10 seconds of the last one opens with that
+    choice preselected and focused, so confirming it is one `Enter`.
+  - M6 measures how many prompts a Meet share really produces before
+    anything cleverer is considered.
+  - xdph's `allow_token_by_default` stays off for the same reason: with it
+    on, an old share silently wins and there is no way to pick a new
+    source.
+  - The dialog's "let this app reuse the choice" box adds the `r` flag, which
+    grants a portal restore token.
+  - Whether Chrome asks for persistence at all is unverified (xdph#123
+    reports it re-prompting), so M6 tests it rather than relying on it.
+  - The picker isn't told which app is asking, so the dialog says "Share your
+    screen" rather than naming Meet.
+- **Knowing that a share is live.** Hyprland's `screencast>>` event is not
+  enough on its own. It fires for *any* screencopy, including `grim` and the
+  shell's own thumbnails, and it doesn't name the client.
+  - The **Sharing** pill is driven by PipeWire instead: an
+    `xdph-streaming-*` video source with a running consumer.
+  - The `screencast>>` event serves only as a prompt to re-check.
+- **Knowing what is shared.** Popups are held for a screen or region share
+  but not a window share (§9), so the shell needs the source type.
+  - When the picker runs, it records its choice. The shell pairs it with a
+    new stream node only when that pairing is unambiguous: exactly one
+    recorded choice waiting and exactly one new node within 5 s. Any other
+    case (overlapping requests, Chrome's extra portal sessions, a node with
+    no waiting choice) counts as a screen share, and popups are held while
+    any such stream is live.
+  - A stream restored from a token skips the picker, so there is no record.
+    The shell then treats the share as a screen share and holds popups,
+    which is the safe way to be wrong. A notification never leaks into a
+    stream this way; at worst popups wait for a window share to end.
+  - M6 checks whether xdph's stream node or Hyprland's `screencast>>`
+    payload names the source type. If either does, it replaces the guess.
+- **Mic.**
+  - The bar's mic pill shows a running capture of **any** non-monitor audio
+    source, not just the default. Meet may be using a USB or Bluetooth
+    headset you picked in its own settings.
+  - `XF86AudioMicMute` / `Super+Shift+M` toggles a **mute state**, at the
+    PipeWire level, rather than muting a snapshot of sources:
+    - while it's on, every non-monitor source is muted, including any that
+      appears or starts being captured later. Muting before joining, or Meet
+      switching to another headset mid-call, stays muted;
+    - turning it off unmutes the sources it muted.
+
+    That is a real mute that works whichever window has focus, unlike Meet's
+    `Ctrl+D`. The bar's mic pill shows the state, and the OSD confirms each
+    toggle.
+  - Keep-awake-while-the-mic-is-live (§10) uses the same any-source check.
+  - **Camera:** no indicator. Chrome opens V4L2 devices directly, not through
+    PipeWire, so there is nothing reliable to watch.
+- **While sharing:**
+  - the bar shows the red **Sharing** pill;
+  - popups are held while a screen or region is shared, and not during a
+    window share, which can't show them (§9);
+  - popups, the notification center and the launcher carry
+    `no_screen_share`, so if one does appear, the stream shows black there
+    instead of its content;
+  - the bar itself is shared normally, so viewers see an ordinary desktop.
+
+## 13. Screenshots
+
+See [`screenshot.png`](docs/mocks/screenshot.png).
+
+| Action | Key | Launcher | How |
+|---|---|---|---|
+| Screen | `Print` | Screenshot screen | `grim -o <focused output>` |
+| Window | `Alt+Print` | Screenshot window | `grim -T <id>`, where `<id>` is Hyprland's `stableId` (from `hyprctl activewindow -j`) for the window focused before the launcher opened. This captures the window's own contents, even where a popup covers it. It needs grim ≥ 1.5 and is what hyprwm's grimblast does. If `grim -T` fails for any reason (an older grim, or a build without toplevel capture), the script falls back to `grim -g <window geometry>`, which captures whatever is on screen there; M4 checks `-T` against the pinned grim. |
+| Region | `Shift+Print`, `Super+Print` | Screenshot region | one `grim` capture of the output when the overlay opens, shown frozen → drag → crop that capture |
+
+- **Output.** Every capture goes to the clipboard (`wl-copy`, `image/png`)
+  **and** to `~/Pictures/Screenshots/YYYY-MM-DD_HH-MM-SS.png`. A notification
+  follows, with a thumbnail and Open / Annotate (`satty`) / Delete.
+  - A second capture in the same second gets `-2`, then `-3`, and so on.
+    The script claims each name with an exclusive create (`noclobber`), so
+    two captures racing for a name can't both get it, and nothing is
+    overwritten.
+- **Region mode.** It freezes the screen first, so hover menus and tooltips
+  can be captured.
+  - The freeze is a real capture: opening the overlay takes one `grim`
+    shot of the output into a temporary file, and the overlay shows that
+    image. Confirming crops the same file to the region, after mapping the
+    selection from the overlay's logical coordinates to the image's pixels
+    through the output's scale (fractional included) and transform.
+    `screenshot_test` covers the mapping at scales 1, 1.25 and 2 and on a
+    rotated output. There is no second,
+    live capture, so the overlay is never in the result and a menu that has
+    since closed is still there.
+  - Drag to select. Releasing the drag only sets the region.
+  - Adjust it with the handles, then capture with `Enter`, the toolbar's
+    capture button, or a double-click inside the region.
+  - `Space` switches to window picking, and `Esc` cancels.
+  - A timer (0/3/5 s) lives in its toolbar. Picking 3 or 5 s hides the
+    overlay and shows a countdown in the OSD, which gives you time to open a
+    menu or arrange windows. When it runs out, the OSD is hidden first, and
+    the capture waits until a frame without it has been presented, so the
+    countdown is never in the shot. Then it takes a fresh capture and
+    reopens the overlay frozen on that, with your region still selected, so
+    you confirm or adjust as before. `--delay=` does the same without the
+    first overlay.
+- **The work lives in the `screenshot` script** (scripts repo). It gains a
+  Wayland path (`--screen`, `--window`, `--region`, `--output=`,
+  `--geometry=`, `--delay=`) beside its X11 one, so a keybind, the launcher
+  and a terminal all do the same thing. The shell only provides the frozen
+  region picker and the remembered window id. grimblast (hyprwm/contrib) does
+  most of this already, but the existing script, with its tests, is where
+  your own behavior already lives.
+
+## 14. Focus and attention
+
+**Nothing takes the keyboard unless you asked for it.** A window that wants
+attention is marked urgent, never focused, and `Super+U` takes you there.
+This is KWin's focus-stealing prevention at Medium, which `setup-kde` runs
+because it stops background apps snatching focus mid-typing while still
+letting the launcher and the popups you open take it. Decided in review of
+this spec.
+
+### 14.1 Who gets the keyboard
+
+| When | Gets focus? |
+|---|---|
+| A shell surface holds the keyboard: the launcher, share picker, screenshot selection or lock | It keeps it. A window that opens meanwhile doesn't take it; Hyprland already does this for any layer surface with keyboard focus (checked in 0.56's source). |
+| A new window from the app you're in: a dialog, a file chooser, a second window | **Yes.** You asked, and KWin's Medium allows the active app too. |
+| The first window of an app you launched from quickspace (launcher, key binding, quick action), or that app bringing forward a window it already had | **Yes**, if you haven't typed or moved focus since launching it. Otherwise a slow app would snatch focus from whatever you moved on to. |
+| A window started from the focused terminal (`nautilus .` in kitty) | **Yes**, on the same terms as the launcher. The terminal's shell tells the guard which app the command started (§14.3). |
+| Any other new window: a background app, an update prompt, a slow app you've moved on from | **No.** It opens in place, dimmed like any inactive window, and is marked urgent. |
+| An existing window asks to be activated (xdg-activation, or `_NET_ACTIVE_WINDOW` from XWayland) | **No.** It's marked urgent, unless a launch you just made asked for it (above). |
+| You click a notification | The shell focuses that window itself, because the click was yours (§9). |
+| A polkit prompt | Only when it follows your action in the app that asks: the requesting process descends from the focused window's, and your last input went to that window within the last 2 s (a click on its "Unlock" button, or Enter on a `pkexec` line). A `sleep 30; pkexec …` left running while you're idle doesn't qualify. Otherwise a notification offers **Authenticate** and the prompt opens from it, so a password field never appears under typing meant for something else. Until Lua sees pointer buttons (§14.3), a click reads as no input, so a prompt after a click takes the notification path. |
+
+### 14.2 Edge cases
+
+- **Being pulled back to another workspace.** Hyprland opens a window on the
+  workspace it was launched from (`initial_workspace_tracking`), and if the
+  window takes focus as it opens, Hyprland switches you back there. So
+  launching Chrome on 2 and moving to 3 while it loads would pull you back
+  to 2. With the rules above, Chrome opens on 2 unfocused and 2 turns urgent.
+- **The launcher must get the keyboard.** Under KWin's FocusUnderMouse,
+  Kickoff opened without keyboard focus, so typing didn't filter it; that is
+  why `setup-kde` uses FocusFollowsMouse.
+  - The quickspace launcher asks for *exclusive* keyboard focus, so the
+    window under the pointer can't take it back while the launcher is open.
+  - The same goes for the share picker, screenshot selection and lock.
+  - M3 checks by typing into the launcher with the pointer resting on a
+    window, then again after moving it across two.
+- **When the launcher closes**, focus goes to the app you launched once its
+  window appears, and back to the window you were in if you dismissed the
+  launcher. That window is also "the window before the launcher" that
+  screenshot-window uses (§13).
+- **Focus follows the mouse**, as today (`follow_mouse 1`,
+  `mouse_refocus false`). Focus changes when the pointer crosses into
+  another window, not when a window moves under a resting pointer.
+  - That matters here: an unfocused window that tiles in under the pointer
+    mustn't get focus from a one-pixel nudge.
+  - Menus and popovers stay open as the pointer moves onto or off them. Your
+    Mac config had to turn focus-follows-mouse off because Amethyst
+    dismissed every popover. Menus and Chrome extension popovers are
+    Wayland popups, which keep their grab here.
+  - M2 checks all three.
+- **The pointer never jumps** (`cursor:no_warps true`). `Super+J`,
+  `Super+U` and a new window move focus, not the pointer. The Amethyst and
+  qtile configs both turned warping off.
+- **Closing a window** focuses the window under the pointer
+  (`input:focus_on_close cursor`), like KWin's NextFocusPrefersMouse.
+- **A link clicked in kitty** is handed to the running Chrome, which asks
+  to activate its window.
+  - KWin allows that, because kitty's activation token carries a fresh
+    input serial. Hyprland doesn't check tokens, so here Chrome's window is
+    marked urgent and `Super+U` gets there.
+  - M3 tries two fixes: an upstream patch that honors a token whose serial
+    is your latest input, and, in the meantime, allowing an activation that
+    arrives within a second of a key press in the focused window. That
+    covers kitty's keyboard link hints, but not a click, because Lua sees
+    key presses and not clicks.
+
+### 14.3 How: a focus guard in the Lua config
+
+- Hyprland 0.56 gives the Lua config what the guard needs (checked in its
+  source):
+  - `window.open_early`, which fires before a new window's focus is decided;
+  - `input.keyboard.key`, for when you last typed;
+  - not yet pointer buttons: Hyprland's internal event bus has
+    `input.mouse.button`, but Lua doesn't expose it. M2 adds it upstream,
+    mirroring the keyboard binding (a few lines).
+  - a window's `pid` and `class`;
+  - the `no_initial_focus` window rule.
+- **The guard withholds focus up front.** Focusing a window and then handing
+  focus straight back won't do: the app you're in would see a focus-out and
+  close its menus and autocomplete.
+- M2 prototypes one of two ways to do that:
+  - A catch-all `no_initial_focus` rule, with the guard focusing the windows
+    it allows. If the guard fails, windows open unfocused, so the failure
+    mode is "never steals".
+    - The catch: Hyprland skips a fullscreen request made as the window
+      opens when the window gets no initial focus, so the guard re-applies it.
+  - Marking disallowed windows from `window.open_early`, if Lua can set that
+    state.
+- **Launch records** say which app you asked for, and when. Each is a
+  one-shot grant:
+  - **Used by** that app's first new window, or its first activation of a
+    window it already had (a single-instance app reusing a window), within
+    10 s.
+  - **Canceled by** anything you do after launching: a key press, a mouse
+    click anywhere (including inside the window you're already in), or
+    focus moving to another window by any means (`Super+J`, a workspace
+    switch, or the pointer crossing into another window). A passing pointer
+    and a deliberate move look the same as focus changes, so both count as
+    moving on. Focus returning from the closing launcher doesn't count.
+  - Until the pointer-button hook lands, a click inside the window you're
+    already in goes unseen, so a late app can still take focus after one.
+    That is the one known gap, and the upstream patch closes it.
+  - A canceled or expired grant leaves the window unfocused and marked,
+    which is the safe way to be wrong.
+  - Matching on the app rather than the process covers a request handed to
+    a running instance (`nautilus .` with Nautilus already open) and an app
+    that daemonizes.
+  - `quickspace launch` writes one for the launcher and key bindings.
+  - A notification click writes one for the sender's app (§9).
+  - For the terminal, a preexec hook in `conf`'s zsh config writes one with
+    the command's program name. It goes to Hyprland's request socket through
+    zsh's own socket module, so no process starts per command; the other
+    shells get the hook as a fast-follow.
+  - The guard resolves a program name to an app the way the launcher does,
+    through desktop entries' `Exec` and `StartupWMClass`. `xdg-open` and
+    `gio open` resolve through the default handler for the file's type.
+- **Process ancestry** is the fallback for a command that names no known
+  app, such as a script that opens a window: the window's process descends
+  from the focused terminal's, found by walking parents in
+  `/proc/<pid>/stat`. M2 checks that Hyprland's Lua can read `/proc`.
+- **Opting in.** A `focus_on_activate` window rule lets a specific app's
+  activations through, if one turns out to need it.
+
+### 14.4 Urgency
+
+Wayland has no urgency hint. The only signal is **activation**: a client asks
+to be focused.
+
+- **What raises it.**
+  - Hyprland marks an unfocused window urgent on any activation request made
+    with a token it issued, and emits `urgent>>ADDRESS`.
+  - Quickshell exposes this as `urgent` on the toplevel and on its workspace.
+  - `misc:focus_on_activate false` (Hyprland's default; today's config sets
+    `true`) keeps it at marking.
+  - Hyprland doesn't tell a fresh, user-initiated token from any other token
+    it issued, so the setting is global: always focus, or always just mark.
+- **A new window the guard kept from focus** gets the same mark. The guard
+  announces it on the event socket, and the shell shows it the way it shows
+  attention derived from notifications (below).
+- **Who actually asks**, checked in each project's source:
+
+  | Client | Raises urgency on Wayland? |
+  |---|---|
+  | kitty (bell, with `window_alert_on_bell`) | yes: it activates with a token |
+  | Chrome/Chromium, native Wayland | **no**. Its "flash frame" is a no-op outside X11, so Meet and Chat windows won't flag new messages. It does activate on a notification click. |
+  | GTK 3 urgency hint | no (a stub on Wayland). `present()` activates. |
+  | GTK 4 | the urgency API was removed |
+  | Firefox | no |
+  | XWayland apps | only `_NET_ACTIVE_WINDOW`. The `WM_HINTS` urgency bit and `_NET_WM_STATE_DEMANDS_ATTENTION` are ignored. |
+
+- **Attention from notifications.** Since Chrome can't flag urgency itself,
+  the shell derives it. A notification names an app, not a window: the
+  `desktop-entry` hint or app name, matched to window classes.
+  - So it marks the app. Every workspace holding one of that app's windows
+    that isn't visible turns urgent, and each of those windows is marked.
+    With two Nautilus windows on different workspaces, both are.
+  - Chrome `--app` windows have classes of their own, like
+    `chrome-<host>__-Default`, so a Chat notification can mark just the Chat
+    window if Chrome exposes the notification's origin. How reliably it does
+    is an M3 prototype question. Without it, every Chrome window is marked.
+  - If the app then activates one window (`urgent>>ADDRESS`), that window's
+    own mark replaces the app-wide one.
+- **What you see.**
+  - The workspace turns amber with a dot, and the marked window's icon is
+    ringed.
+  - The state clears when a marked window is focused, or when its
+    notification is dismissed.
+  - `Super+U` goes to the most recent mark, switching workspace. For an
+    app-wide mark, that is the app's most recently focused window, the same
+    rule a notification click falls back on (§9).
+
+## 15. Theme
+
+- **One palette file** (`quickspace/theme/palette.json`, dark and light)
+  generates:
+  - the shell's QML theme singleton;
+  - `~/.config/gtk-3.0/gtk.css` and `gtk-4.0/gtk.css` color overrides, on
+    **adw-gtk3** / libadwaita;
+  - qt6ct/qt5ct color schemes;
+  - Hyprland's dim settings.
+
+  kitty keeps its existing `*.auto.conf` light/dark themes, which follow the
+  color-scheme setting on their own.
+- **Automatic light and dark.** The shell owns the schedule, replacing
+  `theme-daemon.sh`. `appearance.json` picks the mode:
+  - **`schedule`** (the default): light from **07:00 to 19:00**, dark
+    otherwise. These are the existing times, and both are settings.
+  - **`sun`**: light from sunrise to sunset. The times are computed locally
+    from a latitude and longitude in `appearance.local.json`, with no network
+    lookup.
+  - **`light`** or **`dark`**: fixed.
+
+  A manual flip from the launcher or settings lasts until the next scheduled
+  change, then automatic resumes. A machine can use its own mode or times
+  in `appearance.local.json` (§16.1). The greeter runs before any user
+  config is read, so it follows the default 07:00–19:00 schedule.
+
+  Switching:
+  - sets `org.gnome.desktop.interface color-scheme` (`prefer-dark` /
+    `prefer-light`), which `xdg-desktop-portal-gtk` publishes to apps as
+    `org.freedesktop.appearance color-scheme`;
+  - flips `gtk-theme` between `adw-gtk3` and `adw-gtk3-dark` for GTK 3 apps;
+  - selects the matching qt6ct/qt5ct color scheme;
+  - changes the shell's palette in place.
+
+  GTK apps, kitty and the shell follow the switch live. Qt apps are the
+  exception:
+  - they follow it live only if their platform theme reads the portal's
+    color scheme;
+  - otherwise they pick it up at their next launch.
+
+  M7 checks which of those qt6ct gives on the pinned Qt, and the spec
+  promises no more than that. Few of the apps in use are Qt.
+
+  Nothing restarts.
+- **One look across three toolkits.** The desktop mixes a custom-drawn shell
+  (Qt underneath), GTK 4, GTK 3 and the odd Qt app. They all converge on
+  libadwaita's palette, type and radii:
+
+  | Window | How it matches |
+  |---|---|
+  | The shell (bar, launcher, popups, lock) | draws its own widgets from the palette, so it looks like a GTK 4 app, not a Qt one |
+  | GTK 4 / libadwaita apps (Nautilus, Loupe, Papers, Calculator, pavucontrol) | native; the palette *is* theirs |
+  | GTK 3 apps and the portal file chooser (blueman, nwg-displays) | adw-gtk3, libadwaita's look ported to GTK 3 |
+  | Qt apps | qt6ct colors from the palette; widget shapes stay Qt's. The weak spot, so the app picks (§16.2) avoid Qt |
+  | Chrome | follows the color scheme; its own tab strip and toolbar stay Chrome's |
+  | kitty | its existing light and dark themes |
+
+- **Wallpaper.** Optional light and dark images, drawn by the shell on the
+  background layer, and blurred for the lock and greeter.
+- **Fonts and icons:**
+  - **Inter** for UI and **Ubuntu Mono** (roughly 11 pt) for code. That is
+    one setting in `appearance.json`, handed to GTK (`font-name`,
+    `monospace-font-name`) and Qt as well as the shell. The pairings
+    compared are in [`fonts.png`](docs/mocks/fonts.png).
+  - kitty keeps its current look; quickspace doesn't restyle it.
+  - Icons: the Adwaita icon theme for apps, and Material Symbols Rounded for
+    the shell's own glyphs.
+  - The cursor theme and size are set once, in the uwsm environment, for
+    every toolkit.
+
+## 16. Settings
+
+"Settings" opens a small quickspace panel. It covers only what is
+quickspace's own, and links out for the rest:
+
+| Page | Contents |
+|---|---|
+| Appearance | dark / light / automatic, schedule, dim strength, wallpaper |
+| Displays | per-output scale, position, and the single-window width and threshold; *advanced* opens `nwg-displays` |
+| Layouts | default layout per aspect ratio, `mfact`, the rule for new windows |
+| Clocks | zones, order, 24 h, dedupe-local |
+| Idle | the four timings, suspend on AC (off by default) |
+| Sound | output and input devices; *advanced* opens `pavucontrol` |
+| Network, Bluetooth | *advanced* opens `nm-connection-editor` / `blueman-manager` |
+| Keys | a read-only list of the current bindings, generated from the config |
+
+Hyprland-side settings are applied live through `hyprctl eval` and
+persisted in a generated Lua include, so the hand-written Hyprland config
+stays hand-written.
+
+### 16.1 Shared config and per-machine `.local` overrides
+
+The same `.local` convention as `.shrc.local`, `hyprland.conf.local` and
+sway's `config.local`:
+
+- **Shared defaults.** Every quickspace config file
+  `~/.config/quickspace/<name>.json` (`clocks`, `idle`, `layouts`,
+  `appearance`, `outputs`) holds the shared defaults and is installed from
+  `conf`.
+- **Per-machine overrides.** An optional **`<name>.local.json`** beside it
+  is read last. It is machine-specific and never committed.
+  - Objects merge key by key, so a machine can change one setting and
+    inherit the rest.
+  - Lists, such as the clock zones, are replaced whole, so a machine's zone
+    list is exactly what it says.
+- **Hyprland** follows the same rule: the Lua config ends by loading an
+  optional `hyprland.local.lua`, the successor to today's
+  `hyprland.conf.local`.
+- **The settings panel writes only `.local` files.** It never edits a file
+  that `conf` manages, so a `conf` update can't clobber a setting, and a
+  setting can't dirty the `conf` checkout.
+- **Reloads are live.** Either file changing on disk triggers a live reload.
+  A file that fails to parse is reported once, as a notification naming the
+  file and line, and the last good settings stay in effect.
+
+### 16.2 Apps around the shell
+
+quickspace doesn't ship apps, but a few defaults decide whether the desktop
+feels finished. All are GTK 4/libadwaita unless noted, so they follow the
+light/dark switch.
+
+**File manager: Nautilus** (decided), with yazi kept for keyboard work
+(`Super+E`).
+
+| | Nautilus 51 | Thunar 4.20 (runner-up) |
+|---|---|---|
+| Toolkit | GTK 4 + libadwaita, same palette as the shell | GTK 3; dark mode needs the `adw-gtk3-dark` switch (§15) |
+| "Show in folder" (`FileManager1`) | yes, D-Bus activatable | yes, D-Bus activatable |
+| Mounts, trash, network shares | gvfs (hard dependency) | gvfs, udisks2, thunar-volman |
+| Split view, type-ahead | no split view; typing starts a search | both |
+| Open terminal here | via nautilus-open-any-terminal (supports kitty) | a custom action, `kitty --directory %f` |
+| Weight | pulls in localsearch; indexing can be limited or masked | light; no indexer |
+
+- **Why Nautilus:**
+  - it is the only candidate that follows the color-scheme switch natively,
+    in the same palette;
+  - it opens other apps' "Show in folder" requests in tabs;
+  - Nautilus 50+ can serve the FileChooser portal later if the GTK 3
+    chooser grates.
+- **Why Thunar could win:** yazi already covers power use, so the GUI file
+  manager mostly handles "Show in folder", mounts, thumbnails and drag and
+  drop. If you want split view and custom actions in a GUI too, Thunar is
+  lighter and has them.
+- Nemo is Thunar-like but pulls in Cinnamon libraries. Dolphin is Qt/KDE.
+  COSMIC Files' `FileManager1` works only inside COSMIC.
+
+**Integration, whichever file manager wins:**
+- **`FileManager1` has one owner in each session.**
+  - Plasma's Dolphin and Nautilus both ship an activation file for that
+    name, and dbus-daemon picks arbitrarily between equals. So once both are
+    installed, even Plasma's "Show in folder" is a coin flip.
+  - quickspace installs a user-level
+    `~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service`,
+    which is searched first.
+  - It doesn't run a file manager directly. It names a user unit
+    (`SystemdService=quickspace-filemanager.service`), and that unit's
+    launcher starts Nautilus when the session's `XDG_CURRENT_DESKTOP` is
+    quickspace's, and Dolphin otherwise.
+  - The unit is `PartOf=graphical-session.target`, so the file manager it
+    started stops when the session ends. A later Plasma login can't find
+    quickspace's Nautilus still owning the name, or the other way around.
+  - **Scope:** this holds for one graphical session at a time, the normal
+    case on one seat. Two concurrent sessions for the same user share one
+    user bus and one activation environment, so the last session to start
+    decides. quickspace doesn't support that setup.
+  - So each session gets its own file manager deterministically, and Plasma
+    keeps Dolphin, as §5.5 promises. `doctor` checks who answers.
+  - Chrome's "Show in folder" goes through the portal's
+    `OpenURI.OpenDirectory`, which calls `ShowItems` and falls back to the
+    `inode/directory` default.
+- **`Terminal=true` apps open in kitty.**
+  - GLib's built-in terminal list doesn't include kitty, so Konsole (from
+    Plasma) would win.
+  - `xdg-terminal-exec` with `kitty.desktop` in
+    `~/.config/xdg-terminals.list` fixes it. This covers `yazi.desktop` in
+    "Open With".
+- **File chooser.** The file chooser stays xdg-desktop-portal-gtk's GTK 3
+  dialog, not Nautilus. It is themed by adw-gtk3.
+- **yazi to GUI.** yazi's `reveal` opens the parent folder. A yazi opener
+  calling `FileManager1.ShowItems` would select the file too.
+
+**Companion apps:**
+
+| Job | Pick | Note |
+|---|---|---|
+| Images | Loupe | swayimg if you want a keyboard-driven gallery |
+| PDFs | Papers | GNOME's replacement for Evince; zathura for keyboard use |
+| Archives | built into Nautilus | File Roller if Thunar wins |
+| Displays | nwg-displays (GTK 3) | writes Hyprland's monitor config; also linked from Settings |
+| Bluetooth pairing | blueman-manager (GTK 3) | overskride is GTK 4 but thinly packaged |
+| Clipboard history | `cliphist`, with a picker in the launcher | `wl-paste --watch cliphist store` as a unit |
+| Audio mixer | pavucontrol (GTK 4) | pwvucontrol for the libadwaita look |
+| Calculator | GNOME Calculator | qalculate-gtk for power use |
+
+## 17. Known problems and how this design avoids them
+
+| Problem | How it shows up | Here |
+|---|---|---|
+| Two bars | a second bar stacked above or below the first | exactly one owner; no `bar {}` block, no waybar; `doctor` counts top-layer bars (§5) |
+| A floating, rounded bar | gaps at the screen edges | the bar is a flush rectangle by spec (§7.1) |
+| Two notification daemons | notifications vanish, or appear twice in two styles | the shell owns the name and starts before apps; no others installed; `doctor` checks (§5) |
+| Units leaking across sessions | KDE shows swaync popups | units scoped to the uwsm Hyprland target (§5.4) |
+| Restarting the bar | lost tray icons, lost notifications | nothing restarts; hot reload |
+| Apps die with the shell | restarting the bar closes your terminal | apps via `uwsm app` (§5.4) |
+| No polkit agent | "Authentication required" silently fails | built into the shell |
+| Wrong portal backend | screen sharing shows a black stream or nothing | `quickspace-portals.conf` + `XDG_CURRENT_DESKTOP=quickspace:Hyprland` |
+| Keyring not unlocked | Chrome asks for the keyring password after login | `pam_gnome_keyring` in greetd's PAM stack |
+| Lock screen crashes | red screen, locked out | the lock is its own process with no file watcher; `allow_session_lock_restore` + systemd restart (§10) |
+| Suspend without lock | wake to an open desktop | hypridle `before_sleep_cmd` locks via logind; `inhibit_sleep = 3` waits for the lock |
+| Idle during a Meet call | screen blanks mid-call | hypridle owns `org.freedesktop.ScreenSaver` and honors Chrome's inhibits; keep awake while the mic is live |
+| Screen never blanks | Chrome holds an inhibitor on ordinary pages (reported in 146), through both Wayland and D-Bus | if the pinned Chrome still does it: a per-window `idle_inhibit` rule for the Wayland side, plus a D-Bus filter or hypridle's global switch, chosen in M5 (§10) |
+| Picker shows up 2–4 times per share | Chrome opens several portal sessions | each repeat opens with the last choice preselected, so it's one `Enter`; never a silent reuse (§12) |
+| Privacy pill flickers on | a screenshot or thumbnail counts as a "screencast" | the pill follows PipeWire streams, not `screencast>>` (§12) |
+| Chrome notifications fall back or lose buttons | the server didn't advertise `body`/`actions` | advertised explicitly (§9) |
+| Meet or Chat never marks its workspace urgent | Chrome can't raise urgency on Wayland | attention derived from notifications (§14) |
+| `PATH` missing in keybinds | a launcher key does nothing | `runenv`, as today, and `environment.d` for units |
+| XWayland apps blurry at fractional scale | fuzzy Electron/X11 apps | `xwayland:force_zero_scaling`, and Electron on native Wayland (`ELECTRON_OZONE_PLATFORM_HINT=auto`) |
+| Cursor size differs per app | big cursor in GTK, small in Qt | one `XCURSOR_*`/`HYPRCURSOR_*` in the uwsm env |
+| Dvorak missing at login | the password "doesn't work" | the greeter uses the session layout and shows a badge |
+| Hyprland config breaks on upgrade | red config-error banner | pinned version, Lua config, CI loads it, upgrades as their own PRs |
+| Tray icon missing | an app started before the tray watcher | the shell (the watcher) is ordered before autostart |
+| `Super` tap misfires | launcher opens after every `Super+<key>` on Hyprland 0.56.x | `Super+Space` until the pinned Hyprland has the keybind fix and passes the tap checks (§8) |
+| Dark-on-dark focus hard to see | can't tell which terminal is focused | dim strength is a setting; 0.25 is the next step |
+| Sharing an ultrawide | viewers get a letterboxed strip | the 16:9 area and window-first default in the picker |
+| "Show in folder" opens the wrong file manager | Dolphin and Nautilus both claim `FileManager1` | a user-level activation file → a session-bound unit with a desktop-aware launcher: Nautilus in quickspace, Dolphin in Plasma, one session at a time; `doctor` checks (§16.2) |
+| `Terminal=true` apps open in Konsole | GLib's terminal list lacks kitty | `xdg-terminal-exec` with kitty listed first (§16.2) |
+| CLDR zone names | `GMT+1` instead of `BST` | place labels on the bar; tzdata abbreviations wherever an abbreviation shows (§7.3) |
+
+## 18. Where things live
+
+| Repo | Gets |
+|---|---|
+| **quickspace** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session units (`quickspace.service`, `quickspace-lock.service`, the `hypridle.service` drop-in), `quickspace-portals.conf`, the `quickspace-lock` PAM file and the greetd config template. `quickspace-share-picker`. `quickspace doctor`, `quickspace launch` and `quickspace idle-suspend`. The Lua tiling layout. `make install`. |
+| **conf** | The personal config: Hyprland in Lua (keys, rules, the Lua layout's settings, the single `exec-once`, loading `hyprland.local.lua`); `hypridle.conf` timings; uwsm env; the shared `~/.config/quickspace/*.json` defaults (clocks, idle, layouts), with `*.local.json` left per machine (§16.1); `.desktop` files for the launcher scripts. Deleting waybar, swaync, fuzzel, hyprlock, `theme-daemon.sh` and the sway config once M5 lands (§21). |
+| **scripts** | `setup --quickspace`: packages (pinned Hyprland, Quickshell, greetd, xdph, adw-gtk3, grim/slurp/wl-clipboard/satty, the file manager without its recommends, `xdg-terminal-exec`, the companion apps in §16.2) and enabling units. `screenshot` gains a Wayland path. `lock-screensaver` goes through `loginctl lock-session` on Wayland. `setup --purge-obsolete` learns about packages quickspace replaces. |
+
+## 19. Milestones
+
+Each milestone ends in a session you could use daily. The acceptance checks
+are what "done" means.
+
+| # | Milestone | Done when |
+|---|---|---|
+| **M1** | This spec + mocks | agreed; open questions answered |
+| **M2** | Session skeleton + layouts | `setup --quickspace` installs a session selectable from the current display manager. `doctor` reports no duplicate owners. All four layouts and the single-window rule work per workspace on an ultrawide and on the laptop panel. The focus guard follows §14.1, including each case in §14.2. The Hyprland config is Lua and CI-loaded. Shell memory is measured. |
+| **M3** | Bar + launcher | the bar shows every state in `bar.png` from live data: tray menus, clocks with correct labels and popover abbreviations across a DST fixture, urgency end to end from a kitty bell and from a Chat notification. `Super+Space` opens the launcher (tap-`Super` too, once the pinned Hyprland passes the tap checks), and fuzzy search and quick actions work. |
+| **M4** | Notifications, OSD, screenshots | notifications and history survive a shell restart. DND is automatic while sharing a screen or region, and off for a window share. The OSD works. All three screenshot modes work, including "the window before the launcher". |
+| **M5** | Idle, lock, login | the idle timeline works, including through a Meet call. Lock via key, idle, suspend and lid. Crash recovery is tested. The greetd greeter shares the lock component. The keyring unlocks at login. The old sway, waybar, swaync, fuzzel and hyprlock configs are deleted from `conf`. |
+| **M6** | Screen sharing | a Meet share of a window, a 16:9 area and a whole screen, from Chrome; restore tokens where Chrome asks for them; the privacy pill and mic mute. |
+| **M7** | Theme + settings | one palette drives the shell, GTK 3/4, Qt and Hyprland; light/dark switches the shell, GTK and kitty live, and Qt live or at next launch as §15 says. A side-by-side screenshot of the shell, Nautilus, an adw-gtk3 app, a Qt app and Chrome, in light and in dark, looks like one desktop. The settings panel exists. |
+
+## 20. Testing
+
+- **Pure logic in plain JavaScript** modules, run by `node --test` in CI:
+  clock labels, day offsets and hiding the zone that is local (link IDs
+  included), the DST-change finder, fuzzy scoring, the
+  single-window width rule, layout geometry, the light/dark boundaries
+  (schedule, sunrise and sunset, manual flip expiry), and config loading (`.local`
+  merge rules; a bad file keeps the last good settings). The QML only binds
+  to them.
+- **Clock fixtures.** Instants on both sides of every 2026–2027 US and EU DST
+  change, asserting each zone's abbreviation and day offset. The `GMT+1`
+  trap is a named test.
+- **Lua layout geometry** runs against a stub `ctx` with ultrawide, 16:9,
+  and 32:9 areas and 1–6 windows.
+- **Session.** A `conf` test asserts the Hyprland config's only `exec-once`
+  is `uwsm finalize`. `doctor` has its own tests over recorded `busctl` and
+  `systemctl` output.
+- **Scripts.** `screenshot_test` covers the Wayland argument parsing with
+  stubbed `grim`/`slurp`/`wl-copy`, in the repo's existing `*_test` style,
+  plus two captures in the same second getting distinct names.
+- **Mocks.** `make mocks` fails on any resource that doesn't load, so CI
+  can run it to catch broken pages. The PNGs aren't compared pixel for
+  pixel.
+
+## 21. Open questions
+
+None right now.
+
+Decided in review of this spec:
+
+- **Monitors:** each monitor shows its own workspace (§6.5).
+- **Nothing steals focus:** only what you asked for takes the keyboard (the
+  app you're in, what you just launched, the launcher). Everything else is
+  marked urgent, and `Super+U` jumps there (§14).
+- **Clock labels:** `SF` / `NYC` / `LON`, with abbreviations in the popover
+  (§7.3). Local is always last, and a listed zone that is the local zone is
+  hidden.
+- **Per-machine settings** live in `.local` overrides (§16.1).
+- **Light and dark** switch automatically, light 07:00–19:00 by default
+  (§15).
+- **Fonts:** Inter for UI and Ubuntu Mono for code (§15).
+- **Suspend on AC:** never. After idle the displays just turn off; on
+  battery it suspends after 30 minutes (§10).
+- **File manager:** Nautilus, with yazi kept for keyboard use (§16.2).
+- **The old stack:** once M5 lands, the sway config and the
+  waybar/swaync/fuzzel/hyprlock configs are deleted from `conf`. KDE Plasma
+  is the fallback if quickspace breaks (§5.5).
+
+## Sources
+
+Checked 2026-09-28, against these releases:
+
+- Hyprland 0.56.2: [releases](https://github.com/hyprwm/Hyprland/releases),
+  [0.54 layout rewrite](https://github.com/hyprwm/Hyprland/releases/tag/v0.54.0),
+  [custom Lua layouts](https://github.com/hyprwm/hyprland-wiki/blob/main/content/configuring/layouts/custom-layouts.md),
+  [master layout](https://github.com/hyprwm/hyprland-wiki/blob/main/content/configuring/layouts/master-layout.md),
+  [workspace rules](https://github.com/hyprwm/hyprland-wiki/blob/main/content/configuring/core/rules/workspace-rules.md),
+  [XDG activation](https://github.com/hyprwm/Hyprland/blob/v0.56.2/src/protocols/XDGActivation.cpp)
+- Quickshell 0.3.1: [source](https://github.com/quickshell-mirror/quickshell),
+  [0.3.0 changelog](https://github.com/quickshell-mirror/quickshell/blob/master/changelog/v0.3.0.md)
+- DankMaterialShell 1.6.2: [repo](https://github.com/AvengeMedia/DankMaterialShell),
+  [screen-share DND](https://github.com/AvengeMedia/DankMaterialShell/pull/3316)
+- AGS 3.1 / Astal: [ags](https://github.com/Aylur/ags), [astal](https://github.com/Aylur/astal)
+- river 0.4 / river-classic 0.3: [river](https://codeberg.org/river/river),
+  [filtile](https://github.com/pkulak/filtile), [wideriver](https://github.com/alex-courtis/wideriver)
+- MangoWC 0.17: [layouts](https://github.com/mangowm/mango/blob/main/docs/window-management/layouts.md)
+- niri 26.04: [layout config](https://github.com/YaLTeR/niri/blob/main/docs/wiki/Configuration:-Layout.md)
+- Krohnkite: [repo](https://codeberg.org/anametologin/Krohnkite)
+- xdg-desktop-portal-hyprland: [1.3.9 custom picker](https://github.com/hyprwm/xdg-desktop-portal-hyprland/releases/tag/v1.3.9)
+- xdg-desktop-portal: [Settings portal](https://github.com/flatpak/xdg-desktop-portal/blob/main/data/org.freedesktop.impl.portal.Settings.xml)

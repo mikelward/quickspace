@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: fonts</title>
+<link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Ubuntu+Mono:wght@400;700&family=Ubuntu+Sans:wght@400;500;600;700&family=Ubuntu+Sans+Mono:wght@400;500;700&display=block">
+<style>
+  .pairs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .pair { font-family: var(--font-ui); border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px #2a2a30; background: #16213a; }
+  .pair .t-term, .pair .mono { font-family: var(--font-mono); }
+  .pair-ubuntu { --font-ui: 'Ubuntu'; --font-mono: 'Ubuntu Mono'; }
+  .pair-ubuntu .t-term { font-size: 14.5px; } /* Ubuntu Mono runs small; +10% matches the others' x-height */
+  .pair-ubuntu-sans { --font-ui: 'Ubuntu Sans'; --font-mono: 'Ubuntu Sans Mono'; }
+  .pair-chosen { --font-ui: 'Inter'; --font-mono: 'Ubuntu Mono'; box-shadow: 0 0 0 2px var(--accent); }
+  .pair-chosen .t-term { font-size: 14.5px; }
+  .pair-inter { --font-ui: 'Inter'; --font-mono: 'JetBrains Mono'; }
+  .pair h3 { margin: 0; padding: 14px 16px 2px; font-size: 17px; color: #fff; font-weight: 700; }
+  .pair .sub { padding: 0 16px 12px; font-size: 12.5px; color: #9a9aa6; }
+  .pair .bar { padding-right: 8px; }
+  .pair .stack { padding: 14px 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+  .pair .notif { width: auto; }
+  .pair .res { height: 44px; border-radius: 10px; display: flex; align-items: center; gap: 11px; padding: 0 10px; background: var(--accent-bg); color: #fff; }
+  .pair .res .nm { font-weight: 600; font-size: 14px; }
+  .pair .res .sb { font-size: 12px; color: rgba(255,255,255,.82); }
+  .pair .t-term { border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .pair .pangram { background: var(--surface); color: var(--fg); border-radius: 10px; padding: 12px 14px; line-height: 1.5; }
+  .pair .pangram .big { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  .pair .pangram .mono { font-size: 13.5px; color: var(--fg-dim); }
+</style>
+</head>
+<body class="sheet" data-width="1320" data-scale="2">
+
+<h1>Fonts</h1>
+<p class="lede">The same pieces of the shell in four pairings of UI and code fonts, the chosen one first. <b>Chosen: Inter for UI with Ubuntu Mono for code</b>, the default in <code>appearance.json</code>. It is also handed to GTK and Qt, so apps match, and kitty's font stays kitty's own setting. Ubuntu Sans is the 2023 redesign that Ubuntu has shipped as its default since 23.10: variable weights, closer to the classic Ubuntu than Inter is.</p>
+
+<div class="pairs" id="pairs"></div>
+
+<template id="pair">
+  <div class="pair theme-dark">
+    <h3></h3>
+    <div class="sub"></div>
+    <div class="bar">
+      <div class="bar-left">
+        <div class="ws active"><span class="n">2</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span></span></div>
+        <div class="ws urgent"><span class="n">4</span></div>
+      </div>
+      <div class="clocks">
+        <span class="clock"><span class="tz">SF</span><span class="t">10:41</span></span>
+        <span class="clock"><span class="tz">NYC</span><span class="t">13:41</span></span>
+        <span class="clock"><span class="tz">LON</span><span class="t">18:41</span></span>
+        <span class="clock local"><span class="tz">Sep 28</span><span class="t">19:41</span></span>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="notif">
+        <span class="appicon xl app-cal"><i class="ms">event</i></span>
+        <div class="body">
+          <div class="top"><span class="app">Calendar</span><span class="when">1 min</span></div>
+          <div class="sum">Design review in 5 minutes</div>
+          <div class="txt">19:45–20:15 · Video call with Alex, Jordan and Priya</div>
+        </div>
+      </div>
+      <div class="res"><span class="appicon lg app-action"><i class="ms">screenshot_region</i></span><div><div class="nm">Screenshot window</div><div class="sb">Action · the window you were in</div></div></div>
+      <div class="pangram">
+        <div class="big">Quickly judge the fox’s 1,234 jumps</div>
+        <div class="mono">Il1| O0o {}[]() =&gt; != 0x7f 3.14159</div>
+      </div>
+      <div class="t-term">
+        <div><span class="h">~/src/quickspace</span> <span class="m">(main)</span> <span class="p">$</span> git log --oneline -3</div>
+        <div><span class="y">af3c010</span> Add the milestone 1 design spec</div>
+        <div><span class="y">cdbb11f</span> Initial commit</div>
+        <div><span class="p">$</span> hyprctl activewindow -j | jq .stableId</div>
+        <div>"18a3f0"</div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+const pairs = [
+  ['pair-chosen', 'Inter + Ubuntu Mono (chosen)', 'Inter for UI, as GTK’s Adwaita Sans is built from it, with the Ubuntu Mono you use for code.'],
+  ['pair-ubuntu', 'Ubuntu + Ubuntu Mono', 'Your usual pairing. The classic 2010 Ubuntu family, in fixed weights.'],
+  ['pair-ubuntu-sans', 'Ubuntu Sans + Ubuntu Sans Mono', 'Ubuntu’s current default (23.10 and later). The same character, more even and variable.'],
+  ['pair-inter', 'Inter + JetBrains Mono', 'Inter is what Adwaita Sans is built from, so GTK apps match it most closely.'],
+];
+const tpl = document.getElementById('pair');
+for (const [cls, name, sub] of pairs) {
+  const n = tpl.content.firstElementChild.cloneNode(true);
+  n.classList.add(cls);
+  n.querySelector('h3').textContent = name;
+  n.querySelector('.sub').textContent = sub;
+  document.getElementById('pairs').appendChild(n);
+}
+</script>
+</body>
+</html>

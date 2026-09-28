@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>quickspace mock: desktop</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .screen { width: 3440px; height: 1440px; }
+  .tiles { top: var(--bar-h); }
+  .popups { position: absolute; top: calc(var(--bar-h) + 10px); right: 12px; display: flex; flex-direction: column; gap: 10px; z-index: 6; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 16px; flex: none; }
+  .reply { margin-top: 9px; }
+</style>
+</head>
+<body data-width="3440" data-scale="1">
+<div class="screen theme-dark">
+
+  <div class="bar">
+    <div class="bar-left">
+      <div class="ws occupied"><span class="n">1</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span></span></div>
+      <div class="ws active"><span class="n">2</span><span class="apps"><span class="appicon app-term"><i class="ms">terminal</i></span><span class="appicon app-web"><i class="ms">public</i></span><span class="appicon app-meet"><i class="ms">videocam</i></span><span class="appicon app-chat"><i class="ms">chat</i></span></span></div>
+      <div class="ws occupied"><span class="n">3</span><span class="apps"><span class="appicon app-code"><i class="ms">code</i></span></span></div>
+      <div class="ws urgent"><span class="n">4</span><span class="apps"><span class="appicon app-chat flag"><i class="ms">chat</i></span></span></div>
+      <div class="ws occupied"><span class="n">5</span><span class="apps"><span class="appicon app-music"><i class="ms">music_note</i></span></span></div>
+      <div class="ws empty"><span class="n">6</span></div>
+      <div class="ws empty"><span class="n">7</span></div>
+      <div class="ws empty"><span class="n">8</span></div>
+      <div class="ws empty"><span class="n">9</span></div>
+      <span class="layout-sym">|M|</span>
+    </div>
+    <div class="bar-right">
+      <span class="pill mic"><i class="ms fill">mic</i></span>
+      <span style="width:6px"></span>
+      <div class="tray" style="display:flex">
+        <span class="sicon dim"><i class="ms">cloud_done</i></span>
+        <span class="sicon dim"><i class="ms">forum</i></span>
+      </div>
+      <span class="sep"></span>
+      <span class="sicon" style="color:var(--accent)"><i class="ms fill">coffee</i></span>
+      <span class="sicon"><i class="ms">bluetooth_connected</i></span>
+      <span class="sicon"><i class="ms fill">wifi</i></span>
+      <span class="sicon"><i class="ms fill">volume_up</i></span>
+      <span class="sicon"><i class="ms fill">battery_5_bar</i>82%</span>
+      <span class="sicon badge"><i class="ms">notifications</i></span>
+      <span class="sicon"><i class="ms">power_settings_new</i></span>
+      <span class="sep"></span>
+      <div class="clocks">
+        <span class="clock"><span class="tz">SF</span><span class="t">10:41</span></span>
+        <span class="clock"><span class="tz">NYC</span><span class="t">13:41</span></span>
+        <span class="clock"><span class="tz">LON</span><span class="t">18:41</span></span>
+        <span class="clock local"><span class="tz">Sep 28</span><span class="t">19:41</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tiles" style="height:1406px">
+    <!-- left stack: terminal -->
+    <div class="win inactive t-term" style="left:0;top:0;width:860px;height:1406px">
+      <div><span class="h">~/src/quickspace</span> <span class="m">(main)</span> <span class="p">$</span> git status</div>
+      <div>On branch main</div>
+      <div>nothing to commit, working tree clean</div>
+      <div><span class="h">~/src/quickspace</span> <span class="m">(main)</span> <span class="p">$</span> hyprctl activeworkspace</div>
+      <div>workspace ID 2 (2) on monitor DP-1:</div>
+      <div class="m">&nbsp;&nbsp;monitorID: 0</div>
+      <div class="m">&nbsp;&nbsp;windows: 4</div>
+      <div class="m">&nbsp;&nbsp;hasfullscreen: 0</div>
+      <div class="m">&nbsp;&nbsp;lastwindowtitle: SPEC.md — quickspace</div>
+      <div><span class="h">~/src/quickspace</span> <span class="m">(main)</span> <span class="p">$</span> qs -c quickspace ipc call bar layout</div>
+      <div class="y">threecolumn</div>
+      <div><span class="h">~/src/quickspace</span> <span class="m">(main)</span> <span class="p">$</span> <span class="cur">&nbsp;</span></div>
+    </div>
+
+    <!-- master: browser (focused) -->
+    <div class="win t-web" style="left:860px;top:0;width:1720px;height:1406px">
+      <div class="tabs">
+        <div class="tab on"><span class="appicon app-shell" style="width:14px;height:14px"><i class="ms" style="font-size:10px">description</i></span>SPEC.md — quickspace</div>
+        <div class="tab"><span class="appicon app-cal" style="width:14px;height:14px"><i class="ms" style="font-size:10px">calendar_month</i></span>Calendar</div>
+        <div class="tab"><span class="appicon app-mail" style="width:14px;height:14px"><i class="ms" style="font-size:10px">mail</i></span>Inbox (3)</div>
+      </div>
+      <div class="omni"><i class="ms">arrow_back</i><i class="ms">arrow_forward</i><i class="ms">refresh</i><div class="url">example.com/owner/quickspace/SPEC.md</div><i class="ms">more_vert</i></div>
+      <div class="page">
+        <h3>quickspace — design spec</h3>
+        <div class="bars" style="width:1180px">
+          <span style="width:96%"></span><span style="width:88%"></span><span style="width:92%"></span><span style="width:60%"></span>
+        </div>
+        <div style="height:26px"></div>
+        <div style="font-size:19px;font-weight:700;margin-bottom:14px">1. Goals</div>
+        <div class="bars" style="width:1180px">
+          <span style="width:90%"></span><span style="width:97%"></span><span style="width:84%"></span><span style="width:93%"></span><span style="width:48%"></span>
+        </div>
+        <div style="height:26px"></div>
+        <div style="font-size:19px;font-weight:700;margin-bottom:14px">2. Session: one owner per job</div>
+        <div class="bars" style="width:1180px">
+          <span style="width:94%"></span><span style="width:86%"></span><span style="width:91%"></span><span style="width:97%"></span><span style="width:89%"></span><span style="width:66%"></span>
+        </div>
+        <div style="height:26px"></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:1180px">
+          <div style="height:180px;border-radius:12px;background:#eef2f9"></div>
+          <div style="height:180px;border-radius:12px;background:#f3eef9"></div>
+          <div style="height:180px;border-radius:12px;background:#eef8f4"></div>
+        </div>
+        <div style="height:26px"></div>
+        <div class="bars" style="width:1180px">
+          <span style="width:92%"></span><span style="width:95%"></span><span style="width:73%"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- right stack: call + chat -->
+    <div class="win inactive t-meet" style="left:2580px;top:0;width:860px;height:703px">
+      <div class="grid">
+        <div class="tile" style="background:#3c4a5c"><span class="av" style="background:#5c6bc0">A</span><span class="nm">Alex</span></div>
+        <div class="tile" style="background:#4a3c5c"><span class="av" style="background:#8e24aa">J</span><span class="nm">Jordan</span></div>
+        <div class="tile" style="background:#3c5c52"><span class="av" style="background:#00897b">P</span><span class="nm">Priya</span></div>
+        <div class="tile" style="background:#5c4f3c"><span class="av" style="background:#6d4c41">Y</span><span class="nm">You</span></div>
+      </div>
+      <div class="ctl"><span class="on"><i class="ms fill">mic</i></span><span><i class="ms fill">videocam</i></span><span><i class="ms">present_to_all</i></span><span><i class="ms">more_vert</i></span><span class="end"><i class="ms fill">call_end</i></span></div>
+    </div>
+    <div class="win inactive t-chat" style="left:2580px;top:703px;width:860px;height:703px">
+      <div class="hd"><span class="appicon app-chat lg" style="width:26px;height:26px"><i class="ms" style="font-size:16px">chat</i></span>Design review</div>
+      <div class="msgs">
+        <div class="m"><div class="who">Sam</div>Can we look at the bar first? I like the clocks.</div>
+        <div class="m me">Sure. Mocks are in docs/mocks/.</div>
+        <div class="m"><div class="who">Alex</div>Does three-column survive a second monitor?</div>
+        <div class="m me">Layouts are per workspace, so it keeps its own.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="popups">
+    <div class="notif">
+      <span class="avatar" style="background:#5c6bc0">A</span>
+      <div class="body">
+        <div class="top"><span class="app">Chat</span><span>· Design review</span><span class="when">now</span></div>
+        <div class="sum">Alex</div>
+        <div class="txt">Joining the call in 2 min — can you share the spec?</div>
+        <div class="field reply"><i class="ms">reply</i>Reply…</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
