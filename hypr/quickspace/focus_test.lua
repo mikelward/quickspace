@@ -238,6 +238,29 @@ test("a shell's grant is used even by a window of the app you're in", function()
     eq(#m.grants(), 0, "used up")
 end)
 
+test("a command the shell exec'd takes that shell's grant", function()
+    local m = load()
+    m.proc = fake_proc({ [150] = 100 })
+    focused(window("kitty", 100), FFM)
+    m.grant("my-script", 150) -- `exec my-script` in shell 150
+    local w = window("some-gui", 150) -- the shell's own pid, after exec
+    eq(is_focus(fire("window.open", w)[1], w), true, "focused")
+    eq(#m.grants(), 0, "the grant is used up")
+end)
+
+test("a grant with only a pid is for that shell's descendants", function()
+    local m = load()
+    m.proc = fake_proc({ [300] = 150, [400] = 100 })
+    focused(window("kitty", 100), FFM)
+    m.grant(nil, 150) -- a command whose app the shell can't name
+    eq(m.grants()[1], "pid 150", "listed by pid")
+    local other = window("some-gui", 400) -- from elsewhere
+    eq(is_attention(fire("window.open", other)[1], other), true, "not by name")
+    local w = window("some-gui", 300)
+    eq(is_focus(fire("window.open", w)[1], w), true, "focused")
+    eq(#m.grants(), 0, "the grant is used up")
+end)
+
 test("ancestry needs a grant from an ancestor", function()
     local m = load()
     m.proc = fake_proc({ [300] = 100 })
@@ -481,6 +504,7 @@ test("grant rejects an empty id", function()
     local m = load()
     eq(pcall(m.grant, ""), false, "empty")
     eq(pcall(m.grant, nil), false, "nil")
+    eq(pcall(m.grant, "", 150), false, "empty, with a pid")
 end)
 
 test("with nothing focused yet, only granted windows take focus", function()
