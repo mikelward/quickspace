@@ -172,8 +172,13 @@ local function parent_of(pid)
     return ppid and tonumber(ppid)
 end
 
--- Whether pid descends from ancestor, walking at most 64 parents.
+-- Whether pid is ancestor or descends from it, walking at most 64 parents.
+-- A command the shell ran with `exec` replaced the shell, so its window
+-- carries the shell's own pid.
 local function descends(pid, ancestor)
+    if pid == ancestor then
+        return true
+    end
     for _ = 1, 64 do
         pid = parent_of(pid)
         if not pid or pid <= 1 then
@@ -385,16 +390,18 @@ function M.on_key(_, _, key_state)
 end
 
 -- Records a one-shot grant for app, from `quickspace launch`, a
--- notification click, or conf's shrc before each zsh or bash command.
--- pid, if given, is the process that asked (shrc passes its shell's), which
--- lets a window from one of its descendants use the grant.
+-- notification click, or quickspace-grant before each shell command.
+-- pid, if given, is the process that asked (quickspace-grant passes its
+-- shell's), which lets a window from it or one of its descendants use the
+-- grant. With a pid, app may be nil: a command whose app the shell can't
+-- name still gets its windows focused, through ancestry alone.
 function M.grant(app, pid)
-    local id = normalize(app)
-    if not id then
-        error("quickspace_focus.grant: expected an app id, got " .. tostring(app), 2)
-    end
     if pid ~= nil and (math.type(pid) ~= "integer" or pid <= 1) then
         error("quickspace_focus.grant: expected a process id, got " .. tostring(pid), 2)
+    end
+    local id = normalize(app)
+    if not id and not (app == nil and pid) then
+        error("quickspace_focus.grant: expected an app id, got " .. tostring(app), 2)
     end
     expire()
     table.insert(state.grants, { app = id, at = M.clock(), pid = pid })
@@ -405,7 +412,7 @@ function M.grants()
     expire()
     local out = {}
     for _, g in ipairs(state.grants) do
-        table.insert(out, g.app)
+        table.insert(out, g.app or ("pid " .. g.pid))
     end
     return out
 end
