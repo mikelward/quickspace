@@ -114,3 +114,16 @@ Lands with the bar (M3).
   no window title (SPEC.md §7.1), so the middle is free.
 - Rejected: title bars from the `hyprbars` plugin. A plugin is rebuilt against
   every Hyprland upgrade (SPEC.md §3.1).
+
+## Compositor: explore a dwl fork (SPEC.md §21.1)
+
+Hyprland stays the baseline, but building it on Debian and Ubuntu is heavy,
+so §21.1 records a quickspace fork of dwl on a pinned wlroots as the
+alternative. Before rewriting §3.1 around it, work through §21.1's next steps:
+
+- Screen sharing through `quickspace-share-picker` on xdg-desktop-portal-wlr,
+  with an adapter, including a way to share the 16:9 slice.
+- `grim -T` on a dwl build that exposes the toplevel-capture protocols.
+- Re-check Debian 13's toolchain.
+- Inventory everything the spec needs from the compositor, with the fork's
+  replacement and a check for each.

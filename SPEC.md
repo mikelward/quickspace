@@ -12,7 +12,8 @@ This document is milestone 1: the options, the decisions, and what
 "done" looks like for each later milestone. Mocks are in
 [`docs/mocks/`](docs/mocks/); every claim about an upstream project was
 checked against its current release on 2026-09-28 (see
-[Sources](#sources)).
+[Sources](#sources)), except in §21.1, a deferred exploration that says
+which of its claims were checked.
 
 Contents:
 [Goals](#1-goals) ·
@@ -1602,7 +1603,114 @@ are what "done" means.
 
 ## 21. Open questions
 
-None right now. Deferred work, with its notes, is in `TODO.md`.
+None right now. Deferred work, with its notes, is in `TODO.md`. §21.1
+records a deferred exploration, not an open M1 question: Hyprland stays the
+baseline M1 accepted.
+
+### 21.1 Deferred exploration: a dwl fork instead of Hyprland
+
+Hyprland 0.56 stays the plan (§3.1). Getting it onto Ubuntu 26.04,
+though, means building it from source, since Ubuntu ships 0.53.3. That takes
+GCC 15 (0.56 is C++26) and nine pinned projects: `wayland-protocols`, seven
+hyprwm libraries and tools, and Hyprland itself. Debian 13 looks worse (GCC
+14 and xkbcommon 1.7, against 0.56's GCC 15 and xkbcommon 1.11), but that is
+not yet re-checked against Debian's package pages. Hyprland also changes and
+regresses often. The alternative
+under consideration is **a quickspace fork of dwl**, the dwm-style wlroots
+compositor (about 3,400 lines of C), built on a wlroots version we pin and
+build ourselves.
+
+The facts below that are linked under Sources (dated 2026-09-29) were
+checked. Everything else here is a judgment from discussion, not checked
+against a pinned release: wlroots' and Hyprland's reputations, dwm patches
+such as `centeredmaster`, scenefx, and what niri, sway and KWin can do beyond
+§3.1's table. Checking those that matter is part of the next steps.
+
+**For dwl:**
+
+- **Stability, correctness, security.** A small C codebase on wlroots, which
+  is conservative and widely used, against Hyprland's large C++ codebase and
+  its churn.
+- **Build.** One pinned wlroots, a single meson project built from ordinary
+  distro packages, plus a `make` for dwl,
+  run the same way on every distro (Debian, Ubuntu, Fedora). No C++26, no
+  hyprwm chain. A fork of dwl ties each dwl release to one wlroots version,
+  and Ubuntu 26.04 ships wlroots 0.19.2 while dwl 0.9 needs 0.20, so the
+  distro's wlroots can't be relied on.
+- **Layouts in C.** dwm's layouts are the model for §6.1. Tile and monocle
+  are built in, and three-column is dwm's `centeredmaster`. Our layouts live
+  in their own file, included from `config.h`, without touching `dwl.c`.
+- **Dimming** (§6.2) is a translucent rectangle over each unfocused window in
+  the wlroots scene graph, about 30 lines. No effects library is needed.
+  Blur, rounded corners and animations would need scenefx, and aren't wanted.
+- **Tap Super** (R14) and the focus guard (§14.3) become our own C, instead
+  of waiting on Hyprland's main branch and its Lua API.
+- **Resize** is Super+drag: floating windows have it built in, and dragging
+  the master split is a small, well-known dwm patch.
+
+**Against dwl:**
+
+- **Single-window and region capture.** Two separate paths, checked
+  separately:
+  - **Meet sharing** of one window or a 16:9 slice (§12) goes through the
+    portal: `xdg-desktop-portal-hyprland` today, `xdg-desktop-portal-wlr` on
+    a fork. xdg-desktop-portal-wlr has shared single windows since 0.8.0,
+    through `ext-image-copy-capture`, and takes an external chooser command.
+    It shares only monitors and windows, though, never a region, so the
+    16:9 slice would have to be built, for example as a virtual 16:9 output
+    mirroring part of the ultrawide.
+  - **`grim -T` window screenshots** (§13) don't use the portal. grim asks the
+    compositor directly, through its toplevel list and the
+    `ext-image-copy-capture` protocols, so the fork itself must expose them.
+    sway does, through wlroots' `ext_foreign_toplevel_list_v1`,
+    `ext_image_copy_capture_manager_v1` and toplevel image-capture sources, so
+    a fork would wire up the same.
+
+  **This is the deciding question.**
+- **We maintain a compositor.** A few thousand lines of C, and a port for
+  each wlroots release we move to. (The "writing a compositor" non-goal in
+  §1 wasn't from the brief, and would go.)
+- **An IPC of our own.** Every contract this spec has with Hyprland moves
+  onto the fork: its commands and queries (`hyprctl`, the bar's
+  `Quickshell.Hyprland` reads and `dispatch()`), its event socket (`urgent>>`,
+  `screencast>>`, the layout's `custom>>` events), and its Lua (`hl.`). They
+  run through the bar, launcher, screenshots, idle and lock, focus grants,
+  live settings and doctor. The fork has to replace each one, not just the
+  bar's view of workspaces, so the complete list isn't kept here: building it
+  from the spec is the first step of a rewrite (below).
+- **Reloading config without a restart** (principle 4): dwl's config is
+  compiled in, and a Wayland compositor can't restart under its apps. Tunables
+  and key bindings would move to a runtime file the fork reads, so only code
+  changes need a new session.
+
+**Rejected alongside:** niri (scrolling columns, not dwm layouts; no
+minimize or scratchpad), sway (layouts need an IPC daemon that rearranges
+windows after the fact), and KWin with Krohnkite. The KWin rejection rests on
+the maintainer's own use, not a tracked bug or a pinned version: crashes, and
+windows falling out of the tiling when a dialog opens. It is an unverified
+local observation.
+
+**Next steps, if pursued,** before rewriting §3.1. The first three use the
+sources, then a test session on wlroots 0.19/0.20:
+
+1. Check that xdg-desktop-portal-wlr shares a single window and a region in
+   Chrome, through §12's own `quickspace-share-picker` rather than the
+   portal's chooser. The picker reads xdph's `XDPH_OUTPUT_SHARING_LIST` and
+   `XDPH_WINDOW_SHARING_LIST` and answers in xdph's `[SELECTION]` format, so it
+   needs an adapter for xdpw. Run all of §12's flows end to end: the focused
+   window as the default, the 16:9 slice, preselecting the last choice, and
+   the restore flag.
+2. Check that a dwl build exposing the toplevel and `ext-image-copy-capture`
+   protocols takes `grim -T` screenshots of the focused window, found through
+   the fork's IPC, which is §13's whole Alt+Print flow.
+3. Re-check the Debian 13 toolchain above.
+4. List everything the spec needs from the compositor, with the fork's
+   replacement for each and a check for it. That covers every Hyprland
+   contract (`hyprctl` commands, IPC events, Quickshell Hyprland calls, Lua
+   hooks) and every Wayland protocol and behavior the design relies on
+   (layer-shell panels, session lock and its crash recovery, the workspace
+   model, focus and activation). That list becomes the fork's acceptance
+   test.
 
 Decided in review of this spec:
 
@@ -1646,3 +1754,30 @@ Checked 2026-09-28, against these releases:
 - Krohnkite: [repo](https://codeberg.org/anametologin/Krohnkite)
 - xdg-desktop-portal-hyprland: [1.3.9 custom picker](https://github.com/hyprwm/xdg-desktop-portal-hyprland/releases/tag/v1.3.9)
 - xdg-desktop-portal: [Settings portal](https://github.com/flatpak/xdg-desktop-portal/blob/main/data/org.freedesktop.impl.portal.Settings.xml)
+
+Checked 2026-09-29, for §21.1:
+
+- dwl 0.9: [`config.mk`](https://codeberg.org/dwl/dwl/src/tag/v0.9/config.mk)
+  (builds against `wlroots-0.20`),
+  [`dwl.c`](https://codeberg.org/dwl/dwl/src/tag/v0.9/dwl.c) (3,415 lines),
+  [`config.def.h`](https://codeberg.org/dwl/dwl/src/tag/v0.9/config.def.h)
+  (tile and monocle layouts; Super+drag `moveresize`)
+- Ubuntu 26.04 wlroots: [`libwlroots-0.19-dev` 0.19.2](https://packages.ubuntu.com/resolute/libwlroots-0.19-dev)
+- Ubuntu 26.04 Hyprland: 0.53.3 (`hyprland` 0.53.3+ds-4), from `apt-cache
+  policy hyprland` on a 26.04 machine
+- The nine pinned projects and GCC 15:
+  [setup-quickspace's pins](https://github.com/mikelward/scripts/pull/261),
+  built on Ubuntu 26.04's GCC 15.2
+- Hyprland 0.56.2's build dependencies:
+  [`CMakeLists.txt`](https://github.com/hyprwm/Hyprland/blob/v0.56.2/CMakeLists.txt),
+  [`hyprctl/CMakeLists.txt`](https://github.com/hyprwm/Hyprland/blob/v0.56.2/hyprctl/CMakeLists.txt)
+  (needs hyprwire)
+- xdg-desktop-portal-wlr 0.8.4 (window sharing since 0.8.0):
+  [`screencast.c`](https://github.com/emersion/xdg-desktop-portal-wlr/blob/v0.8.4/src/screencast/screencast.c)
+  (monitor and window source types only),
+  [`ext_image_copy.c`](https://github.com/emersion/xdg-desktop-portal-wlr/blob/v0.8.4/src/screencast/ext_image_copy.c),
+  [`chooser_cmd`](https://github.com/emersion/xdg-desktop-portal-wlr/blob/v0.8.4/xdg-desktop-portal-wlr.5.scd)
+- sway's toplevel capture:
+  [`server.c`](https://github.com/swaywm/sway/blob/1652c54b73f67df17b7b4ab0b0f7048204aa8104/sway/server.c)
+  (at 1652c54, 2026-09-29)
+  (`ext_foreign_toplevel_list_v1`, `ext_image_copy_capture_manager_v1`)
