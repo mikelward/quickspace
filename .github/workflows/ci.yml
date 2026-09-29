@@ -40,6 +40,11 @@ jobs:
           persist-credentials: false
       - name: Install Lua
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lua5.4
+      # The oldest Go go.mod allows, so a newer-only API fails here and not
+      # on a distro's Go.
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
       - run: make test
 
   lanes:

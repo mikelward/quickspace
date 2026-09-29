@@ -18,8 +18,8 @@ The mocks are in [`docs/mocks/`](docs/mocks/).
 `setup --quickspace` in the scripts repo will do all of this; until it lands,
 this is the way to install by hand:
 
-    make install                       # layout, user units, portal config under ~/.config
-    sudo make install-session          # session entry, compositor wrapper, `quickspace` under /usr/local
+    make install                       # builds quickspace-grant (needs Go 1.22+); layout, user units, portal config under ~/.config
+    sudo make install-session          # session entry, compositor wrapper, `quickspace` and quickspace-grant under /usr/local
     systemctl --user daemon-reload
     systemctl --user enable quickspace.service
 
@@ -32,6 +32,8 @@ install it with `sudo make install-session PREFIX=/usr`.
 Key bindings and the launcher start apps with `quickspace launch [--app ID]
 COMMAND...`: it waits (at most 15 s) for the shell, gives the app a one-shot
 focus grant, and runs it with `uwsm app` so it outlives a shell restart.
+Terminal commands get their grants from `quickspace-grant`, which each shell
+runs before a command (SPEC.md §14.3).
 
 Until the Quickshell shell exists, `quickspace.service` runs
 `quickspace-shell`, a transitional shell: conf's theme daemon (which runs
