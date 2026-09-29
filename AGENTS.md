@@ -31,6 +31,8 @@ has stopped biting.
 - Lua (the Hyprland layout): Hyprland embeds Lua 5.5 and tests run on 5.4, so
   use nothing that differs between them. Keep geometry free of the `hl` API so
   it tests in plain Lua, and never dispatch from inside a layout callback.
+- Go (`cmd/`): `gofmt`, and nothing newer than the Go in `go.mod`, the
+  oldest the distros package; CI builds with exactly that one.
 - The spec and mocks are prose for a person to read: short sentences, one
   idea per bullet, and each claim about an upstream project checked against
   its source or release, with the version.

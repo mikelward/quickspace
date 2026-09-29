@@ -1237,23 +1237,42 @@ this spec.
     that daemonizes.
   - `quickspace launch` writes one for the launcher and key bindings.
   - A notification click writes one for the sender's app (§9).
-  - For the terminal, `conf`'s `shrc` writes one before each command, in zsh
-    and bash, with the command's program name and the shell's pid. It skips
-    assignments, wrappers (`env`, `nohup` …) and redirections, and reads a
-    program named by a variable (`$BROWSER`) by that variable's value. It
-    goes through `hyprctl eval`, one short process per command, and only in
-    a quickspace session. fish, nushell, Elvish and mesh get it as a
-    fast-follow (`conf`'s TODO.md).
+  - For the terminal, each shell in `conf` runs `quickspace-grant` before a
+    command, in a quickspace session only, with the command line and the
+    shell's pid.
+    - It's a small Go program (`cmd/quickspace-grant`). Each command gets
+      one grant, naming the shell's pid for process ancestry (below), and
+      the app of the line's first command, if it names one.
+    - The name is for an app that's already running: `firefox URL` hands
+      the URL to the Firefox process that was there, whose windows and
+      activations don't descend from the shell. Everything else the line
+      starts is covered by the pid.
+    - It finds the first command's program by parsing the line as bash with
+      `mvdan.cc/sh`, past assignments, redirections, `!` and wrappers
+      (`env`, `nohup` …), with variables expanded from its environment
+      (`$BROWSER`). It doesn't check the name is on PATH: a function, alias
+      or typo gets a grant no window uses, which is bounded like any grant.
+      A builtin, a block (`if …`), or a program word that needs a command
+      substitution names nothing, and the grant is the pid's alone.
+    - fish and nushell lines are read as bash too, which works for the
+      first word; `nautilus (pwd)` still names `nautilus`.
+    - An earlier design granted every program on the line. Reading chains,
+      `eval`, `env -S` and other shells' blocks the way each shell does
+      kept turning up misses; ancestry covers them without parsing.
+    - It costs one short process per command, about 3 ms, plus one
+      `hyprctl eval`.
   - The guard resolves a program name to an app the way the launcher does,
     through desktop entries' `Exec` and `StartupWMClass`. `xdg-open` and
     `gio open` resolve through the default handler for the file's type.
     Not yet in M2: a grant matches the window class alone (TODO.md), so a
     launch through `xdg-open` or `gio open` grants `*`, the first window of any
     app, unless `--app` names the app.
-- **Process ancestry** is the fallback for a command that names no known
-  app, such as a script that opens a window. The preexec hook's grant names
-  its shell's pid, and a window whose process descends from that shell uses
-  it up. A launch grant names no process, so it never matches this way. Parents are walked in `/proc/<pid>/stat`; if `/proc` can't be read,
+- **Process ancestry** covers the terminal's commands: a script that opens
+  a window, the second command on a line, or anything the shell's grant
+  can't name. The preexec hook's grant names its shell's pid, and a window
+  whose process is that shell (a command it `exec`'d) or descends from it
+  uses it up. A launch grant names no process, so it never matches this
+  way. Parents are walked in `/proc/<pid>/stat`; if `/proc` can't be read,
   there's no fallback and the window waits.
 - **Opting in.** A `focus_on_activate` window rule lets a specific app's
   activations through, if one turns out to need it.

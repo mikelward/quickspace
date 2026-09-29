@@ -119,7 +119,9 @@ check "the portal config never picks kde, gnome or wlr" \
 
 # --- make install / install-session ----------------------------------------------
 home="$tmp/home"
-if make -s install HOME="$home" >"$tmp/install.log" 2>&1; then
+# The fake HOME would send Go to an empty module cache, and so the network.
+if make -s install HOME="$home" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" \
+    >"$tmp/install.log" 2>&1; then
     for f in .config/hypr/quickspace/layout.lua \
              .config/hypr/quickspace/geometry.lua \
              .config/hypr/quickspace/focus.lua \
@@ -136,6 +138,8 @@ if make -s install-session DESTDIR="$tmp/root" PREFIX=/usr >"$tmp/session.log" 2
         test -x "$tmp/root/usr/bin/quickspace-hyprland"
     check "make install-session installs the quickspace command" \
         test -x "$tmp/root/usr/bin/quickspace"
+    check "make install-session installs quickspace-grant" \
+        test -x "$tmp/root/usr/bin/quickspace-grant"
     check "make install-session installs the unit's shell" \
         test -x "$tmp/root/usr/bin/quickspace-shell"
     check "make install-session installs the session entry" \

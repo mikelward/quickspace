@@ -51,11 +51,9 @@ errors, and autostart entries. SPEC.md §5.4 also wants:
 
 ## Grants for terminal commands
 
-`conf`'s `shrc` grants each zsh or bash command's program (SPEC.md §14.3).
-What's left is tracked in `conf`'s TODO.md: the fish, nushell, Elvish and
-mesh ports, and command chains, shell functions and `env -S`, which grant
-the wrong program. Until the ports land, a GUI app started from those
-shells opens unfocused unless it's the terminal's own app.
+Every shell in `conf` runs `quickspace-grant` (SPEC.md §14.3) before a
+command except mesh, which waits until `conf` tests it (tracked in `conf`'s
+TODO.md). Nothing has run it in a live session yet.
 
 ## Grants through desktop entries
 
