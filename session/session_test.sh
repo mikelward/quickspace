@@ -83,6 +83,15 @@ check "a hypridle that never claims the name fails in 10 s" \
     has_line "$dropin" "TimeoutStartSec=10"
 check "the drop-in adds no [Install], so hypridle isn't enabled globally" \
     lacks_line_matching "$dropin" '^\[Install\]'
+# The drop-in's condition, as systemd would run it ($$ is a literal $).
+idle_condition=$(sed -n 's/^ExecCondition=\/bin\/sh -c //p' "$dropin" | sed "s/^'//; s/'\$//; s/\\$\\$/\\$/g")
+idle_runs_in() { XDG_CURRENT_DESKTOP=$1 sh -c "$idle_condition"; }
+idle_skips_in() { ! idle_runs_in "$1"; }
+check "hypridle's condition is a sh -c script" test -n "$idle_condition"
+check "hypridle runs in the quickspace session" idle_runs_in "quickspace:Hyprland"
+check "hypridle is skipped under Plasma, even when a package enabled it" idle_skips_in "KDE"
+check "hypridle's unit is skipped in a plain Hyprland login, which runs its own" idle_skips_in "Hyprland"
+check "hypridle is skipped where no desktop is set" idle_skips_in ""
 
 # --- systemd-analyze verify ---------------------------------------------------
 # Resolves the units as systemd would. quickspace-shell and hypridle aren't

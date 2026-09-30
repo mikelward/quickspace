@@ -374,6 +374,10 @@ flowchart TD
     it owns the name, and `quickspace.service` is `After=` and `Wants=` it.
     Chrome uses the D-Bus inhibitor only if that name is already owned, so
     an app started before hypridle would silently lose its inhibits.
+  - The drop-in also runs hypridle only in the quickspace session, through an
+    `ExecCondition=` on `XDG_CURRENT_DESKTOP`. Distro packages enable
+    `hypridle.service` for every session, and under Plasma, which owns the
+    ScreenSaver name itself, it would time out and restart forever.
   - Both autostart and `quickspace launch` wait for `quickspace.service`,
     so they wait for hypridle too. If hypridle fails, the shell still
     starts (`Wants=`, not `Requires=`), and `doctor` reports it. Ordering alone isn't enough,
