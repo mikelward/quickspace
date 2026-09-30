@@ -276,6 +276,21 @@ cp "$tmp/agent" "$tmp/agents/found-agent"
 run FAKE_NAMES="$both" QUICKSPACE_POLKIT_AGENT= QUICKSPACE_POLKIT_AGENTS="$tmp/agents/missing $tmp/agents/found-agent"
 check "the first installed agent on the search list starts" contains "$(cat "$tmp/log")" "agent"
 
+# Debian puts KDE's agent under a multiarch directory, which the search
+# matches with a pattern rather than naming each architecture.
+# The default list's own pattern must match every Debian triplet, armhf's
+# ABI-suffixed one included.
+kde_pattern=$(sed -n 's|^ *\(/usr/lib/\*[^ ]*polkit-kde-authentication-agent-1\)$|\1|p' "$shell")
+check "the shell searches KDE's multiarch directories by pattern" test -n "$kde_pattern"
+for triplet in x86_64-linux-gnu aarch64-linux-gnu arm-linux-gnueabihf; do
+    mkdir -p "$tmp/multi/$triplet/libexec"
+    cp "$tmp/agent" "$tmp/multi/$triplet/libexec/polkit-kde-authentication-agent-1"
+    run FAKE_NAMES="$both" QUICKSPACE_POLKIT_AGENT= QUICKSPACE_POLKIT_AGENTS="$tmp/multi${kde_pattern#/usr/lib}"
+    check "KDE's agent under $triplet is found" contains "$(cat "$tmp/log")" "agent"
+    check "KDE's agent under $triplet leaves no agent missing" test -z "$(grep "no polkit agent found" "$tmp/err")"
+    rm -rf "$tmp/multi/$triplet"
+done
+
 if command -v shellcheck >/dev/null 2>&1; then
     check "shellcheck passes" shellcheck -s sh "$shell" bin/quickspace-shell_test.sh
 fi

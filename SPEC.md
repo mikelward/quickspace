@@ -401,9 +401,17 @@ flowchart TD
   `uwsm finalize`, and a test in `conf` asserts it.
 - **Autostart is an allowlist.** XDG autostart entries run in quickspace only
   if they are on its list (initially: none). Everything else gets a
-  quickspace-only condition drop-in (`ConditionEnvironment=`, matched on
-  `XDG_CURRENT_DESKTOP`), so the same entries still run under KDE. `doctor`
-  generates and checks these.
+  quickspace-only drop-in on its `app-*@autostart.service`, so the same
+  entries still run under KDE. `doctor` generates and checks these.
+  - The drop-in is an `ExecCondition=` that exits non-zero when
+    `XDG_CURRENT_DESKTOP` contains `quickspace`. `ConditionEnvironment=`
+    can't express that, because it matches the variable's whole value.
+  - Other desktops' autostarted polkit agents (MATE, GNOME, LXDE, Xfce) get
+    theirs from `make install` already, since M2: polkit takes one agent per
+    session, so a second one breaks the shell's (the list is
+    `POLKIT_AUTOSTART` in the `Makefile`). The shell's own search falls back
+    to KDE's agent, which is always installed (§5.5), so the legacy MATE,
+    LXDE and Xfce agents are never needed.
 - **`XDG_CURRENT_DESKTOP=quickspace:Hyprland`.**
   - xdg-desktop-portal reads `quickspace-portals.conf` first, which names the
     backends explicitly.

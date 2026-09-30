@@ -30,6 +30,7 @@ dropin=systemd/user/hypridle.service.d/quickspace.conf
 entry=session/quickspace.desktop
 wrapper=bin/quickspace-hyprland
 portals=xdg-desktop-portal/quickspace-portals.conf
+not_here=systemd/user/not-in-quickspace.conf
 
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
@@ -93,6 +94,32 @@ check "hypridle is skipped under Plasma, even when a package enabled it" idle_sk
 check "hypridle's unit is skipped in a plain Hyprland login, which runs its own" idle_skips_in "Hyprland"
 check "hypridle is skipped where no desktop is set" idle_skips_in ""
 
+# --- Other desktops' polkit agents -----------------------------------------------
+# The drop-in's condition, as systemd would run it ($$ is a literal $).
+condition=$(sed -n 's/^ExecCondition=\/bin\/sh -c //p' "$not_here" | sed "s/^'//; s/'\$//; s/\\$\\$/\\$/g")
+runs_in() { XDG_CURRENT_DESKTOP=$1 sh -c "$condition"; }
+skips_in() { ! runs_in "$1"; }
+check "another agent's condition is a sh -c script" test -n "$condition"
+check "another agent is skipped in the quickspace session" skips_in "quickspace:Hyprland"
+check "another agent still runs under Plasma" runs_in "KDE"
+check "another agent still runs under MATE" runs_in "MATE"
+check "another agent still runs in a plain Hyprland login" runs_in "Hyprland"
+check "another agent still runs where no desktop is set" runs_in ""
+
+# Suppressing the legacy agents must not leave the session with none: the
+# shell falls back to KDE's, always installed beside Plasma (SPEC.md §5.5).
+agents=$(sed -n '/^default_agents="/,/^"/p' bin/quickspace-shell)
+searches_for() { printf '%s\n' "$agents" | grep -q "/$1\$"; }
+check "the shell falls back to KDE's polkit agent" \
+    searches_for polkit-kde-authentication-agent-1
+# Doctor finds the running agent by its process name, the first 15
+# characters of the file name, so it must know every one the shell can start.
+doctor_names=$(sed -n '/^agent_names="/,/"$/p' bin/quickspace-doctor | tr -d '"' | sed 's/^agent_names=//')
+doctor_knows() { printf '%s\n' "$doctor_names" | grep -qxF -- "$(printf '%.15s' "$1")"; }
+for path in $(printf '%s\n' "$agents" | grep '^ */'); do
+    check "doctor recognizes the shell's agent $path" doctor_knows "${path##*/}"
+done
+
 # --- systemd-analyze verify ---------------------------------------------------
 # Resolves the units as systemd would. quickspace-shell and hypridle aren't
 # installed here, so the copies point ExecStart at a stub; everything else is
@@ -107,7 +134,13 @@ if command -v systemd-analyze >/dev/null 2>&1; then
     printf '[Unit]\nDescription=hypridle\n[Service]\nExecStart=%s\n' "$tmp/stub" \
         > "$tmp/units/hypridle.service"
     cp "$dropin" "$tmp/units/hypridle.service.d/"
-    for u in quickspace.service hypridle.service; do
+    # A stand-in for a generated autostart unit, with the agent drop-in.
+    agent_unit='app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service'
+    mkdir -p "$tmp/units/$agent_unit.d"
+    printf '[Unit]\nDescription=agent\n[Service]\nExecStart=%s\n' "$tmp/stub" \
+        > "$tmp/units/$agent_unit"
+    cp "$not_here" "$tmp/units/$agent_unit.d/quickspace.conf"
+    for u in quickspace.service hypridle.service "$agent_unit"; do
         out=$(cd "$tmp/units" && XDG_RUNTIME_DIR="$tmp/run" \
             systemd-analyze verify --user --man=no "$u" 2>&1)
         status=$?
@@ -136,7 +169,9 @@ if make -s install HOME="$home" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go 
              .config/hypr/quickspace/focus.lua \
              .config/systemd/user/quickspace.service \
              .config/systemd/user/hypridle.service.d/quickspace.conf \
-             .config/xdg-desktop-portal/quickspace-portals.conf; do
+             .config/xdg-desktop-portal/quickspace-portals.conf \
+             '.config/systemd/user/app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service.d/quickspace.conf' \
+             '.config/systemd/user/app-polkit\x2dgnome\x2dauthentication\x2dagent\x2d1@autostart.service.d/quickspace.conf'; do
         check "make install puts $f in place" test -f "$home/$f"
     done
 else
