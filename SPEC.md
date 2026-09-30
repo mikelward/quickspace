@@ -1561,6 +1561,7 @@ light/dark switch.
 | **quickspace** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session: its `wayland-sessions` entry and `quickspace-hyprland` wrapper, the units (`quickspace.service`, `quickspace-lock.service`, the `hypridle.service` drop-in), `quickspace-portals.conf`, the `quickspace-lock` PAM file and the greetd config template. `quickspace-share-picker`. `quickspace doctor`, `quickspace launch` and `quickspace idle-suspend`. The Lua tiling layout. `make install`. |
 | **conf** | The personal config: Hyprland in Lua (keys, rules, the Lua layout's settings, the single `exec-once`, loading `hyprland.local.lua`); `hypridle.conf` timings; uwsm env; the shared `~/.config/quickspace/*.json` defaults (clocks, idle, layouts), with `*.local.json` left per machine (§16.1); `.desktop` files for the launcher scripts. Deleting waybar, swaync, fuzzel, hyprlock, `theme-daemon.sh` and the sway config once M5 lands (§21). |
 | **scripts** | `setup --quickspace`: packages (pinned Hyprland, Quickshell, greetd, xdph, adw-gtk3, grim/slurp/wl-clipboard/satty, the file manager without its recommends, `xdg-terminal-exec`, the companion apps in §16.2) and enabling units. `screenshot` gains a Wayland path. `lock-screensaver` goes through `loginctl lock-session` on Wayland. `setup --purge-obsolete` learns about packages quickspace replaces. |
+| **dwl** (exploration) | The quickspace fork of dwl that §21.1 is exploring, on upstream's history, under dwl's GPL-3.0-or-later license: the layouts, dimming and IPC it would add. Nothing else depends on it until §21.1's next steps are done and §3.1 is rewritten around it. |
 
 ## 19. Milestones
 
@@ -1619,6 +1620,12 @@ regresses often. The alternative
 under consideration is **a quickspace fork of dwl**, the dwm-style wlroots
 compositor (about 3,400 lines of C), built on a wlroots version we pin and
 build ourselves.
+
+The fork lives in its own repository,
+[mikelward/dwl](https://github.com/mikelward/dwl): upstream dwl's history
+(from [Codeberg](https://codeberg.org/dwl/dwl)), with quickspace's changes
+on top of a release tag. It keeps dwl's GPL-3.0-or-later license, so keeping
+it out of this Apache-2.0 repository keeps each repository under one license.
 
 The facts below that are linked under Sources (dated 2026-09-29) were
 checked. Everything else here is a judgment from discussion, not checked

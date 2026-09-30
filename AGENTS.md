@@ -9,11 +9,12 @@ This repo is quickspace, a small Wayland desktop: Hyprland for tiling, one
 Quickshell process for the bar, launcher, notifications, lock and greeter,
 and uwsm for the session. `SPEC.md` is the design; read the section you're
 changing before you change it, and keep the spec and the code in step. Work
-spans three repos (`SPEC.md` §18): this one holds the shell, the Lua layout,
+spans four repos (`SPEC.md` §18): this one holds the shell, the Lua layout,
 the session units and `quickspace` tools; `mikelward/conf` holds the personal
-config; `mikelward/scripts` holds `setup` and the screenshot script. When you
-change a contract, follow it through every consumer, including the other two
-repos.
+config; `mikelward/scripts` holds `setup` and the screenshot script;
+`mikelward/dwl` holds the dwl fork §21.1 is exploring, which nothing depends
+on yet. When you change a contract, follow it through every consumer,
+including the other repos.
 
 Keep this file as short as it can be and still work. Every session loads it
 whole, so each rule costs context on every turn: add one the first time
