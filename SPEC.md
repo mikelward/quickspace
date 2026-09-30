@@ -231,7 +231,7 @@ quickspace greeter, the same QML screen as the lock (§11).
 - **Type:** Inter for UI, Ubuntu Mono for code (decided; the pairings
   compared are in [`fonts.png`](docs/mocks/fonts.png)).
 - **Radii:** 10–16 px.
-- **Windows:** no gaps, no borders, inactive dim 0.15.
+- **Windows:** no gaps, no borders, inactive dim 0.07.
 - **Bar:** 34 px.
 
 ## 4. Requirements and how each is met
@@ -244,7 +244,7 @@ quickspace greeter, the same QML screen as the lock (§11).
 | R4 | Lone window 80% on ultrawide, 100% otherwise | the layout reads the work area's aspect, in every mode | Lua |
 | R5 | Monocle, and maximize or fullscreen the current window | mode `monocle`; Hyprland `fullscreen` states 1 and 0 (§6.3) | Lua / native |
 | R6 | Layout per workspace | the layout keeps a mode per workspace | Lua |
-| R7 | Dim inactive; no borders, gaps | `decoration:dim_inactive`, `dim_strength 0.15`, `border_size 0`, gaps 0 | native |
+| R7 | Dim inactive; no borders, gaps | `decoration:dim_inactive`, `dim_strength 0.07`, `border_size 0`, gaps 0 | native |
 | R8 | One full-width bar, flush to the edges, all workspaces | Quickshell `PanelWindow` per monitor + `Quickshell.Hyprland` | shell |
 | R9 | Tray icons | `Quickshell.Services.SystemTray`; the shell is the SNI watcher | shell |
 | R10 | Network, volume, Bluetooth, power | `Networking`, `Pipewire`, `Bluetooth`, `UPower` | shell |
@@ -487,14 +487,15 @@ See [`layouts.png`](docs/mocks/layouts.png).
 
 ### 6.2 Focus cue: dim, nothing else
 
-- `dim_inactive` at **0.15**, the same strength as the KDE setup, with no
-  borders and no gaps.
+- `dim_inactive` at **0.07**, with no borders and no gaps. Hyprland's dim
+  looks stronger than KDE's dim-inactive effect at the same number: 0.15,
+  the KDE setup's strength, looked too heavy in the first real session.
 - A workspace with one visible window never dims. With nothing to tell
   apart, a dimmed lone window just looks wrong.
 - Video, picture-in-picture and screen-share preview windows get a `nodim`
   window rule, so a call on the other monitor doesn't look washed out.
-- 0.15 is subtle on dark apps: a dark terminal next to a dark editor.
-  Strength is a setting; if dark-on-dark focus is hard to see, 0.25 is the
+- 0.07 is subtle on dark apps: a dark terminal next to a dark editor.
+  Strength is a setting; if dark-on-dark focus is hard to see, 0.1 is the
   first thing to try.
 
 ### 6.3 One window big: monocle, maximize, fullscreen
@@ -1548,7 +1549,7 @@ light/dark switch.
 | Hyprland config breaks on upgrade | red config-error banner | pinned version, Lua config, CI loads it, upgrades as their own PRs |
 | Tray icon missing | an app started before the tray watcher | the shell (the watcher) is ordered before autostart |
 | `Super` tap misfires | launcher opens after every `Super+<key>` on Hyprland 0.56.x | `Super+Space` until the pinned Hyprland has the keybind fix and passes the tap checks (§8) |
-| Dark-on-dark focus hard to see | can't tell which terminal is focused | dim strength is a setting; 0.25 is the next step |
+| Dark-on-dark focus hard to see | can't tell which terminal is focused | dim strength is a setting; 0.1 is the next step |
 | Sharing an ultrawide | viewers get a letterboxed strip | the 16:9 area and window-first default in the picker |
 | "Show in folder" opens the wrong file manager | Dolphin and Nautilus both claim `FileManager1` | a user-level activation file → a session-bound unit with a desktop-aware launcher: Nautilus in quickspace, Dolphin in Plasma, one session at a time; `doctor` checks (§16.2) |
 | `Terminal=true` apps open in Konsole | GLib's terminal list lacks kitty | `xdg-terminal-exec` with kitty listed first (§16.2) |
