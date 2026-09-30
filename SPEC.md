@@ -351,7 +351,8 @@ flowchart TD
   the current display manager lists it too (M2).
 - **`-e -D quickspace:Hyprland`** sets `XDG_CURRENT_DESKTOP` to exactly that;
   without `-e`, uwsm appends to names from other sources.
-- **`quickspace-hyprland`** is a wrapper that execs `Hyprland`. uwsm names a
+- **`quickspace-hyprland`** is a wrapper that execs `start-hyprland`,
+  Hyprland's crash watchdog, or `Hyprland` where that's missing. uwsm names a
   session after its compositor command, so the wrapper gives quickspace
   its own session target, `wayland-session@quickspace-hyprland.target`. A
   plain Hyprland login gets `wayland-session@hyprland.desktop.target`

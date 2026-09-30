@@ -6,4 +6,11 @@
 # through this wrapper gives the session its own target,
 # wayland-session@quickspace-hyprland.target. quickspace's units hang off that
 # target, so a plain Hyprland login, or Plasma, never starts them.
+#
+# Hyprland 0.53 and later start through start-hyprland, a watchdog that
+# restarts a crashed Hyprland in safe mode; without it, Hyprland warns at
+# every login. An older install without it still gets Hyprland directly.
+if command -v start-hyprland >/dev/null 2>&1; then
+    exec start-hyprland -- "$@"
+fi
 exec Hyprland "$@"
