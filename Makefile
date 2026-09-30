@@ -18,6 +18,9 @@ HYPR_DIR ?= $(HOME)/.config/hypr/quickspace
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 PORTAL_DIR ?= $(HOME)/.config/xdg-desktop-portal
 PREFIX ?= /usr/local
+# Other desktops' polkit agents that autostart through /etc/xdg/autostart,
+# by desktop file name. systemd runs each as app-<escaped name>@autostart.service.
+POLKIT_AUTOSTART ?= polkit-mate-authentication-agent-1 polkit-gnome-authentication-agent-1 lxpolkit xfce-polkit
 GO ?= go
 # Build with the Go that's installed, never one downloaded to match go.mod.
 export GOTOOLCHAIN := local
@@ -47,6 +50,11 @@ install: build
 	install -d "$(SYSTEMD_USER_DIR)/hypridle.service.d"
 	install -m 644 systemd/user/quickspace.service "$(SYSTEMD_USER_DIR)/"
 	install -m 644 systemd/user/hypridle.service.d/quickspace.conf "$(SYSTEMD_USER_DIR)/hypridle.service.d/"
+	@# systemd escapes the name's dashes, and nothing else these names have.
+	for id in $(POLKIT_AUTOSTART); do \
+		d="$(SYSTEMD_USER_DIR)/app-$$(printf '%s' "$$id" | sed 's/-/\\x2d/g')@autostart.service.d"; \
+		install -d "$$d" && install -m 644 systemd/user/not-in-quickspace.conf "$$d/quickspace.conf" || exit 1; \
+	done
 	install -d "$(PORTAL_DIR)"
 	install -m 644 xdg-desktop-portal/quickspace-portals.conf "$(PORTAL_DIR)/"
 

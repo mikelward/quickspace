@@ -27,6 +27,9 @@
 #                             apply-input.sh), run once Hyprland is up
 
 prog=${0##*/}
+# KDE's agent is always installed, since quickspace runs beside Plasma
+# (SPEC.md §5.5), so the legacy desktops' agents that `make install` keeps out
+# of the session (POLKIT_AUTOSTART) aren't needed as fallbacks.
 default_agents="
     /usr/libexec/hyprpolkitagent
     /usr/lib/hyprpolkitagent/hyprpolkitagent
@@ -34,7 +37,7 @@ default_agents="
     /usr/libexec/polkit-gnome-authentication-agent-1
     /usr/lib/polkit-kde-authentication-agent-1
     /usr/libexec/polkit-kde-authentication-agent-1
-    /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1
+    /usr/lib/*-linux-*/libexec/polkit-kde-authentication-agent-1
     /usr/libexec/kf6/polkit-kde-authentication-agent-1
 "
 theme_daemon=${QUICKSPACE_THEME_DAEMON:-$HOME/.config/hypr/scripts/theme-daemon.sh}
@@ -50,6 +53,7 @@ polkit_agent() {
         echo "$QUICKSPACE_POLKIT_AGENT"
         return
     fi
+    # Unquoted, so a pattern such as Debian's multiarch directory expands.
     for a in ${QUICKSPACE_POLKIT_AGENTS-$default_agents}; do
         if is_program "$a"; then
             echo "$a"

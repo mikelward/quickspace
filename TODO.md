@@ -46,8 +46,10 @@ errors, and autostart entries. SPEC.md §5.4 also wants:
   session doesn't have yet (jq, or the shell itself in M3).
 - **Generating the autostart drop-ins.** It reports each entry that would
   run in quickspace and suggests `NotShowIn=quickspace;`. The spec's fix is
-  a `ConditionEnvironment=` drop-in for each entry's
-  `app-*@autostart.service`, which `doctor --fix` could write.
+  a drop-in for each entry's `app-*@autostart.service`, which
+  `doctor --fix` could write. `make install` already ships that drop-in
+  (`systemd/user/not-in-quickspace.conf`) for the polkit agents in
+  `POLKIT_AUTOSTART`; the rest would reuse it.
 
 ## Grants for terminal commands
 
