@@ -54,3 +54,8 @@ The mocks are plain HTML/CSS. To re-render the PNGs after editing one:
     make mocks
 
 This needs Node and Playwright with Chromium.
+
+## License
+
+Apache-2.0; see `LICENSE`. The exception is `compositor/dwl/`, a copy of dwl
+that keeps dwl's GPL-3.0-or-later license (see `compositor/README.md`).
