@@ -43,7 +43,19 @@ check "the entry starts the wrapper through uwsm with quickspace:Hyprland" \
     has_line "$entry" "Exec=uwsm start -e -D quickspace:Hyprland -N quickspace -- $session_id"
 check "the entry lists quickspace first in DesktopNames" \
     has_line "$entry" "DesktopNames=quickspace;Hyprland"
-check "the wrapper execs Hyprland" grep -qx 'exec Hyprland "\$@"' "$wrapper"
+# The wrapper runs start-hyprland when there is one, and Hyprland otherwise,
+# passing its arguments through either way. PATH holds only the stubs, so a
+# host with a real start-hyprland never runs it here.
+mkdir -p "$tmp/wrapper-bin" "$tmp/wrapper-bin-old"
+for cmd in start-hyprland Hyprland; do
+    printf '#!/bin/sh\necho "%s $*"\n' "$cmd" > "$tmp/wrapper-bin/$cmd"
+    chmod +x "$tmp/wrapper-bin/$cmd"
+done
+cp "$tmp/wrapper-bin/Hyprland" "$tmp/wrapper-bin-old/"
+check "the wrapper starts Hyprland through its watchdog" \
+    test "$(PATH="$tmp/wrapper-bin" /bin/sh "$wrapper" --config x)" = "start-hyprland -- --config x"
+check "the wrapper falls back to Hyprland without start-hyprland" \
+    test "$(PATH="$tmp/wrapper-bin-old" /bin/sh "$wrapper" --config x)" = "Hyprland --config x"
 check "the wrapper is executable" test -x "$wrapper"
 check "the wrapper parses as sh" sh -n "$wrapper"
 if command -v shellcheck >/dev/null 2>&1; then
