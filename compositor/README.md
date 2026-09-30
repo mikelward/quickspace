@@ -19,8 +19,9 @@ change. Nothing builds or installs this directory yet.
 
 ## License
 
-`dwl/` is dwl's code under dwl's licenses: GPL-3.0 or later (`dwl/LICENSE`), with the
-parts derived from dwm, tinywl and sway under the terms in
-`dwl/LICENSE.dwm`, `dwl/LICENSE.tinywl` and `dwl/LICENSE.sway`. Changes made
-here stay under the same terms. The rest of quickspace has no license file
-of its own; this directory doesn't change that.
+`dwl/` is dwl's code under dwl's licenses: GPL-3.0 or later
+(`dwl/LICENSE`), with the parts derived from dwm, tinywl and sway under the
+terms in `dwl/LICENSE.dwm`, `dwl/LICENSE.tinywl` and `dwl/LICENSE.sway`.
+Changes made inside `dwl/` stay under those terms. The rest of quickspace is
+Apache-2.0 (`LICENSE` at the top), which is compatible one way: Apache-2.0
+code can be built into the GPL-3.0 compositor, and the result is GPL-3.0.
