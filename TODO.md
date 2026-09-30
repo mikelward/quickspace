@@ -119,7 +119,9 @@ Lands with the bar (M3).
 
 Hyprland stays the baseline, but building it on Debian and Ubuntu is heavy,
 so §21.1 records a quickspace fork of dwl on a pinned wlroots as the
-alternative. Before rewriting §3.1 around it, work through §21.1's next steps:
+alternative. The fork's code goes in
+[mikelward/dwl](https://github.com/mikelward/dwl), which holds upstream's
+history; quickspace's changes go on top of v0.9 there. Before rewriting §3.1 around it, work through §21.1's next steps:
 
 - Screen sharing through `quickspace-share-picker` on xdg-desktop-portal-wlr,
   with an adapter, including a way to share the 16:9 slice.

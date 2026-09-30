@@ -57,5 +57,6 @@ This needs Node and Playwright with Chromium.
 
 ## License
 
-Apache-2.0; see `LICENSE`. The exception is `compositor/dwl/`, a copy of dwl
-that keeps dwl's GPL-3.0-or-later license (see `compositor/README.md`).
+Apache-2.0; see `LICENSE`. The dwl fork explored in SPEC.md §21.1 lives in
+its own repository, [mikelward/dwl](https://github.com/mikelward/dwl), under
+dwl's GPL-3.0-or-later license.
