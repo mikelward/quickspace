@@ -41,6 +41,16 @@ cat > "$fake/busctl" <<'FAKE'
 test -e "$FAKE_OWNED/$3" || { echo "Failed to get credentials: No such device or address" >&2; exit 1; }
 printf 'PID=1\nComm=fake\nUserUnit=%s\n' "$(cat "$FAKE_OWNED/$3")"
 FAKE
+# sleep fails for the delay in $FAKE_SLEEP_FAILS and is the real one
+# otherwise.
+cat > "$fake/sleep" <<FAKE
+#!/bin/sh
+if test -n "\$FAKE_SLEEP_FAILS" && test "\$1" = "\$FAKE_SLEEP_FAILS"; then
+    echo "sleep: broken" >&2
+    exit 1
+fi
+exec $(command -v sleep) "\$@"
+FAKE
 cat > "$fake/systemd-notify" <<'FAKE'
 #!/bin/sh
 printf 'systemd-notify %s\n' "$*" >> "$FAKE_LOG"
@@ -58,11 +68,22 @@ if test -n "$FAKE_DAEMON_STAYS"; then
 fi
 exit "${FAKE_DAEMON_EXIT:-0}"
 FAKE
-# Stays up until the test kills it, or exits at once with $FAKE_AGENT_EXIT.
+# Stays up until the test kills it, or exits at once with $FAKE_AGENT_EXIT,
+# the first time only with $FAKE_AGENT_EXIT_ONCE; started again after that,
+# it says so on stderr. With $FAKE_AGENT_PIDFILE it records its pid there,
+# where the test's cleanup won't kill it, and says it's running.
 cat > "$tmp/agent" <<'FAKE'
 #!/bin/sh
 printf 'agent\n' >> "$FAKE_LOG"
-if test -n "$FAKE_AGENT_EXIT"; then
+if test -n "$FAKE_AGENT_PIDFILE"; then
+    echo $$ > "$FAKE_AGENT_PIDFILE"
+    echo "fake agent running" >&2
+    exec sleep 600 >/dev/null 2>&1
+fi
+if test -n "$FAKE_AGENT_EXIT_ONCE" && test -e "$FAKE_OWNED/agent-ran"; then
+    echo "fake agent started again" >&2
+elif test -n "$FAKE_AGENT_EXIT"; then
+    : > "$FAKE_OWNED/agent-ran"
     exit "$FAKE_AGENT_EXIT"
 fi
 echo $$ >> "$FAKE_PIDS"
@@ -218,9 +239,52 @@ check "a name owned outside the unit doesn't count" test "$status" -eq 1
 check "a name owned outside the unit never reports ready" \
     test -z "$(grep systemd-notify "$tmp/log")"
 
-run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_EXIT=3
-check "the polkit agent exiting ends the shell with a failure" test "$status" -eq 1
-check "the agent's exit is reported" contains "$(cat "$tmp/err")" "the polkit agent exited (3)"
+# An agent exits at once when another holds the session: the shell carries
+# on to ready, and ends only when the theme daemon does.
+run FAKE_NAMES="$both" FAKE_AGENT_EXIT=3
+check "the polkit agent exiting doesn't stop ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
+check "the agent's exit is reported" contains "$(cat "$tmp/err")" "the polkit agent exited (3); the shell keeps running and starts it again in 5 s"
+check "the shell ends with the theme daemon, not the agent" contains "$(cat "$tmp/err")" "the theme daemon exited (0)"
+
+# Once the other agent goes, or after a crash, the agent is started again.
+stop_on="fake agent started again"
+run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_EXIT=3 FAKE_AGENT_EXIT_ONCE=1 QUICKSPACE_AGENT_RETRY=1
+stop_on=
+check "an agent that exited is started again" test "$(grep -c '^agent$' "$tmp/log")" -eq 2
+check "its restart delay is reported" contains "$(cat "$tmp/err")" "starts it again in 1 s"
+
+# Without a working sleep there's no backoff, so the agent isn't respawned.
+stop_on="not starting the polkit agent again"
+run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_EXIT=3 QUICKSPACE_AGENT_RETRY=1 FAKE_SLEEP_FAILS=1
+stop_on=
+check "a failed backoff sleep is reported" contains "$(cat "$tmp/err")" "sleep 1 failed; not starting the polkit agent again"
+check "with sleep's own error" contains "$(cat "$tmp/err")" "sleep: broken"
+check "a loop that gave up isn't signaled at exit" test -z "$(grep 'kill:' "$tmp/err")"
+check "a failed backoff sleep starts no more agents" test "$(grep -c '^agent$' "$tmp/log")" -eq 1
+
+# The shell's exit stops the agent itself, not just its restart loop.
+stop_on="fake agent running"
+run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_PIDFILE="$tmp/agent.pid"
+stop_on=
+check "the shell's exit stops the running agent" test -s "$tmp/agent.pid"
+if test -s "$tmp/agent.pid"; then
+    agent_pid=$(cat "$tmp/agent.pid")
+    # kill -0 failing (no such process) is the pass.
+    if kill -0 "$agent_pid" 2>/dev/null; then
+        kill "$agent_pid"
+        fail "the agent outlived the shell"
+    else
+        pass
+    fi
+fi
+
+run FAKE_NAMES="$both" QUICKSPACE_AGENT_RETRY=61
+check "a QUICKSPACE_AGENT_RETRY over a minute fails the start, not to be retried" test "$status" -eq 78
+check "a bad QUICKSPACE_AGENT_RETRY is reported" contains "$(cat "$tmp/err")" "QUICKSPACE_AGENT_RETRY must be a whole number of seconds from 1 to 60, not '61'"
+for bad in x 0 08; do
+    run FAKE_NAMES="$both" QUICKSPACE_AGENT_RETRY=$bad
+    check "QUICKSPACE_AGENT_RETRY=$bad fails the start" test "$status" -eq 78
+done
 
 run FAKE_NAMES="$both" FAKE_NOTIFY_STATUS=1
 check "a failed ready notification fails the start" test "$status" -eq 1

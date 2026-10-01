@@ -28,6 +28,10 @@ plus the first polkit agent found and swww for the wallpaper. It also runs
   owner leaves `quickspace-shell`.
 - Until then the polkit agent isn't part of the ready check, and the tray
   and notifications look like today's, not the mocks.
+- The polkit agent is restarted on its own, with backoff, rather than
+  failing the unit (SPEC.md §5.2's M2 note). The Quickshell agent has to
+  keep that: another desktop's agent can hold the session first, and the
+  bar mustn't restart over it.
 - Ready is checked once, at start. After that the shell watches only the
   theme daemon, which restarts waybar and swaync at each light/dark
   boundary. For that moment the notification and tray names are unowned,

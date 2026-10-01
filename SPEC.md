@@ -327,7 +327,12 @@ It starts `conf`'s theme daemon, which runs waybar and swaync, and the
 first polkit agent it finds, and reports ready once swaync owns
 `org.freedesktop.Notifications` and waybar's tray owns
 `org.kde.StatusNotifierWatcher`. The polkit agent's registration isn't
-observable from a script, so it isn't waited for. It also runs the
+observable from a script, so it isn't waited for. Its exit doesn't fail the
+unit, either: an agent exits at once when another already holds the
+session, and failing the unit for that restarted the bar in a loop at
+login. The shell starts the agent alone again instead, after 5 s, doubling
+to once a minute, so it takes over when the other agent goes and comes
+back after a crash; `doctor` names the other agent. It also runs the
 wallpaper (swww, supervised but not waited for) and, once, `conf`'s
 `apply-input.sh`, which Hyprland's autostart ran before it shrank to
 `uwsm finalize`.
@@ -388,7 +393,10 @@ flowchart TD
     ready:
     - the notification server owns `org.freedesktop.Notifications`;
     - the tray owns `org.kde.StatusNotifierWatcher`;
-    - the polkit agent has registered with polkitd.
+    - the polkit agent has registered with polkitd, or found that another
+      agent already holds the session. That is not a failure: the shell
+      reports ready and retries the agent with backoff, as the M2 shell
+      does (§5.2), and `doctor` names the other agent.
 
     Waiting on a list of names from outside would miss any owner that isn't
     a name, like the polkit agent. The shell is the one place that knows

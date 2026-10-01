@@ -17,11 +17,18 @@
 # $QUICKSPACE_SHELL_WAIT seconds at most (12, inside the unit's 15 s timeout)
 # and fails, naming the missing owner, if they never appear. The polkit
 # agent's registration can't be observed from here, so it isn't waited for,
-# but its exit fails the unit, so systemd restarts it.
+# and its exit doesn't end the unit: an agent exits at once when another
+# already holds the session, and restarting the shell for that only looped
+# the bar at login. The agent alone is started again instead, backing off to
+# once a minute while it keeps exiting, so it takes over once the other
+# agent goes, and comes back after a crash. `quickspace doctor` names a
+# missing agent or the other one.
 #
 #   $QUICKSPACE_THEME_DAEMON  the theme daemon (default: conf's)
 #   $QUICKSPACE_POLKIT_AGENT  a polkit agent to use instead of searching
 #   $QUICKSPACE_POLKIT_AGENTS the paths searched, in order (default below)
+#   $QUICKSPACE_AGENT_RETRY   seconds (1-60) before the agent's first restart (5),
+#                             doubling to at most 60
 #   $QUICKSPACE_WALLPAPER     the wallpaper swww shows (default: conf's)
 #   $QUICKSPACE_INPUT_SETUP   a one-shot input setup (default: conf's
 #                             apply-input.sh), run once Hyprland is up
@@ -105,6 +112,18 @@ if test "$wait" -gt 12 && ! systemd-notify "EXTEND_TIMEOUT_USEC=$(((wait + 3) * 
     log "couldn't extend the start timeout for QUICKSPACE_SHELL_WAIT=$wait; the unit's own timeout applies"
 fi
 
+# At least 1, so a failing agent can't respawn in a tight loop, and no
+# leading zero, which the doubling below would read as octal.
+agent_retry=${QUICKSPACE_AGENT_RETRY:-5}
+case "$agent_retry" in
+    '' | *[!0-9]* | 0* | ???*) agent_retry_ok=no ;;
+    *) test "$agent_retry" -le 60 && agent_retry_ok=yes || agent_retry_ok=no ;;
+esac
+if test "$agent_retry_ok" = no; then
+    log "QUICKSPACE_AGENT_RETRY must be a whole number of seconds from 1 to 60, not '$agent_retry'"
+    exit $EX_CONFIG
+fi
+
 if test -n "${QUICKSPACE_POLKIT_AGENT:-}" && ! is_program "$QUICKSPACE_POLKIT_AGENT"; then
     log "QUICKSPACE_POLKIT_AGENT is '$QUICKSPACE_POLKIT_AGENT', which isn't an executable file"
     exit $EX_CONFIG
@@ -133,7 +152,13 @@ theme_status=$(mktemp) || {
     log "couldn't create a temporary file for the theme daemon's status"
     exit 1
 }
-trap 'rm -f "$theme_status"' EXIT
+# The agent's restart loop ends with the shell; systemd stopping the unit
+# would catch it anyway, but the shell can exit without that. A loop that
+# has given up says so in $agent_done first, and isn't signaled: the shell
+# may have reaped it already, and its pid may belong to another process.
+agent_loop=
+agent_done=
+trap 'if test -n "$agent_loop" && ! test -s "$agent_done"; then kill "$agent_loop"; wait "$agent_loop"; fi; rm -f "$theme_status" "$agent_done"' EXIT
 (
     "$theme_daemon"
     echo $? > "$theme_status"
@@ -155,7 +180,46 @@ supervise() {
 
 agent=$(polkit_agent)
 if test -n "$agent"; then
-    supervise "the polkit agent" "$agent"
+    agent_done=$(mktemp) || {
+        log "couldn't create a temporary file for the polkit agent's restart loop"
+        exit 1
+    }
+    (
+        # The agent and the backoff sleep run in the background and are
+        # waited for, so a TERM from the shell's exit trap is handled at
+        # once: it stops whichever is running and waits for it, so nothing
+        # outlives the shell, registered with polkit or holding the journal.
+        child=
+        trap 'test -z "$child" || kill "$child"; test -z "$child" || wait "$child"; exit 0' TERM
+        delay=$agent_retry
+        while :; do
+            started=$(date +%s)
+            "$agent" &
+            child=$!
+            wait "$child"
+            agent_status=$?
+            child=
+            # One that ran a minute had registered, so this is a new
+            # failure: back to the short delay.
+            if test "$(($(date +%s) - started))" -ge 60; then
+                delay=$agent_retry
+            fi
+            log "the polkit agent exited ($agent_status); the shell keeps running and starts it again in $delay s (\`quickspace doctor\` names any other agent registered for this session)"
+            sleep "$delay" &
+            child=$!
+            # Without a working sleep there's no backoff, so stop rather
+            # than respawn the agent in a tight loop.
+            if ! wait "$child"; then
+                log "sleep $delay failed; not starting the polkit agent again"
+                echo gave-up > "$agent_done"
+                exit 1
+            fi
+            child=
+            delay=$((delay * 2))
+            test "$delay" -le 60 || delay=60
+        done
+    ) &
+    agent_loop=$!
 else
     # Not fatal: the session works, but privileged actions can't prompt.
     log "no polkit agent found; install hyprpolkitagent or polkit-gnome"
