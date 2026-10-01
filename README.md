@@ -45,7 +45,15 @@ name and waybar's tray owns the watcher (see `TODO.md`).
 problem, with its fix: units that aren't running, D-Bus names owned by the
 wrong process, daemons running twice or rivals to an owner, the portal
 config, Hyprland's config errors, and autostart entries that run in
-quickspace. It exits 1 if it found a problem.
+quickspace without being on its allowlist. It exits 1 if it found a problem.
+
+XDG autostart is an allowlist in quickspace. `make install` adds one systemd
+drop-in, `app-.service.d/quickspace-autostart.conf`, that reaches every
+autostart unit; in the quickspace session it skips each entry that
+`quickspace autostart-allowed` doesn't name, so other desktops' daemons and
+tray icons stay out, while Plasma runs them all as before. The list is
+`nm-applet` and `blueman` for now; add desktop IDs, one per line, to
+`~/.config/quickspace/autostart` to allow more.
 
 ## Mocks
 

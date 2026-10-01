@@ -29,7 +29,7 @@
 prog=${0##*/}
 # KDE's agent is always installed, since quickspace runs beside Plasma
 # (SPEC.md §5.5), so the legacy desktops' agents that `make install` keeps out
-# of the session (POLKIT_AUTOSTART) aren't needed as fallbacks.
+# of the session (the autostart allowlist) aren't needed as fallbacks.
 default_agents="
     /usr/libexec/hyprpolkitagent
     /usr/lib/hyprpolkitagent/hyprpolkitagent

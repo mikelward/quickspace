@@ -12,7 +12,7 @@
 #   - no daemon runs twice, and no rival to an owner runs at all;
 #   - quickspace-portals.conf is installed and XDG_CURRENT_DESKTOP selects it;
 #   - Hyprland reports no config errors;
-#   - no XDG autostart unit ran in quickspace (the allowlist starts empty).
+#   - no XDG autostart unit off the allowlist ran in quickspace.
 
 prog=${0##*/}
 problems=0
@@ -281,8 +281,17 @@ autostart_ran() {
 if ! ran=$(autostart_ran); then
     problem "systemctl couldn't read the autostart units ($ran), so the autostart check is incomplete"
 else
+    # Installed beside this script; $QUICKSPACE_CMD is for tests.
+    qs=${QUICKSPACE_CMD:-$(dirname "$0")/quickspace}
     for unit in $ran; do
-        problem "autostart unit $unit ran in quickspace, whose allowlist is empty: add NotShowIn=quickspace; to a copy of its .desktop file (\`systemctl --user cat $unit\` names it) in ~/.config/autostart"
+        # Exit 1 is "not allowed", whose message is meant for the unit's
+        # journal; anything else means the check itself failed.
+        err=$(sh "$qs" autostart-allowed "$unit" 2>&1 >/dev/null)
+        case $? in
+            0) ;;
+            1) problem "autostart unit $unit ran in quickspace but isn't on the autostart allowlist: run quickspace's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload (or add its desktop ID to ~/.config/quickspace/autostart to allow it)" ;;
+            *) problem "couldn't check autostart unit $unit against the allowlist (${err:-$qs failed}), so the autostart check is incomplete" ;;
+        esac
     done
 fi
 

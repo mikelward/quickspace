@@ -2,6 +2,17 @@
 
 Deferred work, with enough notes to pick it up later.
 
+## Decisions needing review
+
+Calls made on autopilot, each chosen for being cheap to undo. Delete an entry
+once you have agreed with it or reversed it.
+
+- [ ] **The autostart allowlist starts as `nm-applet` and `blueman`.** The
+      spec says it starts empty, but the bar's network and Bluetooth icons
+      come from those applets' autostart entries until the shell draws them
+      (M3). Emptying it is a one-line change to `autostart_default` in
+      `bin/quickspace`.
+
 ## Transitional shell (M2)
 
 `quickspace.service` runs `bin/quickspace-shell`, not `qs -c quickspace`,
@@ -44,12 +55,6 @@ errors, and autostart entries. SPEC.md §5.4 also wants:
 - **More than one top-anchored layer surface per monitor.** It needs
   `hyprctl layers -j` parsed per monitor, which wants a JSON reader the
   session doesn't have yet (jq, or the shell itself in M3).
-- **Generating the autostart drop-ins.** It reports each entry that would
-  run in quickspace and suggests `NotShowIn=quickspace;`. The spec's fix is
-  a drop-in for each entry's `app-*@autostart.service`, which
-  `doctor --fix` could write. `make install` already ships that drop-in
-  (`systemd/user/not-in-quickspace.conf`) for the polkit agents in
-  `POLKIT_AUTOSTART`; the rest would reuse it.
 
 ## Grants for terminal commands
 

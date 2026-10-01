@@ -401,18 +401,21 @@ flowchart TD
 - **One `exec-once`.** Hyprland's config starts nothing but
   `uwsm finalize`, and a test in `conf` asserts it.
 - **Autostart is an allowlist.** XDG autostart entries run in quickspace only
-  if they are on its list (initially: none). Everything else gets a
-  quickspace-only drop-in on its `app-*@autostart.service`, so the same
-  entries still run under KDE. `doctor` generates and checks these.
-  - The drop-in is an `ExecCondition=` that exits non-zero when
-    `XDG_CURRENT_DESKTOP` contains `quickspace`. `ConditionEnvironment=`
-    can't express that, because it matches the variable's whole value.
-  - Other desktops' autostarted polkit agents (MATE, GNOME, LXDE, Xfce) get
-    theirs from `make install` already, since M2: polkit takes one agent per
-    session, so a second one breaks the shell's (the list is
-    `POLKIT_AUTOSTART` in the `Makefile`). The shell's own search falls back
-    to KDE's agent, which is always installed (§5.5), so the legacy MATE,
-    LXDE and Xfce agents are never needed.
+  if they are on its list: the tray applets the bar relies on until the shell
+  draws their icons (`nm-applet`, `blueman`), plus any desktop IDs in
+  `~/.config/quickspace/autostart`. Everything else is skipped in quickspace
+  and still runs under KDE. `doctor` reports any that ran anyway.
+  - One prefix drop-in, `app-.service.d/quickspace-autostart.conf`, reaches
+    every `app-*@autostart.service`, so an entry a package adds later is
+    covered without a per-entry file. Its `ExecCondition=` asks
+    `quickspace autostart-allowed` only for autostart units in the
+    quickspace session; every other `app-*.service`, and every unit under
+    KDE, passes after a shell `case`. `ConditionEnvironment=` can't express
+    the session test, because it matches the variable's whole value.
+  - This covers other desktops' autostarted polkit agents (MATE, GNOME,
+    LXDE, Xfce), which polkit's one-agent-per-session rule would let break
+    the shell's. The shell's own search falls back to KDE's agent, which is
+    always installed (§5.5), so the legacy agents are never needed.
 - **`XDG_CURRENT_DESKTOP=quickspace:Hyprland`.**
   - xdg-desktop-portal reads `quickspace-portals.conf` first, which names the
     backends explicitly.
@@ -453,9 +456,8 @@ flowchart TD
   It prints one line per problem, with the fix.
   - M2's `quickspace doctor` checks the transitional shell's owners
     (swaync, waybar) and the units, rival daemons, portal config, config
-    errors and autostart entries. Activatable services, bars per monitor
-    and generating autostart drop-ins wait for the Quickshell owners
-    (TODO.md).
+    errors and autostart entries. Activatable services and bars per
+    monitor wait for the Quickshell owners (TODO.md).
 
 ### 5.5 Coexisting with KDE
 
@@ -1775,6 +1777,21 @@ Checked 2026-09-28, against these releases:
 - Krohnkite: [repo](https://codeberg.org/anametologin/Krohnkite)
 - xdg-desktop-portal-hyprland: [1.3.9 custom picker](https://github.com/hyprwm/xdg-desktop-portal-hyprland/releases/tag/v1.3.9)
 - xdg-desktop-portal: [Settings portal](https://github.com/flatpak/xdg-desktop-portal/blob/main/data/org.freedesktop.impl.portal.Settings.xml)
+
+Checked 2026-10-01, for §5.4's autostart allowlist, and exercised with
+systemd 255's `systemd-analyze verify` in `session_test.sh`:
+
+- systemd 239: prefix drop-ins, so `app-.service.d/` applies to every
+  `app-*.service` ([NEWS](https://github.com/systemd/systemd/blob/main/NEWS),
+  "CHANGES WITH 239")
+- systemd 243: `ExecCondition=`, where exit 1 to 254 skips the unit and 255
+  fails it ([NEWS](https://github.com/systemd/systemd/blob/main/NEWS),
+  "CHANGES WITH 243";
+  [`systemd.service(5)`](https://github.com/systemd/systemd/blob/main/man/systemd.service.xml))
+- systemd 246: `systemd-xdg-autostart-generator`, which names each entry
+  `app-<desktop ID, unit-name escaped>@autostart.service`
+  ([NEWS](https://github.com/systemd/systemd/blob/main/NEWS), "CHANGES WITH 246";
+  [`xdg-autostart-service.c`](https://github.com/systemd/systemd/blob/main/src/xdg-autostart-generator/xdg-autostart-service.c))
 
 Checked 2026-09-29, for §21.1:
 

@@ -295,16 +295,21 @@ check "hyprctl failing is reported" \
     contains "$out" "hyprctl configerrors failed (HYPRLAND_INSTANCE_SIGNATURE not set)"
 
 healthy
-run FAKE_AUTOSTART_UNITS="app-nm\\x2dapplet@autostart.service=123 app-oneshot@autostart.service=456 app-skipped@autostart.service=0 app-earlier@autostart.service=50"
-check "each autostart unit whose command started is a problem" \
+run FAKE_AUTOSTART_UNITS="app-nm\\x2dapplet@autostart.service=123 app-hplip\\x2dsystray@autostart.service=789 app-oneshot@autostart.service=456 app-skipped@autostart.service=0 app-earlier@autostart.service=50"
+check "each autostart unit off the allowlist whose command started is a problem" \
     test "$(grep -c '^autostart unit' "$tmp/out")" -eq 2
 check "an autostart unit that ran and exited counts" contains "$out" "autostart unit app-oneshot@autostart.service ran in quickspace"
-check "an autostart unit is named, with how to find its entry" \
-    contains "$out" "autostart unit app-nm\\x2dapplet@autostart.service ran in quickspace, whose allowlist is empty: add NotShowIn=quickspace; to a copy of its .desktop file (\`systemctl --user cat app-nm\\x2dapplet@autostart.service\` names it)"
+check "an autostart unit is named, with the fix" \
+    contains "$out" "autostart unit app-hplip\\x2dsystray@autostart.service ran in quickspace but isn't on the autostart allowlist: run quickspace's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload"
+check "an allowlisted autostart unit isn't a problem" test -z "$(grep 'nm\\x2dapplet' "$tmp/out")"
 check "a unit whose condition stopped its command isn't a problem" test -z "$(grep 'app-skipped' "$tmp/out")"
 check "a unit that ran before this session began isn't a problem" test -z "$(grep 'app-earlier' "$tmp/out")"
 check "systemctl is asked for every loaded autostart unit, dead ones too" \
     contains "$(cat "$tmp/systemctl-args")" "list-units --all --plain --no-legend app-*@autostart.service"
+run FAKE_AUTOSTART_UNITS="app-hplip\\x2dsystray@autostart.service=789" QUICKSPACE_CMD="$tmp/no-such-quickspace"
+check "a failed allowlist check is reported as one, not as a unit off the list" \
+    contains "$out" "couldn't check autostart unit app-hplip\\x2dsystray@autostart.service against the allowlist ("
+check "a failed allowlist check doesn't suggest allowing the unit" test -z "$(grep "isn't on the autostart allowlist" "$tmp/out")"
 run FAKE_LIST_FAILS="Failed to connect to bus"
 check "systemctl failing to list the units is a problem" \
     contains "$out" "systemctl couldn't read the autostart units (Failed to connect to bus)"

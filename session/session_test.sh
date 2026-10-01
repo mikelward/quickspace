@@ -30,7 +30,7 @@ dropin=systemd/user/hypridle.service.d/quickspace.conf
 entry=session/quickspace.desktop
 wrapper=bin/quickspace-hyprland
 portals=xdg-desktop-portal/quickspace-portals.conf
-not_here=systemd/user/not-in-quickspace.conf
+autostart=systemd/user/app-.service.d/quickspace-autostart.conf
 
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
@@ -106,17 +106,34 @@ check "hypridle is skipped under Plasma, even when a package enabled it" idle_sk
 check "hypridle's unit is skipped in a plain Hyprland login, which runs its own" idle_skips_in "Hyprland"
 check "hypridle is skipped where no desktop is set" idle_skips_in ""
 
-# --- Other desktops' polkit agents -----------------------------------------------
-# The drop-in's condition, as systemd would run it ($$ is a literal $).
-condition=$(sed -n 's/^ExecCondition=\/bin\/sh -c //p' "$not_here" | sed "s/^'//; s/'\$//; s/\\$\\$/\\$/g")
-runs_in() { XDG_CURRENT_DESKTOP=$1 sh -c "$condition"; }
-skips_in() { ! runs_in "$1"; }
-check "another agent's condition is a sh -c script" test -n "$condition"
-check "another agent is skipped in the quickspace session" skips_in "quickspace:Hyprland"
-check "another agent still runs under Plasma" runs_in "KDE"
-check "another agent still runs under MATE" runs_in "MATE"
-check "another agent still runs in a plain Hyprland login" runs_in "Hyprland"
-check "another agent still runs where no desktop is set" runs_in ""
+# --- The autostart allowlist -------------------------------------------------
+# The drop-in's condition, as systemd would run it for a unit ($$ is a
+# literal $, %n the unit's name), with this checkout's quickspace on PATH.
+condition=$(sed -n 's/^ExecCondition=\/bin\/sh -c //p' "$autostart" | sed "s/^'//; s/'\$//; s/\\$\\$/\\$/g")
+# condition_status DESKTOP UNIT: the condition's exit status; its stderr is
+# kept in $tmp/condition.err for a failing check to show.
+condition_status() {
+    cmd=$(printf '%s\n' "$condition" | sed "s/%n/$(printf '%s' "$2" | sed 's/\\/\\\\/g')/g")
+    env PATH="$PWD/bin:$PATH" XDG_CONFIG_HOME="$tmp/no-config" XDG_CURRENT_DESKTOP="$1" \
+        sh -c "$cmd" 2>"$tmp/condition.err"
+    echo $?
+}
+# A skip is exactly 1; 255 would be a failed unit, which isn't a skip.
+runs_in() { s=$(condition_status "$@"); test "$s" -eq 0 || { cat "$tmp/condition.err" >&2; false; }; }
+skips_in() { s=$(condition_status "$@"); test "$s" -eq 1 || { echo "status $s: $(cat "$tmp/condition.err")" >&2; false; }; }
+agent='app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service'
+check "the autostart condition is a sh -c script" test -n "$condition"
+check "another desktop's agent is skipped in the quickspace session" skips_in "quickspace:Hyprland" "$agent"
+check "another desktop's daemon is skipped in the quickspace session" \
+    skips_in "quickspace:Hyprland" 'app-xfce4\x2dnotifyd@autostart.service'
+check "an allowlisted applet runs in the quickspace session" \
+    runs_in "quickspace:Hyprland" 'app-nm\x2dapplet@autostart.service'
+check "an app that isn't autostarted runs in the quickspace session" \
+    runs_in "quickspace:Hyprland" 'app-org.kde.dolphin@1234.service'
+check "another desktop's agent still runs under Plasma" runs_in "KDE" "$agent"
+check "another desktop's agent still runs under MATE" runs_in "MATE" "$agent"
+check "another desktop's agent still runs in a plain Hyprland login" runs_in "Hyprland" "$agent"
+check "another desktop's agent still runs where no desktop is set" runs_in "" "$agent"
 
 # Suppressing the legacy agents must not leave the session with none: the
 # shell falls back to KDE's, always installed beside Plasma (SPEC.md §5.5).
@@ -146,12 +163,12 @@ if command -v systemd-analyze >/dev/null 2>&1; then
     printf '[Unit]\nDescription=hypridle\n[Service]\nExecStart=%s\n' "$tmp/stub" \
         > "$tmp/units/hypridle.service"
     cp "$dropin" "$tmp/units/hypridle.service.d/"
-    # A stand-in for a generated autostart unit, with the agent drop-in.
+    # A stand-in for a generated autostart unit, under the prefix drop-in.
     agent_unit='app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service'
-    mkdir -p "$tmp/units/$agent_unit.d"
+    mkdir -p "$tmp/units/app-.service.d"
     printf '[Unit]\nDescription=agent\n[Service]\nExecStart=%s\n' "$tmp/stub" \
         > "$tmp/units/$agent_unit"
-    cp "$not_here" "$tmp/units/$agent_unit.d/quickspace.conf"
+    cp "$autostart" "$tmp/units/app-.service.d/"
     for u in quickspace.service hypridle.service "$agent_unit"; do
         out=$(cd "$tmp/units" && XDG_RUNTIME_DIR="$tmp/run" \
             systemd-analyze verify --user --man=no "$u" 2>&1)
@@ -173,6 +190,19 @@ check "the portal config never picks kde, gnome or wlr" \
 
 # --- make install / install-session ----------------------------------------------
 home="$tmp/home"
+# An upgrade removes the per-agent drop-ins earlier versions installed, but
+# nothing else beside them.
+old_dropin="$home/.config/systemd/user/app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service.d"
+old_kept="$home/.config/systemd/user/app-xfce\x2dpolkit@autostart.service.d"
+old_custom="$home/.config/systemd/user/app-custom\x2dagent@autostart.service.d"
+not_ours="$home/.config/systemd/user/app-other@autostart.service.d"
+mkdir -p "$old_dropin" "$old_kept" "$old_custom" "$not_ours"
+git show "$(git rev-list -1 HEAD -- systemd/user/not-in-quickspace.conf)^:systemd/user/not-in-quickspace.conf" \
+    > "$tmp/old-dropin.conf" 2>/dev/null \
+    || printf "# A drop-in for another desktop's autostarted polkit agent: it skips the agent\n[Service]\n" > "$tmp/old-dropin.conf"
+for d in "$old_dropin" "$old_kept" "$old_custom"; do cp "$tmp/old-dropin.conf" "$d/quickspace.conf"; done
+touch "$old_kept/mine.conf"
+printf '[Service]\nEnvironment=MINE=1\n' > "$not_ours/quickspace.conf"
 # The fake HOME would send Go to an empty module cache, and so the network.
 if make -s install HOME="$home" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" \
     >"$tmp/install.log" 2>&1; then
@@ -182,10 +212,14 @@ if make -s install HOME="$home" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go 
              .config/systemd/user/quickspace.service \
              .config/systemd/user/hypridle.service.d/quickspace.conf \
              .config/xdg-desktop-portal/quickspace-portals.conf \
-             '.config/systemd/user/app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service.d/quickspace.conf' \
-             '.config/systemd/user/app-polkit\x2dgnome\x2dauthentication\x2dagent\x2d1@autostart.service.d/quickspace.conf'; do
+             .config/systemd/user/app-.service.d/quickspace-autostart.conf; do
         check "make install puts $f in place" test -f "$home/$f"
     done
+    check "make install removes an old per-agent drop-in and its directory" test ! -e "$old_dropin"
+    check "make install removes our old drop-in beside a file of yours" test ! -e "$old_kept/quickspace.conf"
+    check "make install keeps your own drop-in" test -f "$old_kept/mine.conf"
+    check "make install removes an old drop-in installed under a custom POLKIT_AUTOSTART" test ! -e "$old_custom"
+    check "make install keeps a quickspace.conf it didn't write" test -f "$not_ours/quickspace.conf"
 else
     fail "make install: $(cat "$tmp/install.log")"
 fi
