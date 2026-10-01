@@ -136,3 +136,23 @@ history; quickspace's changes go on top of v0.9 there. Before rewriting §3.1 ar
 - Re-check Debian 13's toolchain.
 - Inventory everything the spec needs from the compositor, with the fork's
   replacement and a check for each.
+
+If the fork is adopted, machines build a pinned release tag, never a branch:
+
+- **Tags.** `quickspace-<upstream base>-<n>`, cut from the fork's `main`
+  once it is in a state to run (`quickspace-0.9-1` is dwl 0.9 plus our
+  changes, release 1). Upstream's own `v*` tags stay as they are, so a tag
+  says at a glance whether it carries our code and which base it sits on.
+  Moving to a new upstream release rebases our changes onto it and starts
+  the count again (`quickspace-0.10-1`).
+- **`setup-quickspace` pins one.** A line in the same shape as the Hyprland
+  pins, `dwl https://github.com/mikelward/dwl.git quickspace-0.9-1 make`,
+  so every machine builds the same reviewed code, and moving them all is a
+  one-line scripts pull request that CI checks first. Not `main`, which
+  moves under a later run; not `v0.9`, which is upstream's code without
+  ours.
+- **Protection.** `main` gets the fleet ruleset from `repo setup`, like
+  every other repository. A tag ruleset makes `quickspace-*` and `v*`
+  immutable, since a moved tag would silently change what machines build.
+  The repository is public, so nothing secret ever goes in it, on any
+  branch: per-machine settings stay in an untracked local file.
