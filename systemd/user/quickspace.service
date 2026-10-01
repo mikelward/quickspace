@@ -18,7 +18,9 @@ Before=xdg-desktop-autostart.target
 
 [Service]
 # Ready only once the shell reports that every owner it hosts is up
-# (notifications, tray watcher, polkit agent), not when qs merely starts.
+# (notifications, tray watcher), not when qs merely starts. The polkit agent
+# isn't waited for: another may hold the session, and the shell retries it
+# alone (SPEC.md §5.2, §5.4).
 Type=notify
 NotifyAccess=all
 ExecStart=quickspace-shell
