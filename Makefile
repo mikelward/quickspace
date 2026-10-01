@@ -18,9 +18,12 @@ HYPR_DIR ?= $(HOME)/.config/hypr/quickspace
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 PORTAL_DIR ?= $(HOME)/.config/xdg-desktop-portal
 PREFIX ?= /usr/local
-# Other desktops' polkit agents that autostart through /etc/xdg/autostart,
-# by desktop file name. systemd runs each as app-<escaped name>@autostart.service.
-POLKIT_AUTOSTART ?= polkit-mate-authentication-agent-1 polkit-gnome-authentication-agent-1 lxpolkit xfce-polkit
+# The per-agent drop-ins earlier versions installed, which the allowlist
+# replaces, are found by how their first line starts, so ones installed
+# under a custom POLKIT_AUTOSTART go too. Left behind, they would keep
+# skipping their agent even if it were allowlisted, since systemd runs every
+# ExecCondition.
+OLD_AUTOSTART_DROPIN_MARK = \# A drop-in for another desktop's autostarted polkit agent
 GO ?= go
 # Build with the Go that's installed, never one downloaded to match go.mod.
 export GOTOOLCHAIN := local
@@ -47,13 +50,17 @@ build/quickspace-grant: go.mod go.sum $(wildcard cmd/quickspace-grant/*.go)
 install: build
 	install -d "$(HYPR_DIR)"
 	install -m 644 hypr/quickspace/geometry.lua hypr/quickspace/layout.lua hypr/quickspace/focus.lua "$(HYPR_DIR)/"
-	install -d "$(SYSTEMD_USER_DIR)/hypridle.service.d"
+	install -d "$(SYSTEMD_USER_DIR)/hypridle.service.d" "$(SYSTEMD_USER_DIR)/app-.service.d"
 	install -m 644 systemd/user/quickspace.service "$(SYSTEMD_USER_DIR)/"
 	install -m 644 systemd/user/hypridle.service.d/quickspace.conf "$(SYSTEMD_USER_DIR)/hypridle.service.d/"
-	@# systemd escapes the name's dashes, and nothing else these names have.
-	for id in $(POLKIT_AUTOSTART); do \
-		d="$(SYSTEMD_USER_DIR)/app-$$(printf '%s' "$$id" | sed 's/-/\\x2d/g')@autostart.service.d"; \
-		install -d "$$d" && install -m 644 systemd/user/not-in-quickspace.conf "$$d/quickspace.conf" || exit 1; \
+	install -m 644 systemd/user/app-.service.d/quickspace-autostart.conf "$(SYSTEMD_USER_DIR)/app-.service.d/"
+	@# rmdir only removes a directory this emptied.
+	for f in "$(SYSTEMD_USER_DIR)"/app-*@autostart.service.d/quickspace.conf; do \
+		test -f "$$f" || continue; \
+		case "$$(head -n 1 "$$f")" in "$(OLD_AUTOSTART_DROPIN_MARK)"*) ;; *) continue ;; esac; \
+		rm -f "$$f" || exit 1; \
+		d=$${f%/*}; \
+		if test -z "$$(ls -A "$$d")"; then rmdir "$$d" || exit 1; fi; \
 	done
 	install -d "$(PORTAL_DIR)"
 	install -m 644 xdg-desktop-portal/quickspace-portals.conf "$(PORTAL_DIR)/"

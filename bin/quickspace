@@ -22,6 +22,18 @@
 #          outlives a shell restart.
 #     Outside a quickspace session it just runs COMMAND.
 #
+#   quickspace autostart-allowed UNIT
+#
+#     The condition on every XDG autostart unit in the quickspace session
+#     (systemd/user/app-.service.d/quickspace-autostart.conf, SPEC.md §5.4):
+#     exits 0 if UNIT's desktop entry is on the autostart allowlist, 1,
+#     which skips the unit, if it isn't, and 3 if it can't tell (an
+#     unreadable list), which the drop-in turns into a failed unit. The
+#     file holds one desktop ID per line; lines starting with # are comments,
+#     so an ID that itself starts with # is written escaped, as \x23ID. The allowlist is the tray applets the
+#     bar still relies on, plus the desktop IDs, one per line, in
+#     ${XDG_CONFIG_HOME:-~/.config}/quickspace/autostart.
+#
 #   quickspace doctor
 #
 #     Checks the running session and prints one line per problem, with
@@ -31,6 +43,7 @@ prog=${0##*/}
 
 usage() {
     echo "usage: $prog launch [--app ID] [--] COMMAND [ARG...]" >&2
+    echo "       $prog autostart-allowed UNIT" >&2
     echo "       $prog doctor" >&2
     exit 2
 }
@@ -105,8 +118,57 @@ launch() {
     exec uwsm app -- "$@"
 }
 
+# Until the shell draws them itself (M3), the network and Bluetooth tray
+# icons come from these applets' own autostart entries.
+autostart_default="nm-applet blueman"
+
+autostart_allowed() {
+    test $# -eq 1 || usage
+    case "$1" in
+        app-*@autostart.service) ;;
+        *)
+            echo "$prog autostart-allowed: $1 isn't an XDG autostart unit (app-*@autostart.service)" >&2
+            exit 2
+            ;;
+    esac
+    # The generator names the unit with the desktop ID escaped as a unit
+    # name (dashes and other unusual characters as \xNN), which
+    # systemd-escape undoes. Exit 3 for anything that stops the check: the
+    # drop-in turns it into a failed unit, rather than a quiet skip.
+    escaped=${1#app-}
+    escaped=${escaped%@autostart.service}
+    if ! id=$(systemd-escape --unescape -- "$escaped" 2>&1); then
+        echo "$prog autostart-allowed: couldn't unescape $1 ($id)" >&2
+        exit 3
+    fi
+    # One desktop ID per line, matched whole, so an ID with a space or a #
+    # still works; a line that starts with # is a comment. A line may also
+    # give the ID as the unit name escapes it (\x23foo for #foo), which is
+    # how an ID that starts with # is written. A broken file,
+    # a dangling symlink included, fails the check whatever the unit, so
+    # the setting is never silently ignored.
+    file=${XDG_CONFIG_HOME:-$HOME/.config}/quickspace/autostart
+    if test -e "$file" || test -L "$file"; then
+        if ! lines=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$file" 2>&1); then
+            echo "$prog autostart-allowed: couldn't read $file ($lines)" >&2
+            exit 3
+        fi
+        if printf '%s\n' "$lines" | grep -v '^#' | grep -Fxq -e "$id" -e "$escaped"; then
+            exit 0
+        fi
+    fi
+    for a in $autostart_default; do
+        if test "$a" = "$id"; then
+            exit 0
+        fi
+    done
+    echo "$prog: not starting $id in quickspace; add $id to $file to allow it" >&2
+    exit 1
+}
+
 case "${1:-}" in
     launch) shift; launch "$@" ;;
+    autostart-allowed) shift; autostart_allowed "$@" ;;
     # Installed beside this script.
     doctor) shift; exec sh "$(dirname "$0")/quickspace-doctor" "$@" ;;
     *) usage ;;
