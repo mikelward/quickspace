@@ -219,6 +219,47 @@ condition 'app-org.kde.dolphin@1234.service' XDG_CURRENT_DESKTOP=quickspace:Hypr
 check "in quickspace, an app that isn't autostarted runs" test $? -eq 0
 check "in quickspace, an app that isn't autostarted isn't asked about" test ! -s "$log"
 
+# brightness: brightnessctl answers in its machine-readable form, and qs
+# logs the OSD call.
+cat > "$fake/brightnessctl" <<'FAKE'
+#!/bin/sh
+printf "brightnessctl %s\n" "$*" >> "$FAKE_LOG"
+echo "${FAKE_BRIGHTNESS_OUT-intel_backlight,backlight,12000,50%,24000}"
+exit "${FAKE_BRIGHTNESS_STATUS:-0}"
+FAKE
+cat > "$fake/qs" <<'FAKE'
+#!/bin/sh
+printf "qs %s\n" "$*" >> "$FAKE_LOG"
+test -z "${FAKE_QS_SAYS:-}" || echo "$FAKE_QS_SAYS" >&2
+exit "${FAKE_QS_STATUS:-0}"
+FAKE
+chmod +x "$fake/brightnessctl" "$fake/qs"
+run "$qs" brightness 5%+
+check "brightness exits 0" test $? -eq 0
+out=$(cat "$log")
+check "brightness sets the backlight" contains "$out" "brightnessctl -m set 5%+"
+check "brightness shows the new level on the OSD" contains "$out" "qs -c quickspace ipc call osd brightness 50"
+check "a clean brightness change says nothing" test ! -s "$tmp/err"
+run FAKE_QS_STATUS=255 FAKE_QS_SAYS="No running instances for /home/user/.config/quickshell/quickspace/shell.qml" "$qs" brightness 5%-
+check "no shell to show the OSD isn't a failure" test $? -eq 0
+check "no shell to show the OSD says nothing" test ! -s "$tmp/err"
+run FAKE_QS_STATUS=255 FAKE_QS_SAYS="Target not found" "$qs" brightness 5%-
+check "an OSD the shell rejects still exits 0" test $? -eq 0
+check "an OSD the shell rejects is reported" contains "$(cat "$tmp/err")" "the shell's OSD didn't take it: Target not found"
+run FAKE_BRIGHTNESS_STATUS=1 FAKE_BRIGHTNESS_OUT="no backlight" "$qs" brightness 5%+
+check "a failed brightnessctl fails" test $? -eq 1
+check "a failed brightnessctl is reported" contains "$(cat "$tmp/err")" "brightnessctl set 5%+ failed: no backlight"
+check "a failed brightnessctl shows no OSD" test "$(grep -c '^qs ' "$log")" -eq 0
+run FAKE_BRIGHTNESS_OUT="something else" "$qs" brightness 40%
+check "an unreadable level still exits 0" test $? -eq 0
+check "an unreadable level is reported" contains "$(cat "$tmp/err")" "couldn't read the new level"
+check "an unreadable level shows no OSD" test "$(grep -c '^qs ' "$log")" -eq 0
+run XDG_CURRENT_DESKTOP=KDE "$qs" brightness 5%+
+check "outside quickspace, brightness still changes" contains "$(cat "$log")" "brightnessctl -m set 5%+"
+check "outside quickspace, there's no OSD to tell" test "$(grep -c '^qs ' "$log")" -eq 0
+run "$qs" brightness
+check "brightness needs a step" test $? -eq 2
+
 if command -v shellcheck >/dev/null 2>&1; then
     check "shellcheck passes" shellcheck -s sh "$qs" bin/quickspace_test.sh
 fi

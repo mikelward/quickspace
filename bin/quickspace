@@ -42,6 +42,16 @@
 #     bar still relies on, plus the desktop IDs, one per line, in
 #     ${XDG_CONFIG_HOME:-~/.config}/quickspace/autostart.
 #
+#   quickspace brightness STEP
+#
+#     Changes the backlight with `brightnessctl set STEP` (5%+, 5%-, 40%)
+#     and shows the new level on the shell's OSD (SPEC.md §9). The
+#     brightness keys run it; hypridle dims with brightnessctl itself, so
+#     dimming never flashes the OSD. Exits 1 if brightnessctl fails. The
+#     OSD is extra: with no shell to show it (waybar's fallback, or
+#     outside quickspace), the level changes and nothing else happens; a
+#     shell that fails to show it is reported, and still exits 0.
+#
 #   quickspace doctor
 #
 #     Checks the running session and prints one line per problem, with
@@ -53,6 +63,7 @@ usage() {
     echo "usage: $prog launch [--app ID] [--] COMMAND [ARG...]" >&2
     echo "       $prog grant ID" >&2
     echo "       $prog autostart-allowed UNIT" >&2
+    echo "       $prog brightness STEP" >&2
     echo "       $prog doctor" >&2
     exit 2
 }
@@ -189,10 +200,43 @@ autostart_allowed() {
     exit 1
 }
 
+brightness() {
+    if test $# -ne 1 || test -z "$1"; then
+        usage
+    fi
+    # -m prints the device afterwards as device,class,current,percent%,max.
+    if ! out=$(brightnessctl -m set "$1" 2>&1); then
+        echo "$prog brightness: brightnessctl set $1 failed: $out" >&2
+        exit 1
+    fi
+    percent=$(printf '%s\n' "$out" | tail -n 1 | cut -d, -f4)
+    percent=${percent%\%}
+    case "$percent" in
+        '' | *[!0-9]*)
+            echo "$prog brightness: set $1, but couldn't read the new level from brightnessctl ($out), so no OSD" >&2
+            exit 0
+            ;;
+    esac
+    if ! in_quickspace || ! command -v qs >/dev/null 2>&1; then
+        exit 0
+    fi
+    # No shell running (QUICKSPACE_BAR=waybar) is expected, and qs says so
+    # with "No running instances" or "No instances". Anything else is the
+    # OSD broken, which is reported; the backlight has changed either way,
+    # so it exits 0, and the keys' brightnessctl fallback doesn't run too.
+    if ! err=$(qs -c quickspace ipc call osd brightness "$percent" 2>&1); then
+        case "$err" in
+            "No running instances"* | "No instances"*) ;;
+            *) echo "$prog brightness: set $1, but the shell's OSD didn't take it: $err" >&2 ;;
+        esac
+    fi
+}
+
 case "${1:-}" in
     launch) shift; launch "$@" ;;
     grant) shift; grant_only "$@" ;;
     autostart-allowed) shift; autostart_allowed "$@" ;;
+    brightness) shift; brightness "$@" ;;
     # Installed beside this script.
     doctor) shift; exec sh "$(dirname "$0")/quickspace-doctor" "$@" ;;
     *) usage ;;

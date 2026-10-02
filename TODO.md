@@ -256,12 +256,11 @@ SPEC.md §9's OSD is `shell/Osd.qml`, from `shell/OsdData.qml` and
 default input's mute, from any source. Only parsed with `qmlformat`. Still
 to do:
 
-- Brightness. Nothing in the shell reads the backlight yet. Either have
-  the brightness keys in `conf` tell the shell (an `IpcHandler` the binding
-  calls after `brightnessctl`), or read `/sys/class/backlight` in the
-  shell. Whichever it is mustn't flash the OSD when hypridle dims.
-- Try it on a real session: the keys, the bar's scroll and the volume
-  popover should each show it, and switching outputs shouldn't.
+- Brightness shows through `quickspace brightness STEP`, which the keys in
+  `conf` run, and the shell's `osd` `IpcHandler`.
+- Try it on a real session: the volume and brightness keys, the bar's
+  scroll and the volume popover should each show it, and switching
+  outputs or hypridle dimming shouldn't.
 
 ## The rest of `quickspace doctor`
 

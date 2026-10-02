@@ -877,6 +877,10 @@ See [`notifications.png`](docs/mocks/notifications.png).
   shell, not as notifications, so they never reach the history.
 - The OSD is a pill at the bottom center of the focused monitor, visible for
   1.2 s.
+- Volume and mute show whatever changed them. Brightness shows only when
+  the brightness keys change it, through `quickspace brightness STEP`,
+  which runs `brightnessctl` and tells the shell the new level. hypridle
+  dims with `brightnessctl` directly, so dimming never shows the OSD.
 
 ## 10. Idle, screensaver and lock
 
