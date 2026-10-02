@@ -95,6 +95,42 @@ Until the launcher's desktop-entry index exists (M3), such a launch grants
 a program name through desktop entries' `Exec` and `StartupWMClass`, and an
 opener through the default handler for the file's type.
 
+## Simplify `quickspace-tz`
+
+The tzdata reader (`cmd/quickspace-tz`, SPEC.md §7.3) grew under review to
+handle every way a system names its local zone. Most of that exists only to
+find the local zone's name, and the name only decides which listed clock to
+hide. Decided with the maintainer: keep matching by name, but only the
+names that come cheaply, and simplify the rest:
+
+- **Name local only from `$TZ` or `/etc/localtime`'s link.** A `$TZ` that
+  names a zone, else the target of `/etc/localtime`'s symlink into the
+  zoneinfo tree. Anything else (a copied file, a custom zone, a POSIX rule)
+  has no name and hides no clock. That deletes `/etc/timezone`, the zoneinfo
+  search and its errors, and the custom-file handling.
+- **Take local's periods from Go's `time.Local`.** The shell runs
+  `quickspace-tz` with the session's environment, so Go picks local the way
+  the session does.
+  This deletes the reimplementation of `$TZ`, the platform directory and
+  POSIX rules. The one loss is a POSIX-rule `$TZ`, which Go treats as UTC
+  where libc doesn't.
+- **Drop link names.** The defaults use city IDs now, and a modern
+  `/etc/localtime` links to one, so a user's `US/Pacific` fails at load,
+  pointing at `timedatectl list-timezones`, as SPEC.md §7.3 now says. That deletes
+  reading `tzdata.zi`. On distros that moved links to `tzdata-legacy`, an
+  alias would otherwise only load with that package installed.
+- **Report Go's load error as is.** That deletes the malformed-file
+  diagnostic and its `../` guard; a malformed file reads as "unknown time
+  zone", as it does for Go.
+
+Together they leave `quickspace-tz` loading each zone and printing its
+periods, plus a few lines to name local, about 100 lines in all. The clocks'
+JavaScript doesn't change.
+
+Not done: hiding a listed clock whose periods match local's, which would
+need no name at all. Matching by name is enough here, and California and
+Arizona stay apart either way.
+
 ## Fullscreen on open, under the focus guard
 
 Deferred: it needs a Hyprland patch, and the MVP comes first.

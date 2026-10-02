@@ -685,10 +685,11 @@ See [`bar.png`](docs/mocks/bar.png).
   same zone as local is hidden, whichever zone that is: in London the bar
   shows SF, NYC and local, and in New York it shows SF, LON and local.
   Decided in review of this spec.
-  - "Same zone" compares canonical tzdata IDs after resolving links, so
-    `US/Pacific` matches `America/Los_Angeles`. A zone that only shares the
-    current offset (Arizona against Los Angeles in summer) stays, so no
-    clock appears and disappears at a DST change.
+  - "Same zone" compares zone IDs. Local's ID comes from `$TZ` when it
+    names a zone, else from `/etc/localtime`'s link into the zoneinfo tree.
+    A local zone with neither (a copied file, a custom zone) hides nothing.
+  - A zone that only shares the current offset (Arizona against Los Angeles
+    in summer) stays, so no clock appears and disappears at a DST change.
   - The popover still lists the hidden zone, marked as local.
 - **Different day.** A zone whose date differs from local shows a small
   `−1` or `+1` (`−2` or `+2` only between zones either side of the date
@@ -709,6 +710,16 @@ See [`bar.png`](docs/mocks/bar.png).
   own list in **`clocks.local.json`**, which replaces the shared list
   (§16.1). `setup` can seed the local file from the existing `~/.timezones`
   that the `clocks` script reads.
+  - **`zone` is a canonical IANA zone ID:** the `Area/City` form, such as
+    `America/Los_Angeles`, `Europe/London` or `Asia/Kolkata`, plus `UTC`.
+    `timedatectl list-timezones` lists them.
+  - **Not supported:** the old link names (`US/Pacific`, `GB`), which
+    Debian and Ubuntu now ship only in `tzdata-legacy`; abbreviations
+    (`PST`); offsets (`+05:30`); POSIX rules; and file paths.
+  - **An unsupported zone is an error at load** that names the entry and
+    points at `timedatectl list-timezones`. The last good list stays in
+    effect.
+  - `label` is any text, `""` for just the time, or `"abbr"` (above).
 
 ### 7.4 Status icons
 
