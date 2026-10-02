@@ -46,6 +46,20 @@ once you have agreed with it or reversed it.
       `QtQuick.Effects`, which Debian and Ubuntu package as
       `qml6-module-qtquick-effects`. Switching means installing the font and
       changing `SymbolicIcon.qml` and the names in `shell/lib/status.mjs`.
+- [ ] **The DST sentence names clocks by their bar labels.** SPEC.md §7.3's
+      example says "London moves to GMT"; `dst.mjs` says "LON moves to GMT",
+      since `clocks.json` has labels, not city names. A clock labeled `abbr`
+      is named by its abbreviation before the change, and one with no label
+      by the city in its zone ID (`Europe/London` gives London). The
+      alternative is that city name for every clock. It's `clockName` in
+      `shell/lib/dst.mjs`.
+- [ ] **The DST sentence groups changes and describes one gap.** Review
+      kept finding edge cases in the grouping (zones that move together,
+      one instant on two calendar days, transitions a day apart), each now
+      fixed and tested. The simpler alternative is a plain list of each
+      clock's next change, with no gap sentence; it drops SPEC.md §7.3's
+      "a week before" line, which is the point of the feature. It's
+      `nextDstChange` and `dstMessage` in `shell/lib/dst.mjs`.
 - [ ] **Monocle with nothing hidden shows `[M]`, not `[0]`.** SPEC.md §6.1
       says monocle shows the hidden count; with one window there's nothing
       hidden to count. It's `layoutSymbol` in `shell/lib/layouts.mjs`.
@@ -134,7 +148,9 @@ tested where it can be without a live session.
     popovers; Bluetooth and network, which Quickshell 0.3 has no service
     for; notifications and session; then the tray, which takes over
     waybar's StatusNotifierWatcher, so it lands with replacing waybar.
-  - The clock popover's DST finder.
+  - The clocks popover (§7.3). Its next-DST-change sentence is
+    `shell/lib/dst.mjs`, from quickspace-tz's periods; the popover itself,
+    with the zone list, day strips and calendar, comes next.
 
 ## The rest of `quickspace doctor`
 
