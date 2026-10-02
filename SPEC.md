@@ -610,7 +610,7 @@ with new keys in **bold**:
 | `Super+Backspace` | close window |
 | `Super+L` | lock |
 | `Super+1…9` / `Super+Shift+1…9` | go to / send window to workspace |
-| `Super+Left` / `Right` | previous / next workspace (as in KDE and on the Mac) |
+| `Super+Left` / `Right`, **`Super+PgUp`** / **`PgDn`** | previous / next workspace (as in KDE and on the Mac; PgUp/PgDn as in GNOME) |
 | `Super+Shift+Left` / `Right` | move window to the previous / next workspace |
 | `Super+J` / `K`, `Super+Shift+J` / `K` | focus / move down and up the stack |
 | `Super+Return` | swap focused window with the master |
@@ -622,7 +622,7 @@ with new keys in **bold**:
 | `Super+Shift+F`, `Super+Insert` | toggle floating |
 | **`Super`+middle-click** | toggle maximize on the window under the pointer |
 | `Super+Shift+R` | resize mode (floating windows) |
-| **`Super+U`** | focus the most recent urgent window |
+| **`Super+Tab`**, **`Super+Home`** | focus the most recent window waiting for attention; with none waiting, the window you were last in |
 | **`Super+Shift+N`** | notification center |
 | `Print` / **`Alt+Print`** / `Shift+Print`, `Super+Print` | screenshot screen / window / region |
 | **`XF86AudioMicMute`**, **`Super+Shift+M`** | toggle microphone mute (system-wide) |
@@ -1154,7 +1154,7 @@ See [`screenshot.png`](docs/mocks/screenshot.png).
 ## 14. Focus and attention
 
 **Nothing takes the keyboard unless you asked for it.** A window that wants
-attention is marked urgent, never focused, and `Super+U` takes you there.
+attention is marked urgent, never focused, and `Super+Tab` takes you there.
 This is KWin's focus-stealing prevention at Medium, which `setup-kde` runs
 because it stops background apps snatching focus mid-typing while still
 letting the launcher and the popups you open take it. Decided in review of
@@ -1203,7 +1203,7 @@ this spec.
     Wayland popups, which keep their grab here.
   - M2 checks all three.
 - **The pointer never jumps** (`cursor:no_warps true`). `Super+J`,
-  `Super+U` and a new window move focus, not the pointer. The Amethyst and
+  `Super+Tab` and a new window move focus, not the pointer. The Amethyst and
   qtile configs both turned warping off.
 - **Closing a window** focuses the window under the pointer
   (`input:focus_on_close cursor`), like KWin's NextFocusPrefersMouse.
@@ -1211,7 +1211,7 @@ this spec.
   to activate its window.
   - KWin allows that, because kitty's activation token carries a fresh
     input serial. Hyprland doesn't check tokens, so here Chrome's window is
-    marked urgent and `Super+U` gets there.
+    marked urgent and `Super+Tab` gets there.
   - M3 tries two fixes: an upstream patch that honors a token whose serial
     is your latest input, and, in the meantime, allowing an activation that
     arrives within a second of a key press in the focused window. That
@@ -1237,15 +1237,15 @@ this spec.
   calls `quickspace_focus.announce_waiting()`, which announces each
   waiting window again, when it starts and after a config reload, since
   either may have lost or reset what it knew.
-- **Super+U.** Lua can't set Hyprland's urgent flag, so the guard keeps its
+- **Super+Tab.** Lua can't set Hyprland's urgent flag, so the guard keeps its
   own list of waiting windows: the ones it kept from focus, and activations
   without a grant. `quickspace_focus.focus_attention()` goes to the latest
-  and returns false when none is waiting, and `Super+U` then falls back to
+  and returns false when none is waiting, and `Super+Tab` then falls back to
   Hyprland's `urgent_or_last`.
 - **Polkit prompts in M2.** The transitional polkit agent is a window of
   its own, and Lua can't see which process asked. So the guard applies the
   keyboard half of the §14.1 rule: a known agent's window takes focus when
-  you pressed a key in the last 2 s, and otherwise waits for `Super+U`,
+  you pressed a key in the last 2 s, and otherwise waits for `Super+Tab`,
   with its notification. The Quickshell agent (M3) applies the full rule.
 - **Portal dialogs in M2.** A file chooser from `xdg-desktop-portal-gtk`
   (or `-kde`, `-gnome`) is the portal's window, not the app's, and Lua
@@ -1375,7 +1375,7 @@ to be focused.
     ringed.
   - The state clears when a marked window is focused, or when its
     notification is dismissed.
-  - `Super+U` goes to the most recent mark, switching workspace. For an
+  - `Super+Tab` goes to the most recent mark, switching workspace. For an
     app-wide mark, that is the app's most recently focused window, the same
     rule a notification click falls back on (§9).
 
@@ -1780,7 +1780,7 @@ Decided in review of this spec:
 - **Monitors:** each monitor shows its own workspace (§6.5).
 - **Nothing steals focus:** only what you asked for takes the keyboard (the
   app you're in, what you just launched, the launcher). Everything else is
-  marked urgent, and `Super+U` jumps there (§14).
+  marked urgent, and `Super+Tab` jumps there (§14).
 - **Clock labels:** `SF` / `NYC` / `LON`, with abbreviations in the popover
   (§7.3). Local is always last, and a listed zone that is the local zone is
   hidden.

@@ -110,7 +110,7 @@ swww isn't packaged). It also runs
   It goes away with the Quickshell owners, which change theme without a
   restart (SPEC.md §5.4).
 - A polkit prompt takes focus only after a key press (the keyboard half of
-  SPEC.md §14.1); after a click it waits for `Super+U`, and there's no
+  SPEC.md §14.1); after a click it waits for `Super+Tab`, and there's no
   **Authenticate** notification yet. Both come with the Quickshell agent.
 - The Quickshell bar marks the windows the focus guard leaves waiting
   (`quickspace-attention`, in `shell/MarkData.qml`), but waybar is still
@@ -147,6 +147,12 @@ tested where it can be without a live session.
   monitor with the workspaces and clocks. It has only been parsed with
   `qmlformat`, not run, since Quickshell can't run in the sandbox. Next:
   - Try it on a real session, beside waybar.
+  - `Super+Tab` and `Super+Home` both run the focus guard's
+    `focus_attention()`, on trial: keep whichever sticks in daily use and
+    free the other. It knows only the windows the guard kept from
+    focus. Once the shell owns notifications (M4), make them reach a
+    notification's window too (§14.4's marks), the way a click on its
+    popup does.
   - `updateMarks` is fed the focus guard's events (`shell/MarkData.qml`,
     via `markEvent`) and Hyprland's urgent flag. Feed it notifications'
     events too, once the shell owns notifications (M4). On a live session,
