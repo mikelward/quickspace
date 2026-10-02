@@ -289,7 +289,7 @@ else
         err=$(sh "$qs" autostart-allowed "$unit" 2>&1 >/dev/null)
         case $? in
             0) ;;
-            1) problem "autostart unit $unit ran in quickspace but isn't on the autostart allowlist: run quickspace's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload (or add its desktop ID to ~/.config/quickspace/autostart to allow it)" ;;
+            1) problem "autostart unit $unit ran in quickspace but isn't on the autostart allowlist: run quickspace's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload, then systemctl --user stop '$unit' (or add its desktop ID to ~/.config/quickspace/autostart to allow it)" ;;
             *) problem "couldn't check autostart unit $unit against the allowlist (${err:-$qs failed}), so the autostart check is incomplete" ;;
         esac
     done
