@@ -72,3 +72,18 @@ test("a finished run reports once, whatever arrives after", () => {
 test("an unknown event is an error", () => {
     assert.throws(() => step(initial(), { type: "crashed" }, COMMAND), /unknown process event: crashed/);
 });
+
+test("a finished run keeps its code and stderr for a caller that reads them", () => {
+    // SessionMenu reads systemctl's blockers from a failed run's stderr.
+    const run = play([STARTED, stderr("Operation inhibited\n"), exited(1)]).at(-1);
+    assert.equal(run.done, true);
+    assert.equal(run.started, true);
+    assert.equal(run.code, 1);
+    assert.equal(run.errors, "Operation inhibited\n");
+});
+
+test("a run whose stderr isn't read finishes only by failing to start", () => {
+    // ClockData reads quickspace-tz's stdout, not its stderr.
+    assert.equal(play([STARTED, exited(0), STOPPED]).at(-1).done, false);
+    assert.equal(play([STOPPED]).at(-1).done, true);
+});

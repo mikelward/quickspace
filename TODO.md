@@ -177,13 +177,10 @@ tested where it can be without a live session.
     and off, connecting with a password asked for in place, and
     nm-connection-editor for the rest. Wi-Fi scanning is shared across
     monitors' popovers, in `shell/NetworkData.qml`. §7.4's VPN lock isn't
-    there yet, since `Quickshell.Networking` 0.3 doesn't list VPN connections; it
-    needs NetworkManager's D-Bus API directly.
-  - A command that can't start (Quickshell 0.3 reports it only by `running`
-    going false without `started`) is caught by `shell/lib/launch.mjs` for
-    `shell/Launcher.qml`, but not yet in `SessionMenu.qml`'s runner or
-    `ClockData.qml`'s `quickspace-tz`, where a missing binary means no retry.
-  - Next: notifications; then the tray, which takes over waybar's StatusNotifierWatcher, so it lands with replacing
+    there yet, since `Quickshell.Networking` 0.3 doesn't list VPN
+    connections; it needs NetworkManager's D-Bus API directly.
+  - Next: notifications; then the tray, which takes over waybar's
+    StatusNotifierWatcher, so it lands with replacing
     waybar.
   - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
     `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Scrolling over the
