@@ -29,7 +29,8 @@
 #   $QUICKSPACE_POLKIT_AGENTS the paths searched, in order (default below)
 #   $QUICKSPACE_AGENT_RETRY   seconds (1-60) before the agent's first restart (5),
 #                             doubling to at most 60
-#   $QUICKSPACE_WALLPAPER     the wallpaper swww shows (default: conf's)
+#   $QUICKSPACE_WALLPAPER     the wallpaper swww or swaybg shows (default:
+#                             conf's)
 #   $QUICKSPACE_INPUT_SETUP   a one-shot input setup (default: conf's
 #                             apply-input.sh), run once Hyprland is up
 
@@ -227,14 +228,22 @@ fi
 
 # The wallpaper (§5.2 puts it in the shell). Not an owner apps wait for, so
 # it isn't part of the ready check, but its daemon is supervised like one.
+# swaybg stands in where swww isn't packaged (Ubuntu 26.04): it shows one
+# image and needs no client, so there's nothing to wait for.
 wallpaper_pending=no
-if ! command -v swww-daemon >/dev/null 2>&1; then
-    log "swww-daemon not found; no wallpaper"
-elif ! command -v swww >/dev/null 2>&1; then
-    log "swww-daemon is installed but its client, swww, isn't; no wallpaper"
-else
+if command -v swww-daemon >/dev/null 2>&1 && command -v swww >/dev/null 2>&1; then
     supervise "the wallpaper daemon (swww-daemon)" swww-daemon
     wallpaper_pending=yes
+elif command -v swaybg >/dev/null 2>&1; then
+    if test -r "$wallpaper"; then
+        supervise "the wallpaper daemon (swaybg)" swaybg -m fill -i "$wallpaper"
+    else
+        log "no wallpaper at $wallpaper"
+    fi
+elif command -v swww-daemon >/dev/null 2>&1; then
+    log "swww-daemon is installed but its client, swww, isn't, and swaybg isn't installed either; no wallpaper"
+else
+    log "neither swww nor swaybg is installed; no wallpaper"
 fi
 
 # Sets the wallpaper once swww-daemon answers. Returns false while it

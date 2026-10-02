@@ -37,7 +37,7 @@ runs before a command (SPEC.md §14.3).
 
 Until the Quickshell shell exists, `quickspace.service` runs
 `quickspace-shell`, a transitional shell: conf's theme daemon (which runs
-waybar and swaync), a polkit agent, and swww for the wallpaper. It also runs
+waybar and swaync), a polkit agent, and swww (or swaybg where swww isn't packaged) for the wallpaper. It also runs
 conf's input setup once. It reports ready once swaync owns the notification
 name and waybar's tray owns the watcher (see `TODO.md`).
 

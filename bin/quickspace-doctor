@@ -95,7 +95,8 @@ trap 'rm -f "$pgrep_err"' EXIT
 # Each daemon runs once, in the unit that owns it: one started by hand or
 # left from another session isn't supervised or stopped with this one.
 for pair in hypridle=hypridle.service swaync=quickspace.service \
-    waybar=quickspace.service swww-daemon=quickspace.service; do
+    waybar=quickspace.service swww-daemon=quickspace.service \
+    swaybg=quickspace.service; do
     daemon=${pair%%=*}
     want=${pair#*=}
     pids=$(pids_of "$daemon")
@@ -187,7 +188,13 @@ elif test "$agents" -eq 1; then
         problem "the polkit agent (pid $agent_pid) runs in ${agent_unit:-no user unit}, not quickspace.service: stop it and \`systemctl --user restart quickspace.service\`, whose shell starts its own"
     fi
 fi
-for rival in dunst mako swaybar swayidle hyprpaper swaybg; do
+# The shell runs one wallpaper daemon or the other, never both.
+if test "$(count swww-daemon)" -gt 0 && test "$(count swaybg)" -gt 0; then
+    problem "swww-daemon and swaybg are both running: only one should draw the wallpaper; \`systemctl --user restart quickspace.service\` starts just one"
+fi
+# swaybg isn't a rival: the shell runs it where swww isn't packaged, and the
+# loop above checks it runs only there.
+for rival in dunst mako swaybar swayidle hyprpaper; do
     if test "$(count "$rival")" -gt 0; then
         problem "$rival is running, but quickspace owns its job (SPEC.md §5.2): stop it and remove it from autostart"
     fi

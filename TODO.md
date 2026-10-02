@@ -19,7 +19,8 @@ once you have agreed with it or reversed it.
 because the Quickshell shell can't be built or tested in the sandbox and the
 MVP comes first. The owners are the ones already in daily use: waybar (bar and
 tray watcher) and swaync (notifications), both run by `conf`'s theme daemon,
-plus the first polkit agent found and swww for the wallpaper. It also runs
+plus the first polkit agent found and swww for the wallpaper (swaybg where
+swww isn't packaged). It also runs
 `conf`'s `apply-input.sh` once, since Hyprland's config starts nothing but
 `uwsm finalize` in this session.
 
