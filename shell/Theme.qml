@@ -30,6 +30,7 @@ Singleton {
     readonly property color urgent: dark ? "#f8e45c" : "#8a5d00"
     readonly property color urgentBg: dark ? Qt.rgba(246 / 255, 211 / 255, 45 / 255, 0.20) : Qt.rgba(229 / 255, 165 / 255, 10 / 255, 0.26)
     readonly property color urgentRing: dark ? "#f6d32d" : "#e5a50a"
+    readonly property color danger: dark ? "#ff7b63" : "#c01c28"
 
     readonly property string font: "Inter"
     readonly property string monoFont: "Ubuntu Mono"

@@ -1440,8 +1440,10 @@ to be focused.
     `monospace-font-name`) and Qt as well as the shell. The pairings
     compared are in [`fonts.png`](docs/mocks/fonts.png).
   - kitty keeps its current look; quickspace doesn't restyle it.
-  - Icons: the Adwaita icon theme for apps, and Material Symbols Rounded for
-    the shell's own glyphs.
+  - Icons: the Adwaita icon theme for apps. The shell's own glyphs are
+    the icon theme's symbolic icons (`battery-level-80-symbolic`), tinted
+    to the palette. The mocks draw them with Material Symbols Rounded,
+    which may replace them once setup installs that font.
   - The cursor theme and size are set once, in the uwsm environment, for
     every toolkit.
 

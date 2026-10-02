@@ -37,6 +37,15 @@ once you have agreed with it or reversed it.
       (at most twice a day). Accepted for now; the alternatives were polling
       `gsettings get` every minute, or building the shell's own schedule
       (SPEC.md §15), which removes the watch altogether. It's `Theme.qml`.
+- [ ] **The bar's status icons are the icon theme's symbolic icons, not
+      Material Symbols.** SPEC.md §15 picked Material Symbols Rounded for
+      the shell's glyphs, and now names symbolic icons instead: no distro
+      setup installs that font yet, and a missing font shows the ligature
+      names as text. Adwaita's symbolic
+      icons are on every GTK desktop; `SymbolicIcon.qml` tints them with
+      `QtQuick.Effects`, which Debian and Ubuntu package as
+      `qml6-module-qtquick-effects`. Switching means installing the font and
+      changing `SymbolicIcon.qml` and the names in `shell/lib/status.mjs`.
 - [ ] **Monocle with nothing hidden shows `[M]`, not `[0]`.** SPEC.md §6.1
       says monocle shows the hidden count; with one window there's nothing
       hidden to count. It's `layoutSymbol` in `shell/lib/layouts.mjs`.
@@ -120,7 +129,12 @@ tested where it can be without a live session.
     desktop's `color-scheme`. Next for §15: generate it from one
     `palette.json`, and move the light/dark schedule from conf's theme
     daemon into the shell (`appearance.json`).
-  - The status icons and tray (§7.4), then the clock popover's DST finder.
+  - Status icons (§7.4): `shell/StatusIcons.qml` has volume (scroll by 5%)
+    and battery (red below 15%), from `shell/lib/status.mjs`. Next: their
+    popovers; Bluetooth and network, which Quickshell 0.3 has no service
+    for; notifications and session; then the tray, which takes over
+    waybar's StatusNotifierWatcher, so it lands with replacing waybar.
+  - The clock popover's DST finder.
 
 ## The rest of `quickspace doctor`
 
