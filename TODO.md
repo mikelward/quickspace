@@ -186,6 +186,20 @@ tested where it can be without a live session.
     `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Scrolling over the
     clocks scrubs them (`scrubbed` in `shell/lib/clocks.mjs`).
 
+## OSD (M4)
+
+SPEC.md §9's OSD is `shell/Osd.qml`, from `shell/OsdData.qml` and
+`shell/lib/osd.mjs`: a change to the default output's volume or mute, or the
+default input's mute, from any source. Only parsed with `qmlformat`. Still
+to do:
+
+- Brightness. Nothing in the shell reads the backlight yet. Either have
+  the brightness keys in `conf` tell the shell (an `IpcHandler` the binding
+  calls after `brightnessctl`), or read `/sys/class/backlight` in the
+  shell. Whichever it is mustn't flash the OSD when hypridle dims.
+- Try it on a real session: the keys, the bar's scroll and the volume
+  popover should each show it, and switching outputs shouldn't.
+
 ## The rest of `quickspace doctor`
 
 M2's `quickspace doctor` (`bin/quickspace-doctor`) checks units, D-Bus
