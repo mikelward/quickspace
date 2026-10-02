@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "lib/clocks.mjs" as Clocks
+import "lib/launch.mjs" as Run
 import "lib/tzdata.mjs" as Tz
 
 // The bar's clocks (SPEC.md §7.3). It reads clocks.json and
@@ -73,6 +74,7 @@ Singleton {
     function lookUp(clocks) {
         root.trying = clocks;
         tz.running = false;
+        tz.runState = Run.initial();
         tz.command = ["quickspace-tz"].concat(clocks.map(c => c.zone));
         tz.running = true;
     }
@@ -185,8 +187,30 @@ Singleton {
     Process {
         id: tz
 
+        // Through shell/lib/launch.mjs only to catch a failed start
+        // (quickspace-tz not on PATH): Quickshell 0.3 then sends no exit
+        // code and no output, so `looked` and onExited never run.
+        property var runState: Run.initial()
+
+        function handle(event) {
+            if (runState.done) {
+                return;
+            }
+            runState = Run.step(runState, event, command);
+            if (runState.done && !runState.started) {
+                console.warn(`${runState.report.message}; is it on PATH?`);
+                root.retry();
+            }
+        }
+
         stdout: StdioCollector {
             onStreamFinished: root.looked(text)
+        }
+        onStarted: handle({ type: "started" })
+        onRunningChanged: {
+            if (!running) {
+                handle({ type: "stopped" });
+            }
         }
         onExited: (code, status) => {
             if (code !== 0) {

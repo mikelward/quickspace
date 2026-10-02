@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "lib/launch.mjs" as Run
 import "lib/session.mjs" as Session
 
 // The session menu (SPEC.md §7.4): lock, log out, suspend, restart and
@@ -15,10 +16,9 @@ PopupWindow {
     // The action being run, and once systemctl says it's blocked, why.
     property string action: ""
     property var blocked: []
-    // A run's exit code and stderr arrive separately; act once both have.
-    property int exitCode: -1
-    property string errors: ""
-    property bool errorsRead: false
+    // The run's signals, through shell/lib/launch.mjs, which says when it's
+    // done: its exit code and stderr are both in, or it couldn't start.
+    property var runState: Run.initial()
 
     function toggle() {
         blocked = [];
@@ -32,8 +32,7 @@ PopupWindow {
         }
         action = id;
         blocked = [];
-        exitCode = -1;
-        errorsRead = false;
+        runState = Run.initial();
         runner.command = Session.actionCommand(id, force);
         runner.running = true;
         if (!Session.isPower(id) || force) {
@@ -41,20 +40,23 @@ PopupWindow {
         }
     }
 
-    function finished() {
-        if (exitCode < 0 || !errorsRead) {
+    function handle(event) {
+        if (runState.done) {
             return;
         }
-        if (exitCode === 0) {
-            visible = false;
+        runState = Run.step(runState, event, runner.command);
+        if (!runState.done) {
             return;
         }
-        const found = Session.isPower(action) ? Session.blockers(errors) : [];
+        // Only a run that started and failed can be blocked.
+        const found = runState.started && runState.code !== 0 && Session.isPower(action) ? Session.blockers(runState.errors) : [];
         if (found.length > 0) {
             blocked = found;
             return;
         }
-        console.warn(`quickspace: ${runner.command.join(" ")} exited ${exitCode}: ${errors.trim()}`);
+        if (runState.report?.level === "warn") {
+            console.warn(runState.report.message);
+        }
         visible = false;
     }
 
@@ -71,16 +73,15 @@ PopupWindow {
         id: runner
 
         stderr: StdioCollector {
-            onStreamFinished: {
-                root.errors = text;
-                root.errorsRead = true;
-                root.finished();
+            onStreamFinished: root.handle({ type: "stderr", text: text })
+        }
+        onStarted: root.handle({ type: "started" })
+        onRunningChanged: {
+            if (!running) {
+                root.handle({ type: "stopped" });
             }
         }
-        onExited: (code, status) => {
-            root.exitCode = code;
-            root.finished();
-        }
+        onExited: (code, status) => root.handle({ type: "exited", code: code })
     }
 
     Rectangle {

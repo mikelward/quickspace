@@ -1,5 +1,6 @@
-// The bookkeeping for an app the bar's menus launch (shell/Launcher.qml),
-// as pure functions the QML feeds Process signals into.
+// The bookkeeping for a command the shell runs (shell/Launcher.qml,
+// SessionMenu.qml and ClockData.qml), as pure functions the QML feeds
+// Process signals into.
 //
 // A run's signals arrive separately and in no fixed order: `started`, the
 // exit code, the end of stderr, and `running` going false. Quickshell 0.3
