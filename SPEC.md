@@ -465,8 +465,8 @@ flowchart TD
   It prints one line per problem, with the fix.
   - M2's `quickspace doctor` checks the transitional shell's owners
     (swaync, waybar) and the units, rival daemons, portal config, config
-    errors and autostart entries. Activatable services and bars per
-    monitor wait for the Quickshell owners (TODO.md).
+    errors, autostart entries and bars per monitor. Activatable services
+    wait for the Quickshell owners (TODO.md).
 
 ### 5.5 Coexisting with KDE
 
