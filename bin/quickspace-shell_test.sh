@@ -60,11 +60,15 @@ FAKE
 # with $FAKE_DAEMON_STAYS it stays up until the test kills it.
 cat > "$tmp/theme-daemon" <<'FAKE'
 #!/bin/sh
-printf 'theme-daemon\n' >> "$FAKE_LOG"
+printf 'theme-daemon bar=%s\n' "$QUICKSPACE_BAR" >> "$FAKE_LOG"
 for n in $FAKE_NAMES; do echo "${FAKE_UNIT:-quickspace.service}" > "$FAKE_OWNED/$n"; done
 if test -n "$FAKE_DAEMON_STAYS"; then
     echo $$ >> "$FAKE_PIDS"
     exec sleep 600 >/dev/null 2>&1
+fi
+# With $FAKE_DAEMON_UNTIL it stays until a fake writes that FIFO.
+if test -n "$FAKE_DAEMON_UNTIL"; then
+    read -r _ < "$FAKE_DAEMON_UNTIL"
 fi
 exit "${FAKE_DAEMON_EXIT:-0}"
 FAKE
@@ -126,13 +130,33 @@ printf 'swaybg %s\n' "$*" >> "$FAKE_LOG"
 echo $$ >> "$FAKE_PIDS"
 exec sleep 600 >/dev/null 2>&1
 FAKE
+# qs claims the tray watcher and stays up, or exits with $FAKE_QS_EXIT; it's
+# in its own directory so a run can leave it off the PATH.
+qs=$tmp/qs-bin
+mkdir "$qs"
+cat > "$qs/qs" <<'FAKE'
+#!/bin/sh
+printf 'qs %s\n' "$*" >> "$FAKE_LOG"
+if test -n "$FAKE_QS_EXIT"; then
+    # Lets a waiting theme daemon go too, so nothing outlives the run.
+    if test -n "$FAKE_DAEMON_UNTIL"; then
+        echo done > "$FAKE_DAEMON_UNTIL"
+    fi
+    exit "$FAKE_QS_EXIT"
+fi
+echo "${FAKE_UNIT:-quickspace.service}" > "$FAKE_OWNED/org.kde.StatusNotifierWatcher"
+echo $$ >> "$FAKE_PIDS"
+exec sleep 600 >/dev/null 2>&1
+FAKE
+mkdir -p "$tmp/config/quickshell/quickspace"
+: > "$tmp/config/quickshell/quickspace/shell.qml"
 cat > "$tmp/input-setup" <<'FAKE'
 #!/bin/sh
 printf 'input-setup\n' >> "$FAKE_LOG"
 exit "${FAKE_INPUT_STATUS:-0}"
 FAKE
 : > "$tmp/wallpaper.jpg"
-chmod +x "$fake"/* "$swww"/* "$swaybg"/* "$tmp/theme-daemon" "$tmp/agent" "$tmp/input-setup"
+chmod +x "$fake"/* "$swww"/* "$swaybg"/* "$qs"/* "$tmp/theme-daemon" "$tmp/agent" "$tmp/input-setup"
 
 both="org.freedesktop.Notifications org.kde.StatusNotifierWatcher"
 
@@ -148,7 +172,7 @@ run() {
     # has: the shell, and the agent's watcher once cleanup stops the agent.
     # The long-lived fakes drop the pipe, so they can't hold it open.
     {
-        env PATH="$fake:$swww:$PATH" FAKE_OWNED="$tmp/owned" FAKE_LOG="$tmp/log" FAKE_PIDS="$tmp/pids" \
+        env PATH="$fake:$swww:$PATH" QUICKSPACE_BAR=waybar XDG_CONFIG_HOME="$tmp/config" FAKE_OWNED="$tmp/owned" FAKE_LOG="$tmp/log" FAKE_PIDS="$tmp/pids" \
             QUICKSPACE_THEME_DAEMON="$tmp/theme-daemon" QUICKSPACE_POLKIT_AGENT="$tmp/agent" \
             QUICKSPACE_WALLPAPER="$tmp/wallpaper.jpg" QUICKSPACE_INPUT_SETUP="$tmp/input-setup" \
             QUICKSPACE_SHELL_WAIT=1 "$@" sh "$shell" 2>&1 >/dev/null
@@ -377,6 +401,45 @@ for triplet in x86_64-linux-gnu aarch64-linux-gnu arm-linux-gnueabihf; do
     check "KDE's agent under $triplet leaves no agent missing" test -z "$(grep "no polkit agent found" "$tmp/err")"
     rm -rf "$tmp/multi/$triplet"
 done
+
+# The Quickshell bar: qs runs the shell and owns the tray watcher, and the
+# theme daemon is told so it starts no waybar.
+notifications=org.freedesktop.Notifications
+run FAKE_NAMES="$notifications" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=quickshell
+log=$(cat "$tmp/log")
+check "the Quickshell bar runs the shell" contains "$log" "qs -c quickspace"
+check "the theme daemon is told the bar is Quickshell's" contains "$log" "theme-daemon bar=quickshell"
+check "the Quickshell bar's tray counts toward ready" contains "$log" "systemd-notify --ready"
+
+# Unset, the bar is Quickshell's where qs and the shell are installed...
+run FAKE_NAMES="$notifications" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=
+check "the bar defaults to Quickshell's when it's installed" contains "$(cat "$tmp/log")" "qs -c quickspace"
+# ...and waybar where the shell isn't.
+run FAKE_NAMES="$both" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR= XDG_CONFIG_HOME="$tmp/no-config"
+log=$(cat "$tmp/log")
+check "the bar falls back to waybar without the shell" contains "$log" "theme-daemon bar=waybar"
+check "waybar's bar runs no qs" test -z "$(grep '^qs ' "$tmp/log")"
+
+# The shell exiting ends the unit, to be restarted.
+# The theme daemon waits on the FIFO until qs exits, then exits too: the
+# shell ends either way, and no fake is left holding the test's pipe.
+mkfifo "$tmp/daemon-until"
+run FAKE_NAMES="$notifications" FAKE_DAEMON_UNTIL="$tmp/daemon-until" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=quickshell FAKE_QS_EXIT=3
+check "the Quickshell shell exiting ends the shell with a failure" test "$status" -ne 0
+check "the Quickshell shell exiting is reported" contains "$(cat "$tmp/err")" "the Quickshell shell (qs -c quickspace) exited (3)"
+
+run FAKE_NAMES="$both" QUICKSPACE_BAR=quickshell
+check "QUICKSPACE_BAR=quickshell without qs fails, not to be retried" test "$status" -eq 78
+check "QUICKSPACE_BAR=quickshell without qs is reported" contains "$(cat "$tmp/err")" "qs (Quickshell) isn't installed"
+check "QUICKSPACE_BAR=quickshell without qs starts nothing" test ! -s "$tmp/log"
+
+run FAKE_NAMES="$both" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=quickshell XDG_CONFIG_HOME="$tmp/no-config"
+check "QUICKSPACE_BAR=quickshell without the shell fails, not to be retried" test "$status" -eq 78
+check "QUICKSPACE_BAR=quickshell without the shell is reported" contains "$(cat "$tmp/err")" "no shell at $tmp/no-config/quickshell/quickspace/shell.qml"
+
+run FAKE_NAMES="$both" QUICKSPACE_BAR=polybar
+check "a bad QUICKSPACE_BAR fails, not to be retried" test "$status" -eq 78
+check "a bad QUICKSPACE_BAR is reported by name" contains "$(cat "$tmp/err")" "QUICKSPACE_BAR must be quickshell or waybar, not 'polybar'"
 
 if command -v shellcheck >/dev/null 2>&1; then
     check "shellcheck passes" shellcheck -s sh "$shell" bin/quickspace-shell_test.sh

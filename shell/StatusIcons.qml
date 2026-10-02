@@ -9,8 +9,8 @@ import "lib/status.mjs" as Status
 
 // The status icons before the clocks (SPEC.md §7.4). So far: Bluetooth;
 // network; volume, which scrolls by 5%; and battery, red below 15%, each
-// with its popover; and the session menu. The other icons and the tray come later;
-// TODO.md lists them.
+// with its popover; and the session menu. The tray is shell/Tray.qml, to
+// their left. The other icons come later; TODO.md lists them.
 Row {
     id: root
 

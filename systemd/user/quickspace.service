@@ -1,6 +1,6 @@
 # The quickspace shell: bar, launcher, notifications, tray watcher and polkit
 # agent (SPEC.md §5.2-§5.4). Until the Quickshell shell exists, quickspace-shell
-# runs the transitional owners (waybar, swaync, a polkit agent); see TODO.md.
+# runs the transitional owners (the bar, swaync, a polkit agent); see TODO.md.
 [Unit]
 Description=quickspace shell
 Documentation=https://github.com/mikelward/quickspace
