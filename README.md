@@ -24,9 +24,10 @@ this is the way to install by hand:
     systemctl --user enable quickspace.service
 
 By hand, also install what the session runs: Hyprland 0.56 or later,
-hypridle, uwsm, waybar, swaync, a polkit agent, swww or swaybg, and jq,
-which `quickspace doctor` reads Hyprland's JSON with. `setup-quickspace`
-installs them all. jq is a free distro package that runs locally, with no
+Quickshell 0.3 (`qs`, which draws the bar; without it `quickspace-shell`
+falls back to waybar), hypridle, uwsm, waybar, swaync, a polkit agent, swww
+or swaybg, and jq, which `quickspace doctor` reads Hyprland's JSON with.
+`setup-quickspace` installs them all. jq is a free distro package that runs locally, with no
 network calls; without it, the doctor reports its bar check as skipped.
 
 Then pick **quickspace** at the display manager. It runs Hyprland through
@@ -41,21 +42,24 @@ focus grant, and runs it with `uwsm app` so it outlives a shell restart.
 Terminal commands get their grants from `quickspace-grant`, which each shell
 runs before a command (SPEC.md §14.3).
 
-Until the Quickshell shell exists, `quickspace.service` runs
-`quickspace-shell`, a transitional shell: conf's theme daemon (which runs
-waybar and swaync), a polkit agent, and swww (or swaybg where swww isn't packaged) for the wallpaper. It also runs
-conf's input setup once. It reports ready once swaync owns the notification
-name and waybar's tray owns the watcher (see `TODO.md`).
+Until the Quickshell shell is complete, `quickspace.service` runs
+`quickspace-shell`, a transitional shell. It runs the Quickshell bar
+(`qs -c quickspace`) when Quickshell and the shell are installed, and waybar
+otherwise; conf's theme daemon, which runs swaync (and waybar, when that's
+the bar); a polkit agent; and swww (or swaybg where swww isn't packaged) for
+the wallpaper. It also runs conf's input setup once. It reports ready once
+swaync owns the notification name and the bar's tray owns the watcher (see
+`TODO.md`). `QUICKSPACE_BAR=waybar` in `~/.config/uwsm/env` keeps waybar.
 
-The Quickshell bar is being built beside it (M3). So far it has the
-workspaces, the layout symbol, the clocks and their popover, network,
-Bluetooth, volume, battery and the session menu, plus the volume and
-mic-mute OSD. To try it next to waybar,
-run `qs -c quickspace` in a terminal after `make install` and `sudo make install-session`. The
-clocks need `quickspace-tz` on `PATH`. Ctrl+C stops it; waybar stays until
-the bar is complete. Its notification popups are off while swaync runs;
-to try them, stop swaync and start the shell with
-`QUICKSPACE_NOTIFICATIONS=1 qs -c quickspace`.
+The Quickshell bar has the workspaces, the layout symbol, the tray, the
+clocks and their popover, network, Bluetooth, volume, battery and the
+session menu, plus the volume and mic-mute OSD. To use it, install
+Quickshell (above), run `make install` and `sudo make install-session`,
+then log in to quickspace again (or `systemctl --user restart quickspace`).
+The clocks need `quickspace-tz` on `PATH`. Its notification popups are off
+while swaync runs;
+to try them, stop swaync and restart the shell with
+`QUICKSPACE_NOTIFICATIONS=1` in its environment.
 
 `quickspace doctor` checks the running session and prints one line per
 problem, with its fix: units that aren't running, D-Bus names owned by the

@@ -3,11 +3,15 @@
 # quickspace-shell: what quickspace.service runs until the Quickshell shell
 # exists (SPEC.md §5.2, §5.4; TODO.md "Transitional shell").
 #
-# For M2 the owners are the ones already in daily use:
-#   - swaync owns org.freedesktop.Notifications, and waybar hosts the tray's
-#     org.kde.StatusNotifierWatcher. conf's theme daemon starts both with the
-#     light/dark style and restarts them at each theme boundary, so it runs
-#     here rather than from Hyprland's autostart;
+# For M2 the owners are the ones already in daily use, with the bar moving
+# to Quickshell (M3):
+#   - the bar, and with it the tray's org.kde.StatusNotifierWatcher: the
+#     Quickshell shell (`qs -c quickspace`) when it's installed, else waybar;
+#   - swaync owns org.freedesktop.Notifications. conf's theme daemon starts
+#     it, and waybar when that's the bar, with the light/dark style and
+#     restarts them at each theme boundary, so it runs here rather than from
+#     Hyprland's autostart. It's told which bar it is in $QUICKSPACE_BAR, so
+#     it doesn't start waybar beside the Quickshell bar;
 #   - the first polkit agent found on this system.
 #
 # All of them run in this unit's cgroup, so they stop with the session. The
@@ -24,6 +28,8 @@
 # agent goes, and comes back after a crash. `quickspace doctor` names a
 # missing agent or the other one.
 #
+#   $QUICKSPACE_BAR           quickshell or waybar (default: quickshell when
+#                             `qs` and the shell's config are installed)
 #   $QUICKSPACE_THEME_DAEMON  the theme daemon (default: conf's)
 #   $QUICKSPACE_POLKIT_AGENT  a polkit agent to use instead of searching
 #   $QUICKSPACE_POLKIT_AGENTS the paths searched, in order (default below)
@@ -49,6 +55,8 @@ default_agents="
     /usr/libexec/kf6/polkit-kde-authentication-agent-1
 "
 theme_daemon=${QUICKSPACE_THEME_DAEMON:-$HOME/.config/hypr/scripts/theme-daemon.sh}
+# Where `make install` puts the shell, and where `qs -c quickspace` finds it.
+shell_config=${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/quickspace/shell.qml
 wallpaper=${QUICKSPACE_WALLPAPER:-$HOME/.config/hypr/wallpaper.jpg}
 input_setup=${QUICKSPACE_INPUT_SETUP:-$HOME/.config/hypr/scripts/apply-input.sh}
 
@@ -85,7 +93,8 @@ owned() {
 }
 
 # No cleanup trap: stopping the unit kills its whole cgroup, which also
-# catches waybar and swaync, started by the theme daemon rather than here.
+# catches waybar and swaync, started by the theme daemon rather than here,
+# and the Quickshell shell.
 
 # A bad setting or a missing piece fails the start at once, by name, before
 # anything runs. It exits EX_CONFIG (78), which the unit doesn't restart on
@@ -139,6 +148,30 @@ if test -n "${QUICKSPACE_WALLPAPER:-}" && ! test -f "$QUICKSPACE_WALLPAPER"; the
     exit $EX_CONFIG
 fi
 
+case "${QUICKSPACE_BAR:-}" in
+    '')
+        if command -v qs >/dev/null 2>&1 && test -f "$shell_config"; then
+            bar=quickshell
+        else
+            bar=waybar
+        fi
+        ;;
+    quickshell | waybar) bar=$QUICKSPACE_BAR ;;
+    *)
+        log "QUICKSPACE_BAR must be quickshell or waybar, not '$QUICKSPACE_BAR'"
+        exit $EX_CONFIG
+        ;;
+esac
+if test "$bar" = quickshell && ! command -v qs >/dev/null 2>&1; then
+    log "QUICKSPACE_BAR is quickshell, but qs (Quickshell) isn't installed"
+    exit $EX_CONFIG
+fi
+if test "$bar" = quickshell && ! test -f "$shell_config"; then
+    log "QUICKSPACE_BAR is quickshell, but there's no shell at $shell_config; run \`make install\` in quickspace"
+    exit $EX_CONFIG
+fi
+export QUICKSPACE_BAR="$bar"
+
 if ! is_program "$theme_daemon"; then
     if test -n "${QUICKSPACE_THEME_DAEMON:-}"; then
         log "QUICKSPACE_THEME_DAEMON is '$theme_daemon', which isn't an executable file"
@@ -178,6 +211,7 @@ supervise() {
         kill -USR1 $$
     ) &
 }
+
 
 agent=$(polkit_agent)
 if test -n "$agent"; then
@@ -224,6 +258,16 @@ if test -n "$agent"; then
 else
     # Not fatal: the session works, but privileged actions can't prompt.
     log "no polkit agent found; install hyprpolkitagent or polkit-gnome"
+fi
+
+# The Quickshell bar is an owner: it holds the tray watcher. It starts
+# after the agent's restart loop is recorded, so if it exits at once, the
+# exit trap still finds the loop to stop.
+if test "$bar" = quickshell; then
+    supervise "the Quickshell shell (qs -c quickspace)" qs -c quickspace
+    tray_owner="the Quickshell shell's tray"
+else
+    tray_owner="waybar's tray"
 fi
 
 # The wallpaper (§5.2 puts it in the shell). Not an owner apps wait for, so
@@ -284,7 +328,7 @@ while :; do
     test -s "$theme_status" && exited=yes
     missing=
     owned org.freedesktop.Notifications || missing="$missing org.freedesktop.Notifications (swaync)"
-    owned org.kde.StatusNotifierWatcher || missing="$missing org.kde.StatusNotifierWatcher (waybar's tray)"
+    owned org.kde.StatusNotifierWatcher || missing="$missing org.kde.StatusNotifierWatcher ($tray_owner)"
     # The wallpaper doesn't hold up ready; it keeps trying below.
     test -z "$missing" && break
     if test "$exited" = yes; then

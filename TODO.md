@@ -86,10 +86,11 @@ once you have agreed with it or reversed it.
 
 `quickspace.service` runs `bin/quickspace-shell`, not `qs -c quickspace`,
 because the Quickshell shell can't be built or tested in the sandbox and the
-MVP comes first. The owners are the ones already in daily use: waybar (bar and
-tray watcher) and swaync (notifications), both run by `conf`'s theme daemon,
-plus the first polkit agent found and swww for the wallpaper (swaybg where
-swww isn't packaged). It also runs
+MVP comes first. The bar and tray watcher are the Quickshell shell's
+(`qs -c quickspace`) when it's installed, else waybar's; swaync (notifications)
+is run by `conf`'s theme daemon, as waybar is when that's the bar; plus the
+first polkit agent found and swww for the wallpaper (swaybg where swww isn't
+packaged). It also runs
 `conf`'s `apply-input.sh` once, since Hyprland's config starts nothing but
 `uwsm finalize` in this session.
 
@@ -113,10 +114,12 @@ swww isn't packaged). It also runs
   SPEC.md §14.1); after a click it waits for `Super+Tab`, and there's no
   **Authenticate** notification yet. Both come with the Quickshell agent.
 - The Quickshell bar marks the windows the focus guard leaves waiting
-  (`quickspace-attention`, in `shell/MarkData.qml`), but waybar is still
-  the bar in daily use, so the guard keeps showing a Hyprland notification
-  for each. Turn that off (`notify = false`) when the Quickshell bar
-  replaces waybar.
+  (`quickspace-attention`, in `shell/MarkData.qml`), and it's now the bar
+  wherever Quickshell is installed. The guard still shows a Hyprland
+  notification for each, since `QUICKSPACE_BAR=waybar` still falls back to
+  waybar, which can't. Turn that off (`notify = false`) once waybar goes.
+- The theme daemon restarts swaync at each light/dark boundary (and waybar,
+  when it's the bar); the Quickshell bar changes theme in place.
 
 ## Bar (M3)
 
@@ -190,9 +193,11 @@ tested where it can be without a live session.
     monitors' popovers, in `shell/NetworkData.qml`. §7.4's VPN lock isn't
     there yet, since `Quickshell.Networking` 0.3 doesn't list VPN
     connections; it needs NetworkManager's D-Bus API directly.
-  - Next: notifications; then the tray, which takes over waybar's
-    StatusNotifierWatcher, so it lands with replacing
-    waybar.
+  - The tray (`shell/Tray.qml`, from `shell/lib/tray.mjs`) shows apps'
+    StatusNotifierItems, hiding passive ones as waybar did: a left or
+    right click opens the menu (§7.4), and a middle click activates.
+    With it the Quickshell bar replaced waybar in `quickspace-shell`.
+    Try it live: an app's menu, and an app that registers before the bar.
   - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
     `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Scrolling over the
     clocks scrubs them (`scrubbed` in `shell/lib/clocks.mjs`).

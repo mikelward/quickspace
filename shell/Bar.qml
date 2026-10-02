@@ -35,7 +35,15 @@ PanelWindow {
         monitor: bar.monitor
     }
 
+    Tray {
+        anchors.right: statusIcons.left
+        anchors.rightMargin: 14
+        anchors.verticalCenter: parent.verticalCenter
+    }
+
     StatusIcons {
+        id: statusIcons
+
         anchors.right: clocks.left
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter

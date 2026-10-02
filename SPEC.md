@@ -323,9 +323,11 @@ work". The old setup shows how it fought itself:
 
 **M2 transitional shell.** Until the Quickshell shell lands (M3 and M4),
 `quickspace.service` runs `quickspace-shell` instead of `qs -c quickspace`.
-It starts `conf`'s theme daemon, which runs waybar and swaync, and the
-first polkit agent it finds, and reports ready once swaync owns
-`org.freedesktop.Notifications` and waybar's tray owns
+It runs the Quickshell bar (`qs -c quickspace`) when Quickshell and the
+shell are installed, and waybar otherwise (`QUICKSPACE_BAR` picks). It
+starts `conf`'s theme daemon, which runs swaync, and waybar when that's the
+bar, and the first polkit agent it finds. It reports ready once swaync
+owns `org.freedesktop.Notifications` and the bar's tray owns
 `org.kde.StatusNotifierWatcher`. The polkit agent's registration isn't
 observable from a script, so it isn't waited for. Its exit doesn't fail the
 unit, either: an agent exits at once when another already holds the
