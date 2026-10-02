@@ -25,6 +25,8 @@ PREFIX ?= /usr/local
 # ExecCondition.
 OLD_AUTOSTART_DROPIN_MARK = \# A drop-in for another desktop's autostarted polkit agent
 GO ?= go
+# The shell's pure logic (shell/lib) is tested with node --test (SPEC.md §20).
+NODE ?= node
 # Build with the Go that's installed, never one downloaded to match go.mod.
 export GOTOOLCHAIN := local
 
@@ -37,6 +39,7 @@ test:
 	sh bin/quickspace_test.sh
 	sh bin/quickspace-shell_test.sh
 	sh bin/quickspace-doctor_test.sh
+	$(NODE) --test shell/lib/clocks_test.mjs
 	$(GO) vet ./...
 	$(GO) test ./...
 

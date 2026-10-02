@@ -55,7 +55,7 @@ Contents:
 - One full-width bar: every workspace on the left, with **urgency** shown on
   the workspace that wants attention. The tray, network, volume, Bluetooth,
   power and notifications sit on the right, then four clocks:
-  **US/Pacific**, **US/Eastern** and **Europe/London**, labeled `SF`, `NYC`,
+  **America/Los_Angeles**, **America/New_York** and **Europe/London**, labeled `SF`, `NYC`,
   `LON`, and local (no label; the date in its place).
 - A launcher on a **tap of Super**: fuzzy search over `.desktop` entries plus
   quick actions (screenshot window/screen, log out, settings, …).
@@ -248,7 +248,7 @@ quickspace greeter, the same QML screen as the lock (§11).
 | R8 | One full-width bar, flush to the edges, all workspaces | Quickshell `PanelWindow` per monitor + `Quickshell.Hyprland` | shell |
 | R9 | Tray icons | `Quickshell.Services.SystemTray`; the shell is the SNI watcher | shell |
 | R10 | Network, volume, Bluetooth, power | `Networking`, `Pipewire`, `Bluetooth`, `UPower` | shell |
-| R11 | Labeled clocks for US/Pacific, US/Eastern, Europe/London | fixed place labels `SF` / `NYC` / `LON` by default; tzdata abbreviations (PDT/PST …), **not** CLDR, in the popover or on request (§7.3) | shell |
+| R11 | Labeled clocks for America/Los_Angeles, America/New_York, Europe/London | fixed place labels `SF` / `NYC` / `LON` by default; tzdata abbreviations (PDT/PST …), **not** CLDR, in the popover or on request (§7.3) | shell |
 | R12 | Local clock shows the date | `MMM d` in place of a label | shell |
 | R13 | Urgency on the workspace widget | Hyprland `urgent` on toplevel/workspace, plus attention derived from notifications, since Chrome can't flag urgency on Wayland (§14) | native + shell |
 | R14 | Tap Super for the launcher | a release bind on `SUPER_L` → a Hyprland global shortcut → Quickshell `GlobalShortcut`. Fixed only on Hyprland main (after 0.56.2); `Super+Space` until the pinned version has it (§8) | native + shell |
@@ -665,7 +665,7 @@ See [`bar.png`](docs/mocks/bar.png).
 
 ### 7.3 Clocks
 
-- **Zones:** US/Pacific, US/Eastern, Europe/London, then local. They show as
+- **Zones:** America/Los_Angeles, America/New_York, Europe/London, then local. They show as
   **`SF HH:MM`**, **`NYC HH:MM`** and **`LON HH:MM`** in 24-hour time with
   tabular figures; local is `MMM d HH:MM`.
 - **Place labels don't change at DST**, so the bar looks the same all year.
@@ -691,7 +691,8 @@ See [`bar.png`](docs/mocks/bar.png).
     clock appears and disappears at a DST change.
   - The popover still lists the hidden zone, marked as local.
 - **Different day.** A zone whose date differs from local shows a small
-  `−1` or `+1`.
+  `−1` or `+1` (`−2` or `+2` only between zones either side of the date
+  line, such as UTC−12 and UTC+14).
 - **Popover** ([`clocks.png`](docs/mocks/clocks.png)): opened by a click on
   any clock. It shows:
   - each zone with its city, current abbreviation and offset from local;
