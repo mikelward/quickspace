@@ -97,7 +97,11 @@ tested where it can be without a live session.
     `shell/lib/layouts.mjs`. On a live session, check that a Hyprland
     config reload resets `layout.lua`'s modes, as `LayoutData.qml` assumes
     when it forgets them on `configreloaded`.
-  - Right-click a workspace for the layout menu (§7.2).
+  - Right-click a workspace for the layout menu (§7.2): not wanted yet, so
+    decide whether to keep it before building it. If it stays, choose
+    between switching to the workspace before the menu opens and adding a
+    workspace argument to `layout.lua`'s `layoutmsg`. A plain `layoutmsg`
+    also doesn't announce the new mode today.
   - A bad clocks file notifies (§16.1); today it's a warning in the log.
   - The light theme (§15); `Theme.qml` is dark only.
   - The status icons and tray (§7.4), then the clock popover's DST finder.
