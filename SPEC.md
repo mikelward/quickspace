@@ -650,8 +650,15 @@ See [`bar.png`](docs/mocks/bar.png).
   then the built-in status icons: keep-awake (only when on), Bluetooth,
   network, volume, battery %, notifications, session. The four clocks come
   last.
-- **Middle:** empty. The window title is left out on purpose: the dim already
-  says which window is focused, and titles leak into screenshots.
+- **Middle:** the window title, as waybar showed it. The focused monitor
+  shows the focused window's, wherever on that monitor it is: under an
+  open special workspace, or pinned. Each other monitor shows the last
+  focused window on the workspace it shows, which is an open special
+  workspace over the regular one. It's plain text, at most about 60
+  characters wide, with an ellipsis where it's cut, never inside a
+  character.
+  Titles do show up in screenshots and screen shares of the bar; having
+  the title where waybar had it is worth that.
 
 ### 7.2 Workspaces
 

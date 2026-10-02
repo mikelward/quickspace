@@ -29,11 +29,23 @@ ShellRoot {
         target: Hyprland
 
         // Windows that were open before the shell started need it too.
-        Component.onCompleted: Hyprland.refreshToplevels()
+        Component.onCompleted: {
+            Hyprland.refreshToplevels();
+            Hyprland.refreshWorkspaces();
+            Hyprland.refreshMonitors();
+        }
 
         function onRawEvent(event) {
             if (["openwindow", "closewindow", "movewindowv2", "fullscreen", "changefloatingmode"].includes(event.name)) {
                 Hyprland.refreshToplevels();
+            }
+            // Each workspace's last focused window, for the bar's title.
+            if (["activewindowv2", "openwindow", "closewindow", "movewindowv2"].includes(event.name)) {
+                Hyprland.refreshWorkspaces();
+            }
+            // Which special workspace each monitor shows, for the same.
+            if (["activespecial", "activespecialv2"].includes(event.name)) {
+                Hyprland.refreshMonitors();
             }
         }
     }

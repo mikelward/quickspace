@@ -324,9 +324,9 @@ Lands with the bar (M3).
 - `Super`+middle-click toggles maximize (SPEC.md §6.6), and a second click
   puts the window back in its tile. Its binding is in `conf`'s
   `hyprland.lua`.
-- The bar adds a mouse-only way: double-click its empty middle to toggle
-  maximize on that monitor's focused window, like a title bar. The bar shows
-  no window title (SPEC.md §7.1), so the middle is free.
+- The bar adds a mouse-only way: double-click the window title in its
+  middle (SPEC.md §7.1) to toggle maximize on that monitor's focused
+  window, like a title bar.
 - Rejected: title bars from the `hyprbars` plugin. A plugin is rebuilt against
   every Hyprland upgrade (SPEC.md §3.1).
 

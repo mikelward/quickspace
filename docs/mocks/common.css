@@ -181,6 +181,16 @@ body.sheet {
   z-index: 5;
 }
 .bar-left, .bar-right { display: flex; align-items: center; height: 100%; }
+/* The window title, centered on the bar whatever the sides hold. */
+.bar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 30%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .bar-left { gap: 3px; }
 .bar-right { gap: 2px; }
 
