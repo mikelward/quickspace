@@ -7,14 +7,6 @@ Deferred work, with enough notes to pick it up later.
 Calls made on autopilot, each chosen for being cheap to undo. Delete an entry
 once you have agreed with it or reversed it.
 
-- [ ] **The shell's notification server is opt-in until M4.** It runs only
-      with `QUICKSPACE_NOTIFICATIONS=1` in its environment. Quickshell
-      claims `org.freedesktop.Notifications` whenever the name is free, and
-      it's free for a moment each time M2's theme daemon restarts swaync,
-      so an always-on server would take it over by accident. The
-      alternatives are turning it on whenever swaync isn't installed, or
-      dropping swaync from `quickspace-shell` in the same change. It's
-      reversible by deleting the check in `shell/NotificationData.qml`.
 - [ ] **The autostart allowlist starts as `nm-applet` and `blueman`.** The
       spec says it starts empty, but the bar's network and Bluetooth icons
       come from those applets' autostart entries until the shell draws them
@@ -207,8 +199,12 @@ tested where it can be without a live session.
 
 ## Notifications (M4)
 
-SPEC.md §9. So far the shell has the server and the popups, opt-in (see
-the decision above): `shell/NotificationData.qml` holds the queue, and
+SPEC.md §9. So far the shell has the server and the popups. They're
+opt-in, with `QUICKSPACE_NOTIFICATIONS=1`, until swaync retires: Quickshell
+claims `org.freedesktop.Notifications` whenever the name is free, and it's
+free for a moment each time the theme daemon restarts swaync, so an
+always-on server would take it over by accident. `shell/NotificationData.qml`
+holds the queue, and
 `shell/NotificationPopups.qml` draws it on the focused monitor, from
 `shell/lib/notifications.mjs`. A click grants focus to the sender's app
 (`quickspace grant`) before invoking the action. Only parsed with
