@@ -24,6 +24,7 @@ Singleton {
     readonly property color fgDim: dark ? "#9a9aa6" : "#62626e"
     readonly property color fgFaint: dark ? "#5d5d68" : "#a8a8b3"
     readonly property color surface: dark ? "#2a2a2f" : "#ffffff"
+    readonly property color surface2: dark ? "#38383e" : "#ececf0"
     readonly property color accent: dark ? "#78aeed" : "#1c71d8"
     readonly property color accentBg: "#3584e4"
     readonly property color accentFg: "#ffffff"
@@ -31,6 +32,10 @@ Singleton {
     readonly property color urgentBg: dark ? Qt.rgba(246 / 255, 211 / 255, 45 / 255, 0.20) : Qt.rgba(229 / 255, 165 / 255, 10 / 255, 0.26)
     readonly property color urgentRing: dark ? "#f6d32d" : "#e5a50a"
     readonly property color danger: dark ? "#ff7b63" : "#c01c28"
+    readonly property color warn: dark ? "#ffa348" : "#c64600"
+    // The clocks popover's day strip: night, day, and working hours.
+    readonly property color stripNight: dark ? "#1a1d2e" : "#dfe3ee"
+    readonly property color stripDay: dark ? "#3a4870" : "#b4c4e8"
 
     readonly property string font: "Inter"
     readonly property string monoFont: "Ubuntu Mono"

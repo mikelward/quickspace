@@ -46,6 +46,23 @@ once you have agreed with it or reversed it.
       `QtQuick.Effects`, which Debian and Ubuntu package as
       `qml6-module-qtquick-effects`. Switching means installing the font and
       changing `SymbolicIcon.qml` and the names in `shell/lib/status.mjs`.
+- [ ] **The clocks popover names each zone by the city in its zone ID.**
+      The mock says "San Francisco" and "Local"; tzdata only knows
+      `America/Los_Angeles`, so the popover says "Los Angeles", and local
+      shows its own city (or "Local" when it has no zone ID). The
+      alternative is an optional `city` field in `clocks.json`. It's
+      `cityOf` in `shell/lib/popover.mjs`.
+- [ ] **The popover always shows the next DST change, however far off.**
+      Within two weeks it leads with "Clocks change soon.", as in the mock;
+      otherwise with "Next clock change:". The calendar underlines the days
+      the clocks change. The alternative is hiding the line until a change
+      is near. It's `dstLead` and `SOON` in `shell/lib/popover.mjs`.
+- [ ] **The popover's calendar has a column of ISO week numbers.** SPEC.md
+      §7.3 asks for ISO week numbers; the mock shows only today's, in the
+      calendar's heading. The popover has both, so the mock is behind:
+      re-render `docs/mocks/clocks.html` with the column, or drop the column
+      and keep the heading alone. It's `calendarCells` in
+      `shell/lib/popover.mjs`.
 - [ ] **The DST sentence names clocks by their bar labels.** SPEC.md §7.3's
       example says "London moves to GMT"; `dst.mjs` says "LON moves to GMT",
       since `clocks.json` has labels, not city names. A clock labeled `abbr`
@@ -148,9 +165,9 @@ tested where it can be without a live session.
     popovers; Bluetooth and network, which Quickshell 0.3 has no service
     for; notifications and session; then the tray, which takes over
     waybar's StatusNotifierWatcher, so it lands with replacing waybar.
-  - The clocks popover (§7.3). Its next-DST-change sentence is
-    `shell/lib/dst.mjs`, from quickspace-tz's periods; the popover itself,
-    with the zone list, day strips and calendar, comes next.
+  - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
+    `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Next for the clocks:
+    scroll to scrub time in 15-minute steps.
 
 ## The rest of `quickspace doctor`
 
