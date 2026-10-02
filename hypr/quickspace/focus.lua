@@ -10,9 +10,19 @@
 -- Anything else stays where it opened, dimmed, and is announced on the event
 -- socket as `custom>>quickspace-attention>>ADDRESS` for the shell to mark.
 -- Lua can't set Hyprland's urgent flag, so the guard also keeps these
--- windows itself: `quickspace_focus.focus_attention()` (Super+Tab) goes to the
--- latest, and until the shell marks them (TODO.md), each shows a Hyprland
--- notification (`notify`).
+-- windows itself, and until the shell marks them (TODO.md), each shows a
+-- Hyprland notification (`notify`).
+--
+-- `quickspace_focus.focus_attention()` (Super+Tab) goes to the latest
+-- marked window: one the guard kept waiting, an activation without a grant,
+-- or one the shell marks for a notification. The shell sees every kind, so
+-- its order rules (`set_order`); without a shell, the guard's own does.
+-- Pressed again
+-- while Super is held, it steps to the next one, Alt+Tab style, without
+-- clearing anything; `end_cycle()`, bound to Super's release, clears only
+-- the window it landed on. The shell hears the cycle as
+-- `custom>>quickspace-cycle>>start` and `custom>>quickspace-cycle>>end>>ADDRESS`,
+-- and keeps its marks while the cycle steps through them.
 -- If the guard itself fails, windows still open unfocused: the failure mode
 -- is "never steals", not "always steals".
 --
@@ -71,6 +81,8 @@ local state = {
     grants = {}, -- { app = normalized id, at = seconds, pid = requester or nil }
     active = nil, -- { address, pid, app } of the focused window
     waiting = {}, -- addresses of windows left unfocused, oldest first
+    shell_order = nil, -- every marked window, oldest first, from the shell
+    cycle = nil, -- { list = { addresses }, i = index } while Super+Tab steps
 }
 
 -- The clock is a field so the tests can drive it.
@@ -231,6 +243,9 @@ local function same_app_as_active(w)
 end
 
 local focusing = false
+-- Set while Super+Tab's own dispatch focuses a window: the guard focusing
+-- a dialog mid-cycle is focus moving another way, not a step.
+local stepping = false
 
 local function focus_address(address)
     -- The flag must drop even if building or sending the dispatch throws, or
@@ -253,9 +268,16 @@ local function focus(w)
     focus_address(address)
 end
 
+-- An address as a table key: Hyprland writes 0x and lowercase hex, and the
+-- shell may write it without the 0x.
+local function key(address)
+    local hex = tostring(address):lower():gsub("^0x", ""):gsub("^0+(.)", "%1")
+    return hex
+end
+
 local function forget(address)
     for i = #state.waiting, 1, -1 do
-        if state.waiting[i] == address then
+        if key(state.waiting[i]) == key(address) then
             table.remove(state.waiting, i)
         end
     end
@@ -284,6 +306,60 @@ local function announce(w)
             icon = "info",
         })
     end
+end
+
+-- Every marked window but the focused one, most recently marked first:
+-- in the shell's order once it has given one. A waiting window the shell's
+-- list doesn't have yet was announced since it last spoke, so it's newest.
+local function targets()
+    local seen, out = {}, {}
+    local function add(address)
+        local k = key(address)
+        if not seen[k] and not (state.active and state.active.address and key(state.active.address) == k) then
+            seen[k] = true
+            table.insert(out, address)
+        end
+    end
+    local listed = {}
+    for _, address in ipairs(state.shell_order or {}) do
+        listed[key(address)] = true
+    end
+    for i = #state.waiting, 1, -1 do
+        if not listed[key(state.waiting[i])] then
+            add(state.waiting[i])
+        end
+    end
+    local order = state.shell_order or {}
+    for i = #order, 1, -1 do
+        add(order[i])
+    end
+    return out
+end
+
+local function unlist(address)
+    local order = state.shell_order
+    if order then
+        for i = #order, 1, -1 do
+            if key(order[i]) == key(address) then
+                table.remove(order, i)
+            end
+        end
+    end
+end
+
+local function cycle_event(text)
+    hl.dispatch(hl.dsp.event("quickspace-cycle>>" .. text))
+end
+
+-- The cycle is over, on the window at `address` (nil for none): that one
+-- isn't marked now, and the rest stay marked.
+local function finish_cycle(address)
+    state.cycle = nil
+    if address then
+        forget(address)
+        unlist(address)
+    end
+    cycle_event("end>>" .. (address or ""))
 end
 
 local function class_in(w, classes)
@@ -335,28 +411,98 @@ end
 function M.on_urgent(w)
     if take_grant(w) then
         focus(w)
-    else
-        wait(w)
+        return
+    end
+    -- Announced like a window the guard kept, without the notification:
+    -- Hyprland's own urgent flag goes the moment Super+Tab steps onto the
+    -- window, and the bar should keep the mark until the cycle ends there.
+    local address = wait(w)
+    if address then
+        hl.dispatch(hl.dsp.event("quickspace-attention>>" .. address))
     end
 end
 
 function M.on_close(w)
     local address = field(w, "address")
-    if address then
-        forget(address)
+    if not address then
+        return
+    end
+    forget(address)
+    unlist(address)
+    local c = state.cycle
+    if c then
+        -- At or before the cycle's place, the next Tab goes to the window
+        -- that took its place.
+        for i = #c.list, 1, -1 do
+            if key(c.list[i]) == key(address) then
+                table.remove(c.list, i)
+                if i <= c.i then
+                    c.i = c.i - 1
+                end
+            end
+        end
+        if #c.list == 0 then
+            finish_cycle(nil)
+        elseif c.i < 1 then
+            c.i = #c.list
+        end
     end
 end
 
--- Focuses the window that most recently started waiting, and returns true;
--- false when none is waiting, so the key can fall back to the last window.
+-- Super+Tab: goes to the most recently marked window and returns true, or
+-- false when none is marked, so the key can fall back to the last window.
+-- Pressed again before end_cycle(), it steps to the next one, and wraps.
 function M.focus_attention()
-    local address = table.remove(state.waiting)
-    if not address then
+    local c = state.cycle
+    if c then
+        c.i = c.i % #c.list + 1
+    else
+        local list = targets()
+        if #list == 0 then
+            return false
+        end
+        cancel_grants() -- you chose another window
+        c = { list = list, i = 1 }
+        state.cycle = c
+        cycle_event("start")
+    end
+    stepping = true
+    local ok, err = pcall(focus_address, c.list[c.i])
+    stepping = false
+    if not ok then
+        error(err, 0)
+    end
+    return true
+end
+
+-- Super released: the cycle stops on the window it reached, which is no
+-- longer marked. Returns false when no cycle was running, which is every
+-- other time Super is released.
+function M.end_cycle()
+    local c = state.cycle
+    if not c then
         return false
     end
-    cancel_grants() -- you chose another window
-    focus_address(address)
+    finish_cycle(c.list[c.i])
     return true
+end
+
+-- Every marked window, oldest mark first, as the shell orders them: the
+-- guard's announcements and the shell's notification marks (SPEC.md
+-- §14.4), which only the shell sees together. Super+Tab follows this order
+-- from then on, replacing the last list.
+function M.set_order(addresses)
+    if type(addresses) ~= "table" then
+        error("quickspace_focus.set_order: expected a list of addresses, got " .. tostring(addresses), 2)
+    end
+    local order = {}
+    for _, address in ipairs(addresses) do
+        if type(address) ~= "string" or key(address) == "" then
+            error("quickspace_focus.set_order: expected window addresses, got " .. tostring(address), 2)
+        end
+        table.insert(order, "0x" .. key(address))
+    end
+    state.shell_order = order
 end
 
 -- Announces every waiting window again, oldest first, without the
@@ -375,6 +521,14 @@ function M.on_active(w, reason)
     local before = state.active
     state.active = w and active_record(w) or nil
     local address = state.active and state.active.address
+    if state.cycle then
+        if stepping then
+            return -- Super+Tab stepping: nothing is cleared until Super is up
+        end
+        -- Focus went somewhere else mid-cycle (a click, or the guard focusing
+        -- a dialog): the cycle ends there.
+        finish_cycle(address)
+    end
     if address then
         forget(address) -- however you got there, it isn't waiting now
     end
@@ -467,6 +621,8 @@ function M.setup(opts)
     state.grants = {}
     state.active = nil
     state.waiting = {}
+    state.shell_order = nil
+    state.cycle = nil
     local w = hl.get_active_window()
     if w then
         state.active = active_record(w)

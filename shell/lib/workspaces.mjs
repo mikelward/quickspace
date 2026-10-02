@@ -12,14 +12,17 @@ export const MAX_ICONS = 5;
 // the QML feeds Hyprland's and the notification daemon's events through
 // updateMarks and hands the result to barWorkspaces. The state is
 //
-//   {guard: [address], notes: {id: {app, wide: [address], direct: [address]}}}
+//   {guard: [address], guardAt, notes: {id: {app, wide: [address], direct: [address], at}}, cycling}
 //
 // where `guard` holds the windows the focus guard kept from focus, and
 // `notes` each notification's marks by its ID, so dismissing one clears
 // exactly what it marked. A note's `wide` windows came from marking its
 // whole app and `direct` ones from naming the window; only the app's own
-// activation tells them apart. Hyprland's own urgent flag lives on the window.
-export const NO_MARKS = Object.freeze({ guard: Object.freeze([]), notes: Object.freeze({}) });
+// activation tells them apart. `guardAt` and each note's `at` say when each
+// window was last marked ({address: n}, larger is later, one clock for
+// both), so Super+Tab's order comes from the marks still standing
+// (attentionOrder). Hyprland's own urgent flag lives on the window.
+export const NO_MARKS = Object.freeze({ guard: Object.freeze([]), guardAt: Object.freeze({}), notes: Object.freeze({}), cycling: false });
 
 // The marks after one event, without changing `marks`. Events:
 //
@@ -43,12 +46,30 @@ export const NO_MARKS = Object.freeze({ guard: Object.freeze([]), notes: Object.
 //       mark on it clears, and so does every notification's that covered it.
 //   {type: "dismissed", id}      the notification was dismissed.
 //   {type: "closed", address}    the window is gone.
+//   {type: "cycleStart"}         Super+Tab started stepping through the
+//       marked windows: focusing one doesn't clear anything (`cycling`)...
+//   {type: "cycleEnd", address}  ...until Super is released, which clears
+//       only the window the cycle landed on (null for none).
 //   {type: "guardReset"}         the focus guard's state was rebuilt (a
 //       Hyprland config reload runs focus.lua afresh): its marks go, and
 //       the shell asks it to announce what still waits.
 export function updateMarks(marks, event) {
+    if (event.type === "cycleStart") {
+        return { ...marks, cycling: true };
+    }
+    if (event.type === "cycleEnd") {
+        const ended = { ...marks, cycling: false };
+        return event.address ? updateMarks(ended, { type: "focused", address: event.address }) : ended;
+    }
+    if (event.type === "focused" && marks.cycling) {
+        return marks;
+    }
     let guard = marks.guard;
+    let guardAt = marks.guardAt ?? {};
     const notes = {};
+    // Later than any mark standing now.
+    const now = 1 + Math.max(0, ...Object.values(guardAt),
+        ...Object.values(marks.notes).flatMap((n) => Object.values(n.at ?? {})));
     const put = (id, note) => {
         if (note.wide.length + note.direct.length > 0) {
             notes[id] = note;
@@ -60,24 +81,29 @@ export function updateMarks(marks, event) {
     case "notified": {
         Object.assign(notes, marks.notes);
         // It keeps what it marked before, under the app it names now.
-        const note = { wide: [], direct: [], ...(notes[event.id] ?? notes[event.replaces]), app: event.app };
+        const note = { wide: [], direct: [], at: {}, ...(notes[event.id] ?? notes[event.replaces]), app: event.app };
         delete notes[event.id];
         delete notes[event.replaces];
+        const stamped = (addresses) => ({ ...note.at, ...Object.fromEntries(addresses.map((a) => [a, now])) });
         if (event.address !== undefined) {
             const named = event.windows.find((w) => w.address === event.address);
             const hidden = named !== undefined && !event.visible.has(named.workspace);
-            put(event.id, { ...note, direct: hidden ? [...new Set([...note.direct, event.address])] : note.direct });
+            put(event.id, hidden
+                ? { ...note, direct: [...new Set([...note.direct, event.address])], at: stamped([event.address]) }
+                : note);
         } else {
             const hidden = event.windows
                 .filter((w) => sameApp(w.app, event.app) && !event.visible.has(w.workspace))
                 .map((w) => w.address);
-            put(event.id, { ...note, wide: [...new Set([...note.wide, ...hidden])] });
+            put(event.id, { ...note, wide: [...new Set([...note.wide, ...hidden])], at: stamped(hidden) });
         }
         break;
     }
     case "guarded":
         Object.assign(notes, marks.notes);
-        guard = guard.includes(event.address) ? guard : [...guard, event.address];
+        // Announced again, it's the newest.
+        guard = [...without(guard, event.address), event.address];
+        guardAt = { ...guardAt, [event.address]: now };
         break;
     case "activated":
         for (const [id, note] of Object.entries(marks.notes)) {
@@ -109,7 +135,9 @@ export function updateMarks(marks, event) {
     default:
         throw new Error(`unknown mark event ${event.type}`);
     }
-    return { guard, notes };
+    guardAt = Object.fromEntries(guard.map((a) => [a, guardAt[a] ?? 0]));
+    // A rebuilt guard has no cycle running.
+    return { guard, guardAt, notes, cycling: event.type !== "guardReset" && (marks.cycling ?? false) };
 }
 
 // Whether a window class and a notification's app name the same app, as
@@ -162,11 +190,19 @@ export function normalizeAddress(address) {
 // keeping a window from focus (custom>>quickspace-attention>>ADDRESS,
 // SPEC.md §14.3), a window being focused, one closing, a window asking for
 // focus (`urgent`, which the QML turns into activatedEvent once it knows
-// the window's app), or a config reload rebuilding the guard.
+// the window's app), Super+Tab's cycle starting or ending
+// (custom>>quickspace-cycle>>start, custom>>quickspace-cycle>>end>>ADDRESS),
+// or a config reload rebuilding the guard.
 // Notifications' events come from the notification server instead.
 export function markEvent(name, data) {
     if (name === "configreloaded") {
         return { type: "guardReset" };
+    }
+    if (name === "custom" && String(data) === "quickspace-cycle>>start") {
+        return { type: "cycleStart" };
+    }
+    if (name === "custom" && String(data).startsWith("quickspace-cycle>>end>>")) {
+        return { type: "cycleEnd", address: normalizeAddress(String(data).slice("quickspace-cycle>>end>>".length)) };
     }
     let type;
     let raw;
@@ -187,6 +223,26 @@ export function markEvent(name, data) {
     }
     const address = normalizeAddress(raw);
     return address === null ? null : { type, address };
+}
+
+// Every window marked for attention, oldest mark first, for the focus
+// guard's Super+Tab (quickspace_focus.set_order): the guard's own and
+// notifications', each placed by its latest mark still standing. So
+// dismissing a newer notification puts a window back where an older mark
+// had it, and a guard hearing the whole list at once, after a reload,
+// orders it as it was marked.
+export function attentionOrder(marks) {
+    const latest = new Map();
+    const mark = (address, at) => latest.set(address, Math.max(latest.get(address) ?? 0, at ?? 0));
+    for (const address of marks.guard) {
+        mark(address, marks.guardAt?.[address]);
+    }
+    for (const note of Object.values(marks.notes)) {
+        for (const address of [...note.wide, ...note.direct]) {
+            mark(address, note.at?.[address]);
+        }
+    }
+    return [...latest.keys()].sort((a, b) => latest.get(a) - latest.get(b));
 }
 
 // Which windows are marked: Hyprland's urgent flag, plus `marks`.

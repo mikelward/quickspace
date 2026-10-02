@@ -497,7 +497,10 @@ end)
 test("any other activation stays marked (Hyprland marks it urgent)", function()
     load()
     focused(window("kitty"), FFM)
-    eq(#fire("window.urgent", window("chromium")), 0, "no focus")
+    local chrome = window("chromium")
+    local d = fire("window.urgent", chrome)
+    eq(#d, 1, "no focus")
+    eq(is_attention(d[1], chrome), true, "announced to the shell")
 end)
 
 test("grant rejects an empty id", function()
@@ -529,30 +532,237 @@ test("the window focused at load counts as the app you're in", function()
     eq(is_focus(fire("window.open", dialog)[1], dialog), true, "focused")
 end)
 
+-- The window the last batch of dispatches focused, and the cycle events.
+local function focus_of(dispatched)
+    for _, d in ipairs(dispatched) do
+        if d.dsp == "focus" then
+            return d.args.window:gsub("^address:", "")
+        end
+    end
+end
+
+local function events(dispatched)
+    local out = {}
+    for _, d in ipairs(dispatched) do
+        if d.dsp == "event" and d.args:find("^quickspace%-cycle>>") then
+            table.insert(out, (d.args:gsub("^quickspace%-cycle>>", "")))
+        end
+    end
+    return table.concat(out, " ")
+end
+
+local function tab(m)
+    S.dispatched = {}
+    local went = m.focus_attention()
+    return went, focus_of(S.dispatched), events(S.dispatched)
+end
+
+local function release(m)
+    S.dispatched = {}
+    local was = m.end_cycle()
+    return was, events(S.dispatched)
+end
+
 test("Super+Tab goes to the latest waiting window, then falls back", function()
     local m = load()
     focused(window("kitty"), FFM)
     local a, b = window("updater"), window("chat")
     fire("window.open", a)
     fire("window.open", b)
-    S.dispatched = {}
-    eq(m.focus_attention(), true, "first")
-    eq(is_focus(S.dispatched[1], b), true, "latest first")
-    S.dispatched = {}
-    eq(m.focus_attention(), true, "second")
-    eq(is_focus(S.dispatched[1], a), true, "then the older one")
+    local went, to, ev = tab(m)
+    eq(went, true, "went")
+    eq(to, b.address, "latest first")
+    eq(ev, "start", "the cycle starts")
+    eq(release(m), true, "a cycle ended")
+    went, to = tab(m)
+    eq(to, a.address, "then the older one")
+    release(m)
     eq(m.focus_attention(), false, "none left")
 end)
 
-test("an activation without a grant waits with the rest", function()
+test("Tab again while Super is held steps through the marks, and wraps", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    local a, b, c = window("one"), window("two"), window("three")
+    fire("window.open", a)
+    fire("window.open", b)
+    fire("window.open", c)
+    local _, to, ev = tab(m)
+    eq(to, c.address, "newest")
+    _, to, ev = tab(m)
+    eq(to, b.address, "next")
+    eq(ev, "", "stepping isn't a new cycle")
+    _, to = tab(m)
+    eq(to, a.address, "oldest")
+    _, to = tab(m)
+    eq(to, c.address, "wraps")
+    _, to = tab(m)
+    eq(to, b.address, "and on")
+    local was, ended = release(m)
+    eq(was, true, "ended")
+    eq(ended, "end>>" .. b.address, "names the window it landed on")
+    -- Only that one stopped waiting.
+    _, to = tab(m)
+    eq(to, c.address, "the others are still marked")
+    _, to = tab(m)
+    eq(to, a.address, "both of them")
+    _, to = tab(m)
+    eq(to, c.address, "and only them")
+end)
+
+test("releasing Super outside a cycle does nothing", function()
+    local m = load()
+    local was, ev = release(m)
+    eq(was, false, "no cycle")
+    eq(ev, "", "no event")
+end)
+
+test("the guard's own focus mid-cycle clears nothing; another focus ends the cycle there", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    local a, b = window("one"), window("two")
+    fire("window.open", a)
+    fire("window.open", b)
+    tab(m)
+    -- A click on a while the cycle is on b.
+    S.dispatched = {}
+    focused(a, CLICK)
+    eq(events(S.dispatched), "end>>" .. a.address, "ends on the clicked window")
+    eq(release(m), false, "nothing left to end")
+    local _, to = tab(m)
+    eq(to, b.address, "b is still marked")
+    release(m)
+    eq(m.focus_attention(), false, "a was cleared")
+end)
+
+test("a window closing mid-cycle drops out, and Tab goes to the one in its place", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    local a, b, c = window("one"), window("two"), window("three")
+    fire("window.open", a)
+    fire("window.open", b)
+    fire("window.open", c)
+    tab(m) -- c
+    tab(m) -- b
+    fire("window.close", b)
+    local _, to = tab(m)
+    eq(to, a.address, "a took b's place")
+    fire("window.close", c)
+    _, to = tab(m)
+    eq(to, a.address, "a is all that's left")
+    release(m)
+end)
+
+test("a window closing mid-cycle drops out of it", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    local a, b = window("one"), window("two")
+    fire("window.open", a)
+    fire("window.open", b)
+    tab(m) -- on b
+    fire("window.close", b)
+    local _, to = tab(m)
+    eq(to, a.address, "steps to what's left")
+    fire("window.close", a)
+    eq(release(m), false, "the cycle ended when its last window went")
+end)
+
+test("once the shell gives its order, Super+Tab follows it", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    local waiting, chat = window("updater"), window("chat")
+    fire("window.open", waiting)
+    -- The shell sees the guard's window and a notification's, oldest first;
+    -- it may write an address without the 0x.
+    m.set_order({ waiting.address, (chat.address:gsub("^0x", "")) })
+    local _, to = tab(m)
+    eq(to, chat.address, "the shell's newest")
+    _, to = tab(m)
+    eq(to, waiting.address, "then the older one")
+    release(m) -- on waiting
+    -- A notification marks waiting again, and the shell reorders; landing
+    -- on waiting cleared it here, and the shell's list does the same next.
+    m.set_order({ chat.address })
+    _, to = tab(m)
+    eq(to, chat.address, "chat is all that's left")
+    release(m)
+    eq(pcall(m.set_order, "0x1"), false, "rejects a string")
+    eq(pcall(m.set_order, { 1 }), false, "rejects a number")
+end)
+
+test("the shell's order can move an older mark back", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    local a, b, c = window("one"), window("two"), window("three")
+    m.set_order({ b.address, c.address, a.address })
+    -- Dismissing a's newer notification puts it back before b.
+    m.set_order({ a.address, b.address, c.address })
+    local _, to = tab(m)
+    eq(to, c.address, "c")
+    _, to = tab(m)
+    eq(to, b.address, "then b")
+    _, to = tab(m)
+    eq(to, a.address, "then a, oldest again")
+    release(m)
+end)
+
+test("a window announced since the shell's last list is the newest stop", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    local chat, fresh = window("chat"), window("updater")
+    m.set_order({ chat.address })
+    fire("window.open", fresh)
+    local _, to = tab(m)
+    eq(to, fresh.address, "the shell hasn't caught up with it yet")
+    _, to = tab(m)
+    eq(to, chat.address, "then the shell's")
+    release(m)
+end)
+
+test("an activation without a grant waits with the rest, and the shell hears it", function()
     local m = load()
     focused(window("kitty"), FFM)
     local popup, chat = window("updater"), window("chromium")
     fire("window.open", popup)
-    fire("window.urgent", chat)
-    S.dispatched = {}
-    m.focus_attention()
-    eq(is_focus(S.dispatched[1], chat), true, "the activation is the latest")
+    local d = fire("window.urgent", chat)
+    eq(is_attention(d[1], chat), true, "announced, so the bar keeps it past Hyprland's flag")
+    eq(#S.notified, 1, "without a notification of its own")
+    local _, to = tab(m)
+    eq(to, chat.address, "the activation is the latest")
+end)
+
+test("the guard focusing a dialog mid-cycle ends the cycle on the dialog", function()
+    local m = load()
+    -- Hyprland reports focus as the dispatch happens, as it does live.
+    local function live_focus()
+        local dispatch = hl.dispatch
+        hl.dispatch = function(d)
+            dispatch(d)
+            if d.dsp == "focus" then
+                local address = d.args.window:gsub("^address:", "")
+                S.handlers["window.active"]({ class = S.classes[address], address = address, pid = 1 })
+            end
+        end
+    end
+    S.classes = {}
+    local kitty = window("kitty", 1)
+    focused(kitty, FFM)
+    local a, b = window("one"), window("two")
+    S.classes[a.address], S.classes[b.address] = "one", "two"
+    fire("window.open", a)
+    fire("window.open", b)
+    live_focus()
+    local _, to, ev = tab(m)
+    eq(to, b.address, "the cycle is on b")
+    eq(ev, "start", "and nothing ended it")
+    -- A dialog from b, the app now focused, takes focus mid-cycle.
+    local dialog = window("two", 1)
+    S.classes[dialog.address] = "two"
+    local d = fire("window.open", dialog)
+    eq(events(d), "end>>" .. dialog.address, "the cycle ends on the dialog")
+    eq(release(m), false, "nothing left to end")
+    _, to = tab(m)
+    eq(to, b.address, "b is still marked")
 end)
 
 test("a waiting window you reach another way, or that closes, stops waiting", function()

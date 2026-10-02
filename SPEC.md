@@ -624,7 +624,7 @@ with new keys in **bold**:
 | `Super+Shift+F`, `Super+Insert` | toggle floating |
 | **`Super`+middle-click** | toggle maximize on the window under the pointer |
 | `Super+Shift+R` | resize mode (floating windows) |
-| **`Super+Tab`**, **`Super+Home`** | focus the most recent window waiting for attention; with none waiting, the window you were last in |
+| **`Super+Tab`**, **`Super+Home`** | focus the most recent window waiting for attention; pressed again with Super held, the next one; with none waiting, the window you were last in |
 | **`Super+Shift+N`** | notification center |
 | `Print` / **`Alt+Print`** / `Shift+Print`, `Super+Print` | screenshot screen / window / region |
 | **`XF86AudioMicMute`**, **`Super+Shift+M`** | toggle microphone mute (system-wide) |
@@ -1244,15 +1244,30 @@ this spec.
   `conf`'s `hyprland.lua` loads. It publishes itself as the Lua global
   `quickspace_focus`, and `quickspace launch` records a grant with
   `hyprctl eval 'quickspace_focus.grant("APP")'`. A window it keeps from
-  focus is announced as `custom>>quickspace-attention>>ADDRESS`. The shell
+  focus is announced as `custom>>quickspace-attention>>ADDRESS`, and so is
+  an activation without a grant, so the bar keeps its mark after
+  Hyprland's own urgent flag goes (§14.4). The shell
   calls `quickspace_focus.announce_waiting()`, which announces each
   waiting window again, when it starts and after a config reload, since
   either may have lost or reset what it knew.
 - **Super+Tab.** Lua can't set Hyprland's urgent flag, so the guard keeps its
   own list of waiting windows: the ones it kept from focus, and activations
-  without a grant. `quickspace_focus.focus_attention()` goes to the latest
-  and returns false when none is waiting, and `Super+Tab` then falls back to
-  Hyprland's `urgent_or_last`.
+  without a grant. The shell, which sees those and the windows
+  notifications mark together, sends the guard every marked window in the
+  order they were marked (`quickspace_focus.set_order`), and the guard
+  follows it; without a shell, the guard's own order stands.
+  `quickspace_focus.focus_attention()` goes to the most recently marked
+  window, and returns false when none is marked; `Super+Tab` then falls
+  back to Hyprland's `urgent_or_last`.
+  - Pressed again while Super is held, it steps to the next marked window,
+    oldest last, and wraps, like Alt+Tab. Stepping clears no marks, so you
+    can look through them all.
+  - Releasing Super (`quickspace_focus.end_cycle()`, a release binding in
+    conf) clears only the window it landed on. Focus moving any other way
+    mid-cycle, such as a click, ends it there.
+  - The shell hears the cycle as `custom>>quickspace-cycle>>start` and
+    `custom>>quickspace-cycle>>end>>ADDRESS`, and keeps its marks until the
+    end.
 - **Polkit prompts in M2.** The transitional polkit agent is a window of
   its own, and Lua can't see which process asked. So the guard applies the
   keyboard half of the §14.1 rule: a known agent's window takes focus when
@@ -1388,9 +1403,9 @@ to be focused.
     notification is dismissed. Invoking one of its actions or replying
     counts, even when a resident notification stays, and so does its app
     closing it; its popup timing out doesn't.
-  - `Super+Tab` goes to the most recent mark, switching workspace. For an
-    app-wide mark, that is the app's most recently focused window, the same
-    rule a notification click falls back on (§9).
+  - `Super+Tab` goes to the most recent mark, switching workspace, and
+    steps through the rest while Super is held (§14.3). Each marked window
+    is its own stop, so an app-wide mark on two windows is two stops.
 
 ## 15. Theme
 
