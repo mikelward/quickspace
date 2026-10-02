@@ -9,12 +9,21 @@ import "lib/status.mjs" as Status
 
 // The status icons before the clocks (SPEC.md §7.4). So far: Bluetooth;
 // network; volume, which scrolls by 5%; and battery, red below 15%, each
-// with its popover; and the session menu. The tray is shell/Tray.qml, to
-// their left. The other icons come later; TODO.md lists them.
+// with its popover; the notification center's bell; and the session menu.
+// The tray is shell/Tray.qml, to their left. The other icons come later;
+// TODO.md lists them.
 Row {
     id: root
 
     spacing: 10
+
+    // The bar's monitor, which the bell opens the notification center on.
+    property string monitorName: ""
+
+    // Whether a point in the bar's scene is on the bell.
+    function onBell(scenePoint) {
+        return bell.visible && bell.contains(bell.mapFromItem(null, scenePoint.x, scenePoint.y));
+    }
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var battery: UPower.displayDevice
@@ -152,6 +161,32 @@ Row {
             font.pixelSize: 12.5
             font.weight: Font.Medium
             font.features: ({ "tnum": 1 })
+        }
+    }
+
+    // Only while the shell is the notification server; a dot while
+    // something has arrived since the center was last open.
+    SymbolicIcon {
+        id: bell
+
+        anchors.verticalCenter: parent.verticalCenter
+        visible: NotificationData.enabled
+        name: "preferences-system-notifications-symbolic"
+
+        Rectangle {
+            visible: HistoryData.unread
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.rightMargin: -2
+            anchors.topMargin: -1
+            width: 6
+            height: 6
+            radius: 3
+            color: Theme.accent
+        }
+
+        TapHandler {
+            onTapped: HistoryData.toggleAt(root.monitorName)
         }
     }
 

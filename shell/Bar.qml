@@ -57,6 +57,7 @@ PanelWindow {
     StatusIcons {
         id: statusIcons
 
+        monitorName: bar.monitor?.name ?? ""
         anchors.right: clocks.left
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
@@ -68,5 +69,33 @@ PanelWindow {
         anchors.right: parent.right
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
+    }
+
+    // The bar is in the notification center's focus grab, so the bell can
+    // close it rather than a press outside closing it and the bell's tap
+    // reopening it. Any other press on the bar closes it, as outside the
+    // center. A PointHandler only watches, so the press still reaches the
+    // control under it.
+    Item {
+        anchors.fill: parent
+        z: 1
+
+        PointHandler {
+            acceptedButtons: Qt.AllButtons
+            onActiveChanged: {
+                if (active && !statusIcons.onBell(point.scenePosition)) {
+                    HistoryData.close();
+                }
+            }
+        }
+    }
+
+    // Only while the shell is the notification server (NotificationData).
+    LazyLoader {
+        active: NotificationData.enabled
+
+        NotificationCenter {
+            panel: bar
+        }
     }
 }
