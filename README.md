@@ -48,8 +48,8 @@ conf's input setup once. It reports ready once swaync owns the notification
 name and waybar's tray owns the watcher (see `TODO.md`).
 
 The Quickshell bar is being built beside it (M3). So far it has the
-workspaces, the layout symbol, the clocks and their popover, volume and
-battery. To try it next to waybar, run `qs -c quickspace`
+workspaces, the layout symbol, the clocks and their popover, volume,
+battery and the session menu. To try it next to waybar, run `qs -c quickspace`
 in a terminal after `make install` and `sudo make install-session`. The
 clocks need `quickspace-tz` on `PATH`. Ctrl+C stops it; waybar stays until
 the bar is complete.
