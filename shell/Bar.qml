@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import "lib/title.mjs" as Title
 
 // One bar per monitor (SPEC.md §7.1): a plain rectangle flush with the top
 // edge and both sides, its exclusive zone keeping tiling below it.
@@ -42,8 +43,24 @@ PanelWindow {
     WindowTitle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(0, Math.min(implicitWidth, maxWidth, 2 * Math.min(bar.width / 2 - layoutSymbol.x - layoutSymbol.width, tray.x - bar.width / 2) - 32))
+        width: Title.titleWidth({
+            implicit: implicitWidth,
+            max: maxWidth,
+            barWidth: bar.width,
+            left: layoutSymbol.x + layoutSymbol.width,
+            right: sharing.x,
+            gap: 32
+        })
         monitor: bar.monitor
+    }
+
+    // Privacy pills come first on the right (§7.1).
+    SharingPill {
+        id: sharing
+
+        anchors.right: tray.left
+        anchors.rightMargin: visible ? 10 : 0
+        anchors.verticalCenter: parent.verticalCenter
     }
 
     Tray {

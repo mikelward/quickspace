@@ -32,3 +32,9 @@ export function liveShares(nodes, linkGroups, ACTIVE) {
 export function holdsPopups(shares) {
     return shares.length > 0;
 }
+
+// The bar's red Sharing pill (§7.4) shows while any share is live, and takes
+// no room otherwise. Unlike holding popups, a window share counts.
+export function sharingPill(shares) {
+    return shares.length > 0;
+}

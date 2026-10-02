@@ -32,6 +32,8 @@ Singleton {
     readonly property color urgentBg: dark ? Qt.rgba(246 / 255, 211 / 255, 45 / 255, 0.20) : Qt.rgba(229 / 255, 165 / 255, 10 / 255, 0.26)
     readonly property color urgentRing: dark ? "#f6d32d" : "#e5a50a"
     readonly property color danger: dark ? "#ff7b63" : "#c01c28"
+    // The Sharing pill's fill, with white on it (docs/mocks/common.css).
+    readonly property color dangerBg: dark ? "#c01c28" : "#e01b24"
     readonly property color warn: dark ? "#ffa348" : "#c64600"
     // The clocks popover's day strip: night, day, and working hours.
     readonly property color stripNight: dark ? "#1a1d2e" : "#dfe3ee"
