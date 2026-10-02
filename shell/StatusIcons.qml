@@ -1,13 +1,15 @@
 import QtQuick
 import Quickshell.Bluetooth
+import Quickshell.Networking
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import "lib/bluetooth.mjs" as Bt
+import "lib/network.mjs" as Net
 import "lib/status.mjs" as Status
 
 // The status icons before the clocks (SPEC.md §7.4). So far: Bluetooth;
-// volume, which scrolls by 5%; and battery, red below 15%, each with its
-// popover; and the session menu. The other icons and the tray come later;
+// network; volume, which scrolls by 5%; and battery, red below 15%, each
+// with its popover; and the session menu. The other icons and the tray come later;
 // TODO.md lists them.
 Row {
     id: root
@@ -39,6 +41,37 @@ Row {
             id: bluetoothPopover
 
             icon: bluetooth
+        }
+    }
+
+    SymbolicIcon {
+        id: network
+
+        // Quickshell.Networking's devices as network.mjs reads them.
+        readonly property var devices: Networking.devices.values.map(d => ({
+            type: d.type,
+            connected: d.connected,
+            networks: d.networks?.values ?? [],
+        }))
+        readonly property var view: Net.networkIcon({
+            devices: devices,
+            wifiEnabled: Networking.wifiEnabled,
+            connectivity: Networking.connectivity,
+        })
+
+        anchors.verticalCenter: parent.verticalCenter
+        visible: view.visible
+        name: view.icon || "network-offline-symbolic"
+
+        TapHandler {
+            onTapped: networkPopover.toggle()
+        }
+
+        NetworkPopover {
+            id: networkPopover
+
+            icon: network
+            devices: network.devices
         }
     }
 
