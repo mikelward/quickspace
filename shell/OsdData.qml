@@ -2,12 +2,15 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 import "lib/osd.mjs" as Osd
 
 // What the OSD shows (SPEC.md §9): the default output's volume and mute,
 // and the default input's mute, each as it changes, from whatever changed
-// it (keys, the bar, another app). One for every monitor's OSD.
+// it (keys, the bar, another app). One for every monitor's OSD. The
+// backlight's level shows only when `quickspace brightness` reports it,
+// so hypridle dimming the screen doesn't flash it.
 Singleton {
     id: root
 
@@ -38,6 +41,16 @@ Singleton {
         root.pill = pill;
         root.showing = true;
         hide.restart();
+    }
+
+    // `qs -c quickspace ipc call osd brightness PERCENT`, from `quickspace
+    // brightness` after it changed the backlight.
+    IpcHandler {
+        target: "osd"
+
+        function brightness(percent: int): void {
+            root.show(Osd.brightnessPill(percent));
+        }
     }
 
     // Levels and mute are only live on a bound node.

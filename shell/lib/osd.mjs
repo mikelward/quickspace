@@ -44,6 +44,17 @@ export function volumePill({ volume, muted }) {
     });
 }
 
+// The pill for the backlight: its level, from `quickspace brightness`,
+// as a whole percentage (clamped to 0-100).
+export function brightnessPill(percent) {
+    const level = Number.isFinite(percent) ? Math.min(100, Math.max(0, Math.round(percent))) : 0;
+    return Object.freeze({
+        icon: "display-brightness-symbolic",
+        level: level / 100,
+        label: `${level}%`,
+    });
+}
+
 // The pill for the input: only whether the mic is muted, so no level.
 export function micPill({ muted }) {
     return Object.freeze({

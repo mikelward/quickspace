@@ -1,7 +1,7 @@
 // Tests for osd.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SHOWN_MS, snapshot, changed, muteChanged, volumePill, micPill } from "./osd.mjs";
+import { SHOWN_MS, snapshot, changed, muteChanged, volumePill, micPill, brightnessPill } from "./osd.mjs";
 
 const speakers = { name: "speakers", ready: true };
 const headset = { name: "headset", ready: true };
@@ -49,4 +49,11 @@ test("the mic shows a mute change, not a level change", () => {
     assert.equal(muteChanged(before, snapshot(mic, { volume: 0.5, muted: true })), true);
     assert.equal(muteChanged(before, snapshot(mic, { volume: 0.8, muted: false })), false);
     assert.equal(muteChanged(null, before), false);
+});
+
+test("the brightness pill shows the backlight's level", () => {
+    assert.deepEqual({ ...brightnessPill(50) }, { icon: "display-brightness-symbolic", level: 0.5, label: "50%" });
+    assert.equal(brightnessPill(140).label, "100%", "clamped");
+    assert.equal(brightnessPill(-3).level, 0, "clamped");
+    assert.equal(brightnessPill(NaN).label, "0%", "a bad level reads as 0");
 });
