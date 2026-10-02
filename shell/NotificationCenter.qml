@@ -69,7 +69,7 @@ PanelWindow {
         id: card
 
         anchors.fill: parent
-        implicitHeight: 14 + header.implicitHeight + 12 + (list.count > 0 ? groupColumn.implicitHeight : empty.implicitHeight) + 14
+        implicitHeight: 14 + header.implicitHeight + 12 + dndTile.height + 12 + (list.count > 0 ? groupColumn.implicitHeight : empty.implicitHeight) + 14
         radius: 12
         color: Theme.surface
         border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.08)
@@ -123,11 +123,60 @@ PanelWindow {
             }
         }
 
+        // Do not disturb (§9): the mock's quick toggle.
+        Rectangle {
+            id: dndTile
+
+            x: 14
+            y: header.y + header.height + 12
+            width: parent.width - 28
+            height: 48
+            radius: 12
+            color: NotificationData.dnd ? Theme.accentBg : Theme.surface2
+
+            SymbolicIcon {
+                id: dndIcon
+
+                x: 12
+                anchors.verticalCenter: parent.verticalCenter
+                width: 20
+                height: 20
+                name: NotificationData.dnd ? "notifications-disabled-symbolic" : "preferences-system-notifications-symbolic"
+                color: NotificationData.dnd ? Theme.accentFg : Theme.fg
+            }
+
+            Column {
+                anchors.left: dndIcon.right
+                anchors.leftMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+
+                Text {
+                    text: "Do not disturb"
+                    color: NotificationData.dnd ? Theme.accentFg : Theme.fg
+                    font.family: Theme.font
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                }
+
+                Text {
+                    text: NotificationData.dnd ? "On" : "Off"
+                    color: NotificationData.dnd ? Qt.rgba(1, 1, 1, 0.8) : Theme.fgDim
+                    font.family: Theme.font
+                    font.pixelSize: 11.5
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: NotificationData.setDnd(!NotificationData.dnd)
+            }
+        }
+
         Text {
             id: empty
 
             x: 14
-            y: header.y + header.height + 12
+            y: dndTile.y + dndTile.height + 12
             visible: list.count === 0
             text: "No notifications"
             color: Theme.fgDim
@@ -137,7 +186,7 @@ PanelWindow {
 
         Flickable {
             x: 14
-            y: header.y + header.height + 12
+            y: dndTile.y + dndTile.height + 12
             width: parent.width - 28
             height: parent.height - y - 14
             contentWidth: width

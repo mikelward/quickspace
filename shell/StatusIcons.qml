@@ -165,13 +165,15 @@ Row {
     }
 
     // Only while the shell is the notification server; a dot while
-    // something has arrived since the center was last open.
+    // something has arrived since the center was last open. A click opens
+    // the center, a middle-click toggles Do not disturb.
     SymbolicIcon {
         id: bell
 
         anchors.verticalCenter: parent.verticalCenter
         visible: NotificationData.enabled
-        name: "preferences-system-notifications-symbolic"
+        // A bell with a slash while Do not disturb is on.
+        name: NotificationData.dnd ? "notifications-disabled-symbolic" : "preferences-system-notifications-symbolic"
 
         Rectangle {
             visible: HistoryData.unread
@@ -187,6 +189,12 @@ Row {
 
         TapHandler {
             onTapped: HistoryData.toggleAt(root.monitorName)
+        }
+
+        // Middle-click toggles Do not disturb (§7.4).
+        TapHandler {
+            acceptedButtons: Qt.MiddleButton
+            onTapped: NotificationData.setDnd(!NotificationData.dnd)
         }
     }
 
