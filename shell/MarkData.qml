@@ -18,6 +18,11 @@ import "lib/workspaces.mjs" as Ws
 //   - Notifications': NotificationData reports each one that arrives or is
 //     updated, and each that closes, while the shell is the notification
 //     server.
+//   - The focus guard hears every marked window in the order they were
+//     marked (quickspace_focus.set_order), since only the shell sees both
+//     kinds together, so Super+Tab goes to them newest first.
+//   - While Super+Tab steps through the marks, focusing one clears nothing;
+//     releasing Super clears the one it landed on (updateMarks' cycle).
 Singleton {
     id: root
 
@@ -63,20 +68,67 @@ Singleton {
     // (a reload while the startup replay still runs) can't finish the
     // other's; two replays only announce the same windows twice.
     function resync() {
-        replay.createObject(root).running = true;
+        // quickspace_focus.announce_waiting() (hypr/quickspace/focus.lua)
+        // re-sends quickspace-attention for each waiting window, which the
+        // Connections below turn into marks like any other.
+        guardCall.createObject(root, {
+            command: ["hyprctl", "eval", "quickspace_focus.announce_waiting()"],
+            what: "replay the focus guard's waiting windows"
+        }).running = true;
+        // A reloaded guard starts with no notification marks, and a call
+        // still running may have reached the guard before the reload.
+        root.guardGeneration += 1;
+        root.pushed = null;
+        root.push();
     }
 
     Component.onCompleted: resync()
 
+    // The marked windows, in order, the guard last heard, as JSON, or
+    // null when it needs telling again.
+    property var pushed: null
+    property bool pushing: false
+    property int guardGeneration: 0
+    readonly property string noted: JSON.stringify(Ws.attentionOrder(root.marks))
+
+    onNotedChanged: root.push()
+
+    // Tells the guard every marked window in order, one call at a
+    // time, so an older list can't land after a newer one.
+    function push() {
+        if (root.pushing || root.pushed === root.noted) {
+            return;
+        }
+        root.pushing = true;
+        const sending = root.noted;
+        const generation = root.guardGeneration;
+        const list = JSON.parse(sending).map(a => `"0x${a}"`).join(",");
+        const run = guardCall.createObject(root, {
+            command: ["hyprctl", "eval", `quickspace_focus.set_order({${list}})`],
+            what: "tell the focus guard which windows are marked"
+        });
+        run.finished.connect(() => {
+            // A failure isn't retried until the list changes: outside a
+            // quickspace session the guard isn't loaded, and every change
+            // would fail the same way. It's reported (guardCall).
+            if (generation === root.guardGeneration) {
+                root.pushed = sending;
+            }
+            root.pushing = false;
+            root.push();
+        });
+        run.running = true;
+    }
+
+    // One `hyprctl eval` of the focus guard, reported if it fails.
     Component {
-        id: replay
+        id: guardCall
 
         Process {
             id: run
 
-            // quickspace_focus.announce_waiting() (hypr/quickspace/focus.lua)
-            // re-sends quickspace-attention for each waiting window, which
-            // the Connections below turn into marks like any other.
+            // What it does, for the warning when it fails.
+            property string what: ""
             property var state: Run.initial()
             // Its reply is on stdout, which ends apart from stderr: the run
             // counts stderr as in only once both are.
@@ -84,6 +136,8 @@ Singleton {
             property bool replyRead: false
             property string errors: ""
             property bool errorsRead: false
+
+            signal finished
 
             function streamed() {
                 if (replyRead && errorsRead) {
@@ -102,17 +156,16 @@ Singleton {
                 if (!state.started) {
                     console.warn(state.report.message);
                 } else if (state.code !== 0 || reply.trim() !== "ok") {
-                    // Outside a quickspace session the guard isn't loaded,
-                    // and there's nothing to replay.
-                    console.warn(`quickspace: couldn't replay the focus guard's waiting windows: ${(reply + state.errors).trim()}`);
+                    // Outside a quickspace session the guard isn't loaded.
+                    console.warn(`quickspace: couldn't ${what}: ${(reply + state.errors).trim()}`);
                 } else if (state.report?.level === "log") {
                     // It worked, but said something on the way.
                     console.log(state.report.message);
                 }
+                finished();
                 destroy();
             }
 
-            command: ["hyprctl", "eval", "quickspace_focus.announce_waiting()"]
             stdout: StdioCollector {
                 onStreamFinished: {
                     run.reply = text;

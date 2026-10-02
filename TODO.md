@@ -18,6 +18,12 @@ once you have agreed with it or reversed it.
       ring is never hidden in `+n`. The alternative is plain window order,
       leaving the workspace's amber fill as the only cue. It's one function,
       `icons` in `shell/lib/workspaces.mjs`.
+- [ ] **Super+Tab stops at each marked window, not each mark.** SPEC.md
+      §14.4 had an app-wide mark go to the app's most recently focused
+      window; stepping through every marked window instead lets you look
+      at each, and the guard has no notion of which windows a mark covers.
+      The alternative passes the shell's marks to the guard as one window
+      per mark (`attentionOrder` in `shell/lib/workspaces.mjs`).
 - [ ] **A notification's marks stay when its popup times out.** SPEC.md
       §14.4 clears them when it's dismissed; an action invoked from it, a
       reply, or its app closing it counts as that too, but running out of time on
@@ -158,10 +164,11 @@ tested where it can be without a live session.
   - Try it on a real session, beside waybar.
   - `Super+Tab` and `Super+Home` both run the focus guard's
     `focus_attention()`, on trial: keep whichever sticks in daily use and
-    free the other. It knows only the windows the guard kept from
-    focus. Once the shell owns notifications (M4), make them reach a
-    notification's window too (§14.4's marks), the way a click on its
-    popup does.
+    free the other. It steps through the guard's waiting windows and the
+    shell's notification marks while Super is held (§14.3). On a live
+    session, check that conf's release binding on Super fires after
+    Super+Tab, and that a window focused by stepping doesn't lose its mark
+    on the bar.
   - `updateMarks` is fed the focus guard's events (`shell/MarkData.qml`,
     via `markEvent`), Hyprland's urgent flag and `urgent` events, and
     notifications' events while the shell is the notification server

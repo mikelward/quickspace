@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     FIRST, LAST, MAX_ICONS, NO_MARKS, updateMarks, markedWindows, barWorkspaces, scrollTarget,
-    normalizeAddress, markEvent, sameApp, visibleWorkspaces, activatedEvent,
+    normalizeAddress, markEvent, sameApp, visibleWorkspaces, activatedEvent, attentionOrder,
 } from "./workspaces.mjs";
 
 const win = (address, workspace, app, extra = {}) =>
@@ -292,4 +292,51 @@ test("an update that names the app differently is matched by its new name", () =
     assert.deepEqual(marked(marks, windows), ["a", "b"]);
     // The app it names now activating replaces the app-wide marks.
     assert.deepEqual(updateMarks(marks, activatedEvent("b", windows)), NO_MARKS);
+});
+
+test("Super+Tab's cycle keeps every mark until Super is released, then clears only where it landed", () => {
+    assert.deepEqual(markEvent("custom", "quickspace-cycle>>start"), { type: "cycleStart" });
+    assert.deepEqual(markEvent("custom", "quickspace-cycle>>end>>0x00A2"), { type: "cycleEnd", address: "a2" });
+    assert.deepEqual(markEvent("custom", "quickspace-cycle>>end>>"), { type: "cycleEnd", address: null });
+    let marks = updateMarks(notified(), { type: "guarded", address: "k" });
+    marks = updateMarks(marks, markEvent("custom", "quickspace-cycle>>start"));
+    // Stepping focuses each marked window in turn.
+    for (const address of ["k", "n3", "n2"]) {
+        marks = updateMarks(marks, { type: "focused", address });
+    }
+    assert.deepEqual(marked(marks, [...nautilus]), ["k", "n2", "n3"], "nothing cleared while stepping");
+    marks = updateMarks(marks, { type: "cycleEnd", address: "n2" });
+    assert.equal(marks.cycling, false);
+    // n2 and n3 were one app-wide mark, so landing on n2 clears it; the
+    // guard's mark on k stays.
+    assert.deepEqual(marked(marks, [...nautilus]), ["k"]);
+    // A focus after the cycle clears as usual.
+    assert.deepEqual(updateMarks(marks, { type: "focused", address: "k" }), NO_MARKS);
+    // A cycle that ended on nothing clears nothing.
+    const none = updateMarks(updateMarks(notified(), { type: "cycleStart" }), { type: "cycleEnd", address: null });
+    assert.deepEqual(none, notified());
+});
+
+test("the focus guard hears every marked window, oldest mark first", () => {
+    const marks = updateMarks(notified(), { type: "notified", id: 2, app: "kitty", windows: nautilus, visible: new Set([2]) });
+    assert.deepEqual(attentionOrder(marks), ["n2", "n3", "k"]);
+    // The guard's marks share the clock.
+    const held = updateMarks(marks, { type: "guarded", address: "x" });
+    assert.deepEqual(attentionOrder(held), ["n2", "n3", "k", "x"]);
+    // A notification marking a window again makes it the newest.
+    const again = updateMarks(held, { type: "notified", id: 3, app: "nautilus", address: "n2", windows: nautilus, visible: new Set([2]) });
+    assert.deepEqual(attentionOrder(again), ["n3", "k", "x", "n2"]);
+    // A cleared mark leaves the order.
+    assert.deepEqual(attentionOrder(updateMarks(again, { type: "dismissed", id: 2 })), ["n3", "x", "n2"]);
+    // Dismissing the newer of two notes on a window puts it back where the
+    // older one had it, before the guard's later mark too.
+    assert.deepEqual(attentionOrder(updateMarks(again, { type: "dismissed", id: 3 })), ["n2", "n3", "k", "x"]);
+    // The guard announcing a window again makes it the newest.
+    assert.deepEqual(attentionOrder(updateMarks(again, { type: "guarded", address: "x" })), ["n3", "k", "n2", "x"]);
+    assert.deepEqual(attentionOrder(NO_MARKS), []);
+});
+test("a rebuilt guard ends any cycle the shell thought was running", () => {
+    const marks = updateMarks(updateMarks(notified(), { type: "cycleStart" }), { type: "guardReset" });
+    assert.equal(marks.cycling, false);
+    assert.deepEqual(updateMarks(marks, { type: "focused", address: "n2" }), NO_MARKS, "a focus clears again");
 });
