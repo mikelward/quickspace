@@ -49,6 +49,8 @@ PanelWindow {
         now = Date.now();
         if (!visible) {
             expanded = {};
+            // The banner has been seen; once the share is over, it goes.
+            ShareData.seen();
         }
     }
 
@@ -69,7 +71,7 @@ PanelWindow {
         id: card
 
         anchors.fill: parent
-        implicitHeight: 14 + header.implicitHeight + 12 + dndTile.height + 12 + (list.count > 0 ? groupColumn.implicitHeight : empty.implicitHeight) + 14
+        implicitHeight: 14 + header.implicitHeight + 12 + dndTile.height + 12 + (heldBanner.visible ? heldBanner.height + 12 : 0) + (list.count > 0 ? groupColumn.implicitHeight : empty.implicitHeight) + 14
         radius: 12
         color: Theme.surface
         border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.08)
@@ -172,11 +174,38 @@ PanelWindow {
             }
         }
 
+        // How many popups a screen share held (§9), until the share after it
+        // or the center closes once it's over. Collapsed when there are none.
+        Rectangle {
+            id: heldBanner
+
+            x: 14
+            y: dndTile.y + dndTile.height + (visible ? 12 : 0)
+            width: parent.width - 28
+            height: visible ? heldText.implicitHeight + 16 : 0
+            visible: ShareData.held > 0
+            radius: 10
+            color: Theme.urgentBg
+
+            Text {
+                id: heldText
+
+                anchors.verticalCenter: parent.verticalCenter
+                x: 12
+                width: parent.width - 24
+                text: ShareData.holdingPopups ? `${ShareData.held} held while you're sharing` : `${ShareData.held} held while you were sharing`
+                color: Theme.urgent
+                font.family: Theme.font
+                font.pixelSize: 12.5
+                font.weight: Font.DemiBold
+            }
+        }
+
         Text {
             id: empty
 
             x: 14
-            y: dndTile.y + dndTile.height + 12
+            y: heldBanner.y + heldBanner.height + 12
             visible: list.count === 0
             text: "No notifications"
             color: Theme.fgDim
@@ -186,7 +215,7 @@ PanelWindow {
 
         Flickable {
             x: 14
-            y: dndTile.y + dndTile.height + 12
+            y: heldBanner.y + heldBanner.height + 12
             width: parent.width - 28
             height: parent.height - y - 14
             contentWidth: width

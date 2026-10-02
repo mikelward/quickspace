@@ -47,6 +47,13 @@ once you have agreed with it or reversed it.
       have gone from the server by then, so their actions can't run. The
       alternative runs a still-live one's default action. It's
       `shell/NotificationCenter.qml`.
+- [ ] **A system critical shows during a share.** SPEC.md §9 shows a
+      critical on a monitor that isn't shared, else holds it with the bell
+      flashing; for now a system sender's critical gets through a share as
+      it does manual Do not disturb, wherever popups go, relying on the
+      `no_screen_share` layer rule to black it out of the stream. The
+      alternative holds every popup during a share. It's `quiet` in
+      `shell/NotificationData.qml`.
 - [ ] **Do not disturb lasts until the shell restarts.** It survives a
       config reload (`PersistentProperties` in `shell/NotificationData.qml`),
       but a new shell starts with it off, so it can't be left on by
@@ -269,10 +276,15 @@ holds the queue, and
 - Do not disturb: manual DND is in (the center's tile, the bell's
   middle-click, and `qs -c quickspace ipc call notifications dnd`), with
   only system senders' criticals getting through (`passesDnd` in
-  `shell/lib/notifications.mjs`); only parsed with `qmlformat`. Still to
-  do: the launcher's entry; automatic while sharing a screen or region,
-  with the "held while you were sharing" banner; and a critical during a
-  full-screen share.
+  `shell/lib/notifications.mjs`); only parsed with `qmlformat`. Popups
+  are also held while a share is live (`shell/ShareData.qml`,
+  `shell/lib/share.mjs`: an `xdph-streaming-*` node with an active link
+  out of it), with the center's "held while you were sharing" banner.
+  Still to do: the launcher's entry; telling a window share from a screen
+  share, once the picker records its choice (§12), so a window share
+  holds nothing; showing a critical on a monitor that isn't shared; and
+  the bar's red **Sharing** pill, which can use `ShareData.shares`. On a
+  live session, check that Chrome's consumer link reads as active.
 - Keep popups out of screen shares: a `no_screen_share` layer rule for the
   `quickspace-notifications` namespace in `conf`.
 - Retire swaync: the shell owns the name, joins the ready check, and
