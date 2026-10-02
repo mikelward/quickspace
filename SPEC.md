@@ -825,7 +825,9 @@ See [`notifications.png`](docs/mocks/notifications.png).
   several windows (Chrome, Nautilus), so matching the `desktop-entry` hint
   or app name alone can't say which one. So:
   - The click writes a launch grant for that app (§14.3), the same one-shot
-    grant a launcher launch gets. The app's own activation request
+    grant a launcher launch gets, with `quickspace grant ID` (the
+    `desktop-entry` hint, else the app name), and invokes the action once
+    it's recorded. The app's own activation request
     (`urgent>>ADDRESS`) or its first new window within 10 s takes focus,
     so an app with no window yet, or a slow one, still comes up focused.
     Apps such as Chrome activate the right window when a notification is
@@ -1613,7 +1615,7 @@ light/dark switch.
 
 | Repo | Gets |
 |---|---|
-| **quickspace** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session: its `wayland-sessions` entry and `quickspace-hyprland` wrapper, the units (`quickspace.service`, `quickspace-lock.service`, the `hypridle.service` drop-in), `quickspace-portals.conf`, the `quickspace-lock` PAM file and the greetd config template. `quickspace-share-picker`. `quickspace doctor`, `quickspace launch` and `quickspace idle-suspend`. The Lua tiling layout. `make install`. |
+| **quickspace** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session: its `wayland-sessions` entry and `quickspace-hyprland` wrapper, the units (`quickspace.service`, `quickspace-lock.service`, the `hypridle.service` drop-in), `quickspace-portals.conf`, the `quickspace-lock` PAM file and the greetd config template. `quickspace-share-picker`. `quickspace doctor`, `quickspace launch`, `quickspace grant` and `quickspace idle-suspend`. The Lua tiling layout. `make install`. |
 | **conf** | The personal config: Hyprland in Lua (keys, rules, the Lua layout's settings, the single `exec-once`, loading `hyprland.local.lua`); `hypridle.conf` timings; uwsm env; the shared `~/.config/quickspace/*.json` defaults (clocks, idle, layouts), with `*.local.json` left per machine (§16.1); `.desktop` files for the launcher scripts. Deleting waybar, swaync, fuzzel, hyprlock, `theme-daemon.sh` and the sway config once M5 lands (§21). |
 | **scripts** | `setup --quickspace`: packages (pinned Hyprland, Quickshell, greetd, xdph, adw-gtk3, grim/slurp/wl-clipboard/satty, the file manager without its recommends, `xdg-terminal-exec`, the companion apps in §16.2) and enabling units. `screenshot` gains a Wayland path. `lock-screensaver` goes through `loginctl lock-session` on Wayland. `setup --purge-obsolete` learns about packages quickspace replaces. |
 | **dwl** (exploration) | The quickspace fork of dwl that §21.1 is exploring, on upstream's history, under dwl's GPL-3.0-or-later license: the layouts, dimming and IPC it would add. Nothing else depends on it until §21.1's next steps are done and §3.1 is rewritten around it. |

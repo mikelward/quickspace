@@ -12,8 +12,19 @@ Singleton {
     id: root
 
     function launch(command) {
-        const run = runner.createObject(root, { command: ["quickspace", "launch", "--"].concat(command) });
-        run.running = true;
+        run(["quickspace", "launch", "--"].concat(command), null);
+    }
+
+    // Grants app focus for what comes next (§14.3), then calls `then`,
+    // whether or not the grant was recorded: a failed grant is logged,
+    // and what the click asked for still happens.
+    function grant(app, then) {
+        run(["quickspace", "grant", app], then);
+    }
+
+    function run(command, then) {
+        const process = runner.createObject(root, { command: command, then: then });
+        process.running = true;
     }
 
     Component {
@@ -22,21 +33,20 @@ Singleton {
         Process {
             id: run
 
-            // Its signals, through shell/lib/launch.mjs, which decides when
-            // the run is done and what it has to say.
-            property var state: Run.initial()
+            // Called once the run is done, if set, whether it worked or not.
+            property var then: null
+            // Its signals, through shell/lib/launch.mjs's track, which logs
+            // what it has to say and calls `then` exactly once.
+            // Made once, not bound, so nothing can start it over mid-run.
+            property var tracker: null
+
+            Component.onCompleted: tracker = Run.track(command, then, {
+                warn: m => console.warn(m),
+                log: m => console.log(m)
+            })
 
             function handle(event) {
-                if (state.done) {
-                    return;
-                }
-                state = Run.step(state, event, command);
-                if (state.report?.level === "warn") {
-                    console.warn(state.report.message);
-                } else if (state.report?.level === "log") {
-                    console.log(state.report.message);
-                }
-                if (state.done) {
+                if (tracker.on(event)) {
                     destroy();
                 }
             }

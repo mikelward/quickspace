@@ -120,6 +120,24 @@ check "a rejected grant still launches the app" contains "$(cat "$log")" "uwsm a
 check "a rejected grant is reported" \
     contains "$(cat "$tmp/err")" "couldn't record a focus grant for app: error: attempt"
 
+run "$qs" grant google-chrome
+check "grant exits 0 once recorded" test $? -eq 0
+check "grant records only the grant" test "$(cat "$log")" = 'hyprctl eval quickspace_focus.grant("google-chrome")'
+run "$qs" grant 'a"b'
+check "grant escapes the ID for Lua" contains "$(cat "$log")" 'quickspace_focus.grant("a\"b")'
+run FAKE_HYPRCTL_REPLY='error: no quickspace_focus' "$qs" grant app
+check "a rejected grant exits 1" test $? -eq 1
+check "a rejected grant says why" \
+    contains "$(cat "$tmp/err")" "quickspace grant: couldn't record a focus grant for app: error: no quickspace_focus"
+run XDG_CURRENT_DESKTOP=KDE "$qs" grant app
+check "outside quickspace grant does nothing" test $? -eq 0 -a ! -s "$log"
+run "$qs" grant
+check "grant with no ID is a usage error" test $? -eq 2
+run "$qs" grant ''
+check "grant with an empty ID is a usage error" test $? -eq 2
+run "$qs" grant a b
+check "grant takes one ID" test $? -eq 2
+
 run "$qs" launch
 check "launch with no command is a usage error" test $? -eq 2
 run "$qs" launch --bogus app

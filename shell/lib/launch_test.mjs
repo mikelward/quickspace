@@ -1,7 +1,7 @@
 // Tests for launch.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { initial, step } from "./launch.mjs";
+import { initial, step, track } from "./launch.mjs";
 
 const COMMAND = ["quickspace", "launch", "--", "blueman-manager"];
 
@@ -86,4 +86,44 @@ test("a run whose stderr isn't read finishes only by failing to start", () => {
     // ClockData reads quickspace-tz's stdout, not its stderr.
     assert.equal(play([STARTED, exited(0), STOPPED]).at(-1).done, false);
     assert.equal(play([STOPPED]).at(-1).done, true);
+});
+
+// A log that remembers what it was told.
+function recorder() {
+    const lines = [];
+    return { lines, warn: m => lines.push(["warn", m]), log: m => lines.push(["log", m]) };
+}
+
+test("a tracked run calls back once when it's done, whatever the outcome", () => {
+    for (const events of [
+        [STARTED, exited(0), stderr("")],
+        [STARTED, stderr("nope"), exited(1)],
+        [STOPPED],
+        [STARTED, exited(0), stderr("slow shell\n")],
+    ]) {
+        let calls = 0;
+        const t = track(COMMAND, () => calls++, recorder());
+        const done = events.map(e => t.on(e));
+        assert.equal(done.at(-1), true);
+        assert.equal(done.slice(0, -1).includes(true), false);
+        assert.equal(calls, 1);
+        // Anything after the end changes nothing.
+        assert.equal(t.on(STOPPED), true);
+        assert.equal(t.on(exited(3)), true);
+        assert.equal(calls, 1);
+    }
+});
+
+test("a tracked run logs its report at its level", () => {
+    const failed = recorder();
+    track(COMMAND, null, failed).on(STOPPED);
+    assert.deepEqual(failed.lines, [["warn", "quickspace: couldn't start quickspace launch -- blueman-manager"]]);
+    const chatty = recorder();
+    const t = track(COMMAND, null, chatty);
+    [STARTED, exited(0), stderr("slow shell\n")].forEach(e => t.on(e));
+    assert.deepEqual(chatty.lines, [["log", "quickspace: quickspace launch -- blueman-manager: slow shell"]]);
+    const quiet = recorder();
+    const q = track(COMMAND, null, quiet);
+    [STARTED, exited(0), stderr("")].forEach(e => q.on(e));
+    assert.deepEqual(quiet.lines, []);
 });

@@ -53,7 +53,9 @@ Bluetooth, volume, battery and the session menu, plus the volume and
 mic-mute OSD. To try it next to waybar,
 run `qs -c quickspace` in a terminal after `make install` and `sudo make install-session`. The
 clocks need `quickspace-tz` on `PATH`. Ctrl+C stops it; waybar stays until
-the bar is complete.
+the bar is complete. Its notification popups are off while swaync runs;
+to try them, stop swaync and start the shell with
+`QUICKSPACE_NOTIFICATIONS=1 qs -c quickspace`.
 
 `quickspace doctor` checks the running session and prints one line per
 problem, with its fix: units that aren't running, D-Bus names owned by the

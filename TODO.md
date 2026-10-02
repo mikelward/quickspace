@@ -7,6 +7,14 @@ Deferred work, with enough notes to pick it up later.
 Calls made on autopilot, each chosen for being cheap to undo. Delete an entry
 once you have agreed with it or reversed it.
 
+- [ ] **The shell's notification server is opt-in until M4.** It runs only
+      with `QUICKSPACE_NOTIFICATIONS=1` in its environment. Quickshell
+      claims `org.freedesktop.Notifications` whenever the name is free, and
+      it's free for a moment each time M2's theme daemon restarts swaync,
+      so an always-on server would take it over by accident. The
+      alternatives are turning it on whenever swaync isn't installed, or
+      dropping swaync from `quickspace-shell` in the same change. It's
+      reversible by deleting the check in `shell/NotificationData.qml`.
 - [ ] **The autostart allowlist starts as `nm-applet` and `blueman`.** The
       spec says it starts empty, but the bar's network and Bluetooth icons
       come from those applets' autostart entries until the shell draws them
@@ -196,6 +204,32 @@ tested where it can be without a live session.
   - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
     `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Scrolling over the
     clocks scrubs them (`scrubbed` in `shell/lib/clocks.mjs`).
+
+## Notifications (M4)
+
+SPEC.md §9. So far the shell has the server and the popups, opt-in (see
+the decision above): `shell/NotificationData.qml` holds the queue, and
+`shell/NotificationPopups.qml` draws it on the focused monitor, from
+`shell/lib/notifications.mjs`. A click grants focus to the sender's app
+(`quickspace grant`) before invoking the action. Only parsed with
+`qmlformat`; nothing has run in a live session. Still to do:
+
+- Try it on a real session: stop swaync, run the shell with
+  `QUICKSPACE_NOTIFICATIONS=1`, and check Chrome's notifications, a reply,
+  and that a click brings up the right window.
+- When a click's app sends no activation within 10 s and already has
+  windows, focus its most recently focused one (§9).
+- History: the notification center, the bell, `Super+Shift+N`, and
+  `notifications.json` (capped at 200). Then advertise `persistence`
+  (`persistenceSupported`), which §9 lists but the popups alone don't
+  honor.
+- Do not disturb: manual, automatic while sharing a screen, and which
+  criticals get through.
+- Keep popups out of screen shares: a `no_screen_share` layer rule for the
+  `quickspace-notifications` namespace in `conf`.
+- Mark workspaces from notifications (`updateMarks`).
+- Retire swaync: the shell owns the name, joins the ready check, and
+  `quickspace-shell` stops starting it; drop the opt-in.
 
 ## OSD (M4)
 

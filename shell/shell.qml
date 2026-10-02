@@ -2,8 +2,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 
-// quickspace's shell (SPEC.md §3.2): for now, the bar and the OSD on every
-// monitor.
+// quickspace's shell (SPEC.md §3.2): for now, the bar, the OSD and the
+// notification popups (opt-in; see NotificationData.qml) on every monitor.
 ShellRoot {
     Variants {
         model: Quickshell.screens
@@ -15,6 +15,12 @@ ShellRoot {
         model: Quickshell.screens
 
         Osd {}
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        NotificationPopups {}
     }
 
     // A toplevel's class and fullscreen state come from Hyprland's client
