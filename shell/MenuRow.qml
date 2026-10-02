@@ -6,6 +6,8 @@ Item {
 
     property string icon
     property string label
+    // A chosen option among rows, such as the current power profile.
+    property bool selected: false
     signal clicked
 
     implicitHeight: 32
@@ -16,7 +18,7 @@ Item {
         anchors.fill: parent
         radius: 7
         color: Theme.surface2
-        visible: hover.hovered
+        visible: hover.hovered || root.selected
     }
 
     Row {
@@ -38,6 +40,15 @@ Item {
             font.family: Theme.font
             font.pixelSize: 13
         }
+    }
+
+    SymbolicIcon {
+        anchors.right: parent.right
+        anchors.rightMargin: 10
+        anchors.verticalCenter: parent.verticalCenter
+        visible: root.selected
+        name: "object-select-symbolic"
+        color: Theme.accent
     }
 
     HoverHandler {

@@ -4,8 +4,9 @@ import Quickshell.Services.UPower
 import "lib/status.mjs" as Status
 
 // The status icons before the clocks (SPEC.md §7.4). So far: volume, which
-// scrolls by 5%; battery, red below 15%; and the session menu. The other
-// popovers, icons and the tray come later; TODO.md lists them.
+// scrolls by 5%; battery, red below 15%, with its popover; and the session
+// menu. The other popovers, icons and the tray come later; TODO.md lists
+// them.
 Row {
     id: root
 
@@ -61,6 +62,16 @@ Row {
         anchors.verticalCenter: parent.verticalCenter
         visible: view.visible
         spacing: 3
+
+        TapHandler {
+            onTapped: batteryPopover.toggle()
+        }
+
+        BatteryPopover {
+            id: batteryPopover
+
+            icon: battery
+        }
 
         SymbolicIcon {
             anchors.verticalCenter: parent.verticalCenter
