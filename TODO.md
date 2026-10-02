@@ -168,8 +168,15 @@ tested where it can be without a live session.
     The battery popover (`shell/BatteryPopover.qml`) has the time left and
     the power profile. The volume popover (`shell/VolumePopover.qml`, from
     `shell/lib/audio.mjs`) picks the output and input and sets each app's
-    level. Next: Bluetooth and network, which
-    Quickshell 0.3 has no service for; notifications; then the tray, which
+    level. Bluetooth (`shell/BluetoothPopover.qml`, from
+    `shell/lib/bluetooth.mjs`) shows off, on or connected, and connects
+    paired devices; pairing opens blueman-manager.
+  - A command that can't start (Quickshell 0.3 reports it only by `running`
+    going false without `started`) is caught by `shell/lib/launch.mjs` for `shell/Launcher.qml`, but
+    not yet in `SessionMenu.qml`'s runner or `ClockData.qml`'s
+    `quickspace-tz`, where a missing binary means no retry. Next: network, through
+    Quickshell 0.3's `Quickshell.Networking` (NetworkManager); notifications;
+    then the tray, which
     takes over waybar's StatusNotifierWatcher, so it lands with replacing
     waybar.
   - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
