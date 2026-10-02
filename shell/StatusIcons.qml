@@ -1,12 +1,14 @@
 import QtQuick
+import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
+import "lib/bluetooth.mjs" as Bt
 import "lib/status.mjs" as Status
 
-// The status icons before the clocks (SPEC.md §7.4). So far: volume, which
-// scrolls by 5%, and battery, red below 15%, each with its popover; and the
-// session menu. The other icons and the tray come later; TODO.md lists
-// them.
+// The status icons before the clocks (SPEC.md §7.4). So far: Bluetooth;
+// volume, which scrolls by 5%; and battery, red below 15%, each with its
+// popover; and the session menu. The other icons and the tray come later;
+// TODO.md lists them.
 Row {
     id: root
 
@@ -18,6 +20,26 @@ Row {
     // Volume and mute are only live on a bound node.
     PwObjectTracker {
         objects: [root.sink]
+    }
+
+    SymbolicIcon {
+        id: bluetooth
+
+        readonly property var view: Bt.bluetoothIcon(Bluetooth.defaultAdapter, Bluetooth.defaultAdapter?.devices.values ?? [])
+
+        anchors.verticalCenter: parent.verticalCenter
+        visible: view.visible
+        name: view.icon || "bluetooth-disabled-symbolic"
+
+        TapHandler {
+            onTapped: bluetoothPopover.toggle()
+        }
+
+        BluetoothPopover {
+            id: bluetoothPopover
+
+            icon: bluetooth
+        }
     }
 
     SymbolicIcon {
