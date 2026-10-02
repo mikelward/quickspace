@@ -245,3 +245,22 @@ export function barClocks({ clocks, localZone, instant, offsetOf, abbrOf }) {
     shown.push({ text: formatLocal(instant, localOffset), dayOffset: 0, local: true });
     return shown;
 }
+
+// Scrolling over the clocks moves the time they show by this much a notch.
+export const SCRUB_STEP = 15 * MINUTE;
+
+// The instant the clocks show after `notches` of scrolling (positive is
+// later) from `from`: the first notch lands on the next quarter hour that
+// way, so 10:41 goes to 10:45 or 10:30, and each one after moves a step.
+// Quarter hours line up in every zone, since all offsets are whole quarters.
+export function scrubbed(from, notches) {
+    const n = Math.trunc(notches);
+    if (n === 0) {
+        return from;
+    }
+    if (from % SCRUB_STEP === 0) {
+        return from + n * SCRUB_STEP;
+    }
+    const edge = n > 0 ? Math.ceil(from / SCRUB_STEP) : Math.floor(from / SCRUB_STEP);
+    return edge * SCRUB_STEP + (n - Math.sign(n)) * SCRUB_STEP;
+}

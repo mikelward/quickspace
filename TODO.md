@@ -166,8 +166,8 @@ tested where it can be without a live session.
     for; notifications and session; then the tray, which takes over
     waybar's StatusNotifierWatcher, so it lands with replacing waybar.
   - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
-    `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Next for the clocks:
-    scroll to scrub time in 15-minute steps.
+    `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Scrolling over the
+    clocks scrubs them (`scrubbed` in `shell/lib/clocks.mjs`).
 
 ## The rest of `quickspace doctor`
 

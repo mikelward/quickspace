@@ -22,6 +22,21 @@ Singleton {
     property var table: null
     // The instant `items` was drawn for, so the popover ticks with the bar.
     property real now: Date.now()
+    // While scrolling over the clocks, the instant they show instead of
+    // now (SPEC.md §7.3); 0 when they show now.
+    property real scrubAt: 0
+
+    function scrub(notches) {
+        root.scrubAt = Clocks.scrubbed(root.scrubAt || Date.now(), notches);
+        root.update();
+    }
+
+    function unscrub() {
+        if (root.scrubAt !== 0) {
+            root.scrubAt = 0;
+            root.update();
+        }
+    }
 
     readonly property string dir: (Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`) + "/quickspace"
 
@@ -115,7 +130,7 @@ Singleton {
             // otherwise unchanged list can't blank the clocks.
             clocks: root.good.filter(c => table.periods.has(c.zone)),
             localZone: table.localZone,
-            instant: root.now,
+            instant: root.scrubAt || root.now,
             offsetOf: Tz.offsetOf(table),
             abbrOf: Tz.abbrOf(table),
         });

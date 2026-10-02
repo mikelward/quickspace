@@ -713,8 +713,9 @@ See [`bar.png`](docs/mocks/bar.png).
     by an hour;
   - a month calendar with ISO week numbers.
 - **Scroll** over the clocks to scrub time in 15-minute steps, so all four
-  answer "what's 3 pm in SF here?". The clocks snap back when the pointer
-  leaves.
+  answer "what's 3 pm in SF here?". The first step lands on the next
+  quarter hour. Scrubbed times show in the accent color, and the clocks
+  snap back when the pointer leaves.
 - **Config:** a list of `{zone, label}` in `~/.config/quickspace/clocks.json`,
   defaulting to the three above. A machine that needs other zones sets its
   own list in **`clocks.local.json`**, which replaces the shared list

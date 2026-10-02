@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     DEFAULT_CLOCKS, jsonError, parseClocks, loadClocks, visibleClocks, dayOffset,
-    formatTime, formatLocal, barClocks,
+    formatTime, formatLocal, barClocks, scrubbed, SCRUB_STEP,
 } from "./clocks.mjs";
 
 function canonical(zone) {
@@ -234,4 +234,19 @@ test("an empty label shows just the time", () => {
         instant: at("2026-10-02T12:00:00Z"), offsetOf, abbrOf: () => "",
     });
     assert.equal(bar[0].text, "12:00");
+});
+
+test("scrolling moves the clocks to the next quarter hour, then a quarter a notch", () => {
+    const at = (iso) => Date.parse(iso);
+    const t = at("2026-09-28T17:41:00Z");
+    assert.equal(scrubbed(t, 1), at("2026-09-28T17:45:00Z"));
+    assert.equal(scrubbed(t, 3), at("2026-09-28T18:15:00Z"));
+    assert.equal(scrubbed(t, -1), at("2026-09-28T17:30:00Z"));
+    assert.equal(scrubbed(t, -2), at("2026-09-28T17:15:00Z"));
+    assert.equal(scrubbed(t, 0), t);
+    const q = at("2026-09-28T17:45:00Z");
+    assert.equal(scrubbed(q, 1), q + SCRUB_STEP);
+    assert.equal(scrubbed(q, -1), q - SCRUB_STEP);
+    // Seconds count: 17:45:30 is past the quarter.
+    assert.equal(scrubbed(q + 30000, -1), q);
 });
