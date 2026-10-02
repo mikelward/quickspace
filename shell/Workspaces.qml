@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Widgets
+import "lib/dispatch.mjs" as Dispatch
 import "lib/workspaces.mjs" as Ws
 
 // Workspaces 1-9 on one monitor's bar (SPEC.md §7.2). shell/lib/workspaces.mjs
@@ -59,7 +60,7 @@ Row {
             MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
-                onClicked: Hyprland.dispatch(`workspace ${chip.modelData.id}`)
+                onClicked: Hyprland.dispatch(Dispatch.focusWorkspace(chip.modelData.id, Hyprland.usingLua))
             }
 
             Row {
@@ -105,7 +106,7 @@ Row {
                         MouseArea {
                             anchors.fill: parent
                             acceptedButtons: Qt.MiddleButton
-                            onClicked: Hyprland.dispatch(`focuswindow address:0x${icon.modelData.address}`)
+                            onClicked: Hyprland.dispatch(Dispatch.focusWindow(icon.modelData.address, Hyprland.usingLua))
                         }
                     }
                 }
@@ -161,7 +162,7 @@ Row {
             root.wheel -= notches * 120;
             const target = Ws.scrollTarget(root.current, notches);
             if (target !== null) {
-                Hyprland.dispatch(`workspace ${target}`);
+                Hyprland.dispatch(Dispatch.focusWorkspace(target, Hyprland.usingLua));
             }
         }
     }
