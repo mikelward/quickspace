@@ -117,13 +117,22 @@ case "$1" in
         ;;
 esac
 FAKE
+# swaybg logs its arguments and stays up; it's in its own directory too.
+swaybg=$tmp/swaybg-bin
+mkdir "$swaybg"
+cat > "$swaybg/swaybg" <<'FAKE'
+#!/bin/sh
+printf 'swaybg %s\n' "$*" >> "$FAKE_LOG"
+echo $$ >> "$FAKE_PIDS"
+exec sleep 600 >/dev/null 2>&1
+FAKE
 cat > "$tmp/input-setup" <<'FAKE'
 #!/bin/sh
 printf 'input-setup\n' >> "$FAKE_LOG"
 exit "${FAKE_INPUT_STATUS:-0}"
 FAKE
 : > "$tmp/wallpaper.jpg"
-chmod +x "$fake"/* "$swww"/* "$tmp/theme-daemon" "$tmp/agent" "$tmp/input-setup"
+chmod +x "$fake"/* "$swww"/* "$swaybg"/* "$tmp/theme-daemon" "$tmp/agent" "$tmp/input-setup"
 
 both="org.freedesktop.Notifications org.kde.StatusNotifierWatcher"
 
@@ -201,20 +210,34 @@ check "it doesn't wait out the wallpaper first" \
 # swww-daemon without its client.
 mkdir "$tmp/daemon-only"
 cp "$swww/swww-daemon" "$tmp/daemon-only/"
-if ! command -v swww >/dev/null 2>&1; then
+if ! command -v swww >/dev/null 2>&1 && ! command -v swaybg >/dev/null 2>&1; then
     run FAKE_NAMES="$both" PATH="$fake:$tmp/daemon-only:$PATH"
     check "swww-daemon without swww is reported" \
-        contains "$(cat "$tmp/err")" "swww-daemon is installed but its client, swww, isn't"
+        contains "$(cat "$tmp/err")" "swww-daemon is installed but its client, swww, isn't, and swaybg isn't installed either"
     check "swww-daemon without swww isn't started" test ! -e "$tmp/owned/swww-up"
 fi
 
-# Without swww-daemon on the PATH; skipped where the host has a real one,
+# Without swww or swaybg on the PATH; skipped where the host has a real one,
 # which this run would otherwise start.
-if ! command -v swww-daemon >/dev/null 2>&1; then
+if ! command -v swww-daemon >/dev/null 2>&1 && ! command -v swaybg >/dev/null 2>&1; then
     run FAKE_NAMES="$both" PATH="$fake:$PATH"
-    check "no swww-daemon is reported" contains "$(cat "$tmp/err")" "swww-daemon not found"
-    check "no swww-daemon doesn't hold up ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
+    check "no wallpaper program is reported" contains "$(cat "$tmp/err")" "neither swww nor swaybg is installed; no wallpaper"
+    check "no wallpaper program doesn't hold up ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
 fi
+
+# swaybg stands in for swww; skipped where the host has a real swww, which
+# this run would prefer.
+if ! command -v swww-daemon >/dev/null 2>&1; then
+    run FAKE_NAMES="$both" PATH="$fake:$swaybg:$PATH"
+    check "without swww, swaybg shows the wallpaper" contains "$(cat "$tmp/log")" "swaybg -m fill -i $tmp/wallpaper.jpg"
+    check "swaybg doesn't hold up ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
+    # The default wallpaper, under a HOME that has none.
+    run FAKE_NAMES="$both" PATH="$fake:$swaybg:$PATH" QUICKSPACE_WALLPAPER= HOME="$tmp/no-home"
+    check "swaybg isn't started without a wallpaper" test -z "$(grep '^swaybg' "$tmp/log")"
+    check "a missing wallpaper is reported" contains "$(cat "$tmp/err")" "no wallpaper at $tmp/no-home/.config/hypr/wallpaper.jpg"
+fi
+run FAKE_NAMES="$both" PATH="$fake:$swww:$swaybg:$PATH"
+check "swww is preferred to swaybg" test -z "$(grep '^swaybg' "$tmp/log")"
 
 run FAKE_NAMES="org.freedesktop.Notifications" FAKE_DAEMON_STAYS=1
 check "a missing owner fails the start" test "$status" -eq 1

@@ -193,6 +193,14 @@ run FAKE_PROCS="hypridle swaync waybar hyprpolkitagent mako"
 check "a rival daemon is a problem" contains "$out" "mako is running, but quickspace owns its job"
 run FAKE_PROCS="hypridle swaync waybar hyprpolkitagent swayidle"
 check "swayidle is a rival to hypridle" contains "$out" "swayidle is running, but quickspace owns its job"
+run FAKE_PROCS="hypridle swaync waybar hyprpolkitagent swaybg"
+check "the shell's own swaybg isn't a problem" test -z "$(grep swaybg "$tmp/out")"
+run FAKE_PROCS="hypridle swaync waybar hyprpolkitagent swww-daemon swaybg"
+check "swww-daemon and swaybg together are a problem, even in the unit" \
+    contains "$out" "swww-daemon and swaybg are both running"
+run FAKE_PROCS="hypridle swaync waybar hyprpolkitagent swaybg" FAKE_PID_swaybg=200
+check "a swaybg outside the shell is a problem" \
+    contains "$out" "swaybg (pid 200) runs in app-swww.scope, not quickspace.service"
 
 run FAKE_PROCS="hypridle swaync waybar"
 check "no polkit agent is a problem" contains "$out" "no polkit agent is running"

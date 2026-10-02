@@ -333,7 +333,8 @@ session, and failing the unit for that restarted the bar in a loop at
 login. The shell starts the agent alone again instead, after 5 s, doubling
 to once a minute, so it takes over when the other agent goes and comes
 back after a crash; `doctor` names the other agent. It also runs the
-wallpaper (swww, supervised but not waited for) and, once, `conf`'s
+wallpaper (swww, or swaybg where swww isn't packaged; supervised but not
+waited for) and, once, `conf`'s
 `apply-input.sh`, which Hyprland's autostart ran before it shrank to
 `uwsm finalize`.
 
