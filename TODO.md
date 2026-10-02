@@ -57,12 +57,6 @@ once you have agreed with it or reversed it.
       otherwise with "Next clock change:". The calendar underlines the days
       the clocks change. The alternative is hiding the line until a change
       is near. It's `dstLead` and `SOON` in `shell/lib/popover.mjs`.
-- [ ] **The popover's calendar has a column of ISO week numbers.** SPEC.md
-      §7.3 asks for ISO week numbers; the mock shows only today's, in the
-      calendar's heading. The popover has both, so the mock is behind:
-      re-render `docs/mocks/clocks.html` with the column, or drop the column
-      and keep the heading alone. It's `calendarCells` in
-      `shell/lib/popover.mjs`.
 - [ ] **The battery popover always offers the power profiles.** They need
       power-profiles-daemon (or Fedora's tuned-ppd, which serves the same
       D-Bus API). Quickshell 0.3's `PowerProfiles` has no "available" flag,
