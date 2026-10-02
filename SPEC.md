@@ -1608,7 +1608,8 @@ are what "done" means.
 
 - **Pure logic in plain JavaScript** modules, run by `node --test` in CI:
   clock labels, day offsets and hiding the zone that is local (link IDs
-  included), the DST-change finder, fuzzy scoring, the
+  included), workspace states, icons and attention marks, the DST-change
+  finder, fuzzy scoring, the
   single-window width rule, layout geometry, the light/dark boundaries
   (schedule, sunrise and sunset, manual flip expiry), and config loading (`.local`
   merge rules; a bad file keeps the last good settings). The QML only binds

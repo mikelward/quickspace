@@ -12,6 +12,23 @@ once you have agreed with it or reversed it.
       come from those applets' autostart entries until the shell draws them
       (M3). Emptying it is a one-line change to `autostart_default` in
       `bin/quickspace`.
+- [ ] **A marked window's icon stays in view past five windows.** SPEC.md
+      §7.2 shows five icons then `+n`; when a ringed (urgent) window would
+      be past the fifth, it takes a place ahead of unmarked windows, so the
+      ring is never hidden in `+n`. The alternative is plain window order,
+      leaving the workspace's amber fill as the only cue. It's one function,
+      `icons` in `shell/lib/workspaces.mjs`.
+- [ ] **Focusing one window an app-wide mark covered clears the whole
+      mark.** SPEC.md §14.4 says the state clears when a marked window is
+      focused; with Nautilus marked on two hidden workspaces, visiting one
+      clears both. The alternative clears only the focused window, leaving
+      the other workspace amber until visited too. It's the `focused` case
+      of `updateMarks` in `shell/lib/workspaces.mjs`.
+- [ ] **A replacement notification marks again after a focus cleared it.**
+      A chat app replacing its notification usually means a new message,
+      so it's news worth the amber again. The alternative keeps a cleared
+      notification cleared until it's dismissed. It's the `notified` and
+      `focused` cases of `updateMarks`.
 
 ## Transitional shell (M2)
 
@@ -57,6 +74,12 @@ tested where it can be without a live session.
 - Re-render `docs/mocks/bar.png` with `make mocks`: its caption now says
   −2 / +2 across the date line, but the sandbox that changed it couldn't
   load the mocks' web fonts, so the PNG still shows the old caption.
+- Workspace logic is in `shell/lib/workspaces.mjs`: the four states, icons
+  up to five then `+n`, urgency from Hyprland and from notification marks
+  (§14.4), the maximized/fullscreen glyph and scroll steps. Marks are kept
+  as events arrive (`updateMarks`), since what a notification marked
+  depends on what was on screen when it came; the QML feeds it Hyprland's
+  and the notification daemon's events.
 - Next: the tzdata reader the clocks take their offsets and abbreviations
   from (§7.3), then the bar itself in QML, then the clock popover's DST
   finder.
