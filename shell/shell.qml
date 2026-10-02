@@ -2,12 +2,19 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 
-// quickspace's shell (SPEC.md §3.2): for now, the bar on every monitor.
+// quickspace's shell (SPEC.md §3.2): for now, the bar and the OSD on every
+// monitor.
 ShellRoot {
     Variants {
         model: Quickshell.screens
 
         Bar {}
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        Osd {}
     }
 
     // A toplevel's class and fullscreen state come from Hyprland's client
