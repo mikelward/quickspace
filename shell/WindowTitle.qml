@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Hyprland
+import "lib/dispatch.mjs" as Dispatch
 import "lib/title.mjs" as Title
 import "lib/workspaces.mjs" as Ws
 
@@ -43,15 +44,22 @@ Text {
         function onRawEvent(event) {
             if (event.name === "activewindowv2") {
                 root.focusGone = !Title.hasFocus(event.data);
+                if (Title.focusReached(root.maximizing, event.data)) {
+                    root.maximizing = null;
+                    giveUp.stop();
+                    Hyprland.dispatch(Dispatch.toggleMaximize(Hyprland.usingLua));
+                }
             }
         }
     }
 
-    text: Title.barTitle({
+    // The window the title stands for, {address, title}, or null.
+    readonly property var window: Title.barWindow({
         monitor: root.monitor?.name ?? null,
         workspace: root.workspace?.id ?? null,
         active: root.active ? {
             monitor: root.active.monitor?.name ?? null,
+            address: root.active.address,
             title: root.active.title
         } : null,
         // Hyprland's workspace list says which window was last focused on
@@ -63,6 +71,39 @@ Text {
             title: t.title
         }))
     })
+
+    text: root.window?.title ?? ""
+
+    // Double-clicking it toggles maximize on that window, like a title
+    // bar (SPEC.md §7.1). The focused window is maximized at once. Another
+    // is focused first, and maximized only when Hyprland says it has focus
+    // (Title.focusReached): each dispatch goes on its own socket, so their
+    // order isn't kept. If focus doesn't get there in a second (the window
+    // went, or the focus guard held it), nothing is maximized.
+    property var maximizing: null
+
+    Timer {
+        id: giveUp
+
+        interval: 1000
+        onTriggered: root.maximizing = null
+    }
+
+    TapHandler {
+        onDoubleTapped: {
+            const address = root.window?.address;
+            if (!address) {
+                return;
+            }
+            if (Title.focusReached(address, root.active?.address)) {
+                Hyprland.dispatch(Dispatch.toggleMaximize(Hyprland.usingLua));
+                return;
+            }
+            root.maximizing = address;
+            giveUp.restart();
+            Hyprland.dispatch(Dispatch.focusWindow(address, Hyprland.usingLua));
+        }
+    }
     // Titles come from apps: never markup.
     textFormat: Text.PlainText
     elide: Text.ElideRight

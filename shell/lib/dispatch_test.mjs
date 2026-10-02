@@ -1,7 +1,7 @@
 // Tests for dispatch.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { focusWorkspace, focusWindow } from "./dispatch.mjs";
+import { focusWorkspace, focusWindow, toggleMaximize } from "./dispatch.mjs";
 
 test("a Lua config gets hl.dsp calls", () => {
     assert.equal(focusWorkspace(3, true), "hl.dsp.focus({ workspace = 3 })");
@@ -18,4 +18,9 @@ test("nothing but a workspace number or a hex address goes into a dispatch", () 
     assert.throws(() => focusWorkspace(null, true), /not a workspace ID/);
     assert.throws(() => focusWindow('abc" })', true), /not a window address/);
     assert.throws(() => focusWindow("", false), /not a window address/);
+});
+
+test("maximize toggles Hyprland's fullscreen state 1", () => {
+    assert.equal(toggleMaximize(true), 'hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" })');
+    assert.equal(toggleMaximize(false), "fullscreen 1");
 });

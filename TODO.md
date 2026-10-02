@@ -377,14 +377,13 @@ Deferred: it needs a Hyprland patch, and the MVP comes first.
 
 ## Double-click the bar to maximize
 
-Lands with the bar (M3).
-
-- `Super`+middle-click toggles maximize (SPEC.md §6.6), and a second click
-  puts the window back in its tile. Its binding is in `conf`'s
-  `hyprland.lua`.
-- The bar adds a mouse-only way: double-click the window title in its
-  middle (SPEC.md §7.1) to toggle maximize on that monitor's focused
-  window, like a title bar.
+- Double-clicking the window title in the middle of the bar (SPEC.md §7.1)
+  focuses the window it names and toggles maximize on it, like a title
+  bar: `Title.barWindow` and `Dispatch.toggleMaximize`, wired in
+  `shell/WindowTitle.qml`. Only parsed with `qmlformat`; on a real
+  session, check it on the focused monitor and on another one.
+- `Super`+middle-click does the same from the keyboard and mouse (SPEC.md
+  §6.6, in `conf`'s `hyprland.lua`).
 - Rejected: title bars from the `hyprbars` plugin. A plugin is rebuilt against
   every Hyprland upgrade (SPEC.md §3.1).
 
