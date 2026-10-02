@@ -56,3 +56,62 @@ export function scrolledVolume(volume, notches) {
     // Rounded to 0.01%, enough to drop float error without moving the level.
     return Math.min(1, Math.max(0, Math.round(to * 10000) / 10000));
 }
+
+// "3 h 20 min", "45 min" or "under a minute", for UPower's estimates in
+// seconds; "" when there's no estimate (UPower's 0).
+export function formatDuration(seconds) {
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+        return "";
+    }
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 1) {
+        return "under a minute";
+    }
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) {
+        return `${m} min`;
+    }
+    return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+// The battery popover's line under the percentage: what it's doing and how
+// long until empty or full, as far as UPower knows.
+export function batteryStatus({ state, timeToEmpty, timeToFull }) {
+    if (state === FULLY_CHARGED) {
+        return "Fully charged";
+    }
+    if (state === CHARGING) {
+        const t = formatDuration(timeToFull);
+        return t ? `Charging, full in ${t}` : "Charging";
+    }
+    if (state === PENDING_CHARGE) {
+        return "Plugged in, not charging";
+    }
+    const t = formatDuration(timeToEmpty);
+    return t ? `${t} left` : "On battery";
+}
+
+// The power profiles the popover offers, as power-profiles-daemon numbers
+// them (Quickshell's PowerProfile): Performance only where the machine has
+// one, as power-profiles-daemon won't set it otherwise.
+export function profileChoices(hasPerformance) {
+    const all = [
+        { profile: 2, label: "Performance", icon: "power-profile-performance-symbolic" },
+        { profile: 1, label: "Balanced", icon: "power-profile-balanced-symbolic" },
+        { profile: 0, label: "Power saver", icon: "power-profile-power-saver-symbolic" },
+    ];
+    return hasPerformance ? all : all.slice(1);
+}
+
+// Why performance is held back, from power-profiles-daemon's degradation
+// reason (Quickshell's PerformanceDegradationReason); "" when it isn't.
+export function degradedText(reason) {
+    if (reason === 1) {
+        return "Performance is limited while the laptop is on a lap.";
+    }
+    if (reason === 2) {
+        return "Performance is limited while the system is hot.";
+    }
+    return "";
+}

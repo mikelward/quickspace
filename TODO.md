@@ -63,6 +63,13 @@ once you have agreed with it or reversed it.
       re-render `docs/mocks/clocks.html` with the column, or drop the column
       and keep the heading alone. It's `calendarCells` in
       `shell/lib/popover.mjs`.
+- [ ] **The battery popover always offers the power profiles.** They need
+      power-profiles-daemon (or Fedora's tuned-ppd, which serves the same
+      D-Bus API). Quickshell 0.3's `PowerProfiles` has no "available" flag,
+      so without the daemon the rows still show and choosing one only logs
+      a warning. The alternatives are hiding the rows when the D-Bus name
+      has no owner, or having `setup --quickspace` install the daemon. It's
+      `shell/BatteryPopover.qml`.
 - [ ] **The DST sentence names clocks by their bar labels.** SPEC.md §7.3's
       example says "London moves to GMT"; `dst.mjs` says "LON moves to GMT",
       since `clocks.json` has labels, not city names. A clock labeled `abbr`
@@ -164,7 +171,8 @@ tested where it can be without a live session.
     and battery (red below 15%), from `shell/lib/status.mjs`, and the
     session menu (`shell/SessionMenu.qml`, from `shell/lib/session.mjs`).
     On a live session, check that a blocked suspend lists its inhibitors.
-    Next: the volume and battery popovers; Bluetooth and network, which
+    The battery popover (`shell/BatteryPopover.qml`) has the time left and
+    the power profile. Next: the volume popover; Bluetooth and network, which
     Quickshell 0.3 has no service for; notifications; then the tray, which
     takes over waybar's StatusNotifierWatcher, so it lands with replacing
     waybar.

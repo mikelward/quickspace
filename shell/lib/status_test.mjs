@@ -1,7 +1,9 @@
 // Tests for status.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { batteryView, volumeIcon, scrolledVolume } from "./status.mjs";
+import {
+    batteryView, volumeIcon, scrolledVolume, formatDuration, batteryStatus, profileChoices, degradedText,
+} from "./status.mjs";
 
 test("the battery shows its percentage and level icon", () => {
     assert.deepEqual(batteryView({ present: true, percentage: 0.82, state: 2 }),
@@ -50,4 +52,33 @@ test("scrolling changes the volume by 5% a notch, from 0 to 100%", () => {
 test("scrolling up leaves a volume above 100% alone, and down brings it back", () => {
     assert.equal(scrolledVolume(1.3, 1), 1.3);
     assert.equal(scrolledVolume(1.3, -1), 1);
+});
+
+test("durations read in hours and minutes", () => {
+    assert.equal(formatDuration(0), "");
+    assert.equal(formatDuration(NaN), "");
+    assert.equal(formatDuration(20), "under a minute");
+    assert.equal(formatDuration(45 * 60), "45 min");
+    assert.equal(formatDuration(3 * 3600), "3 h");
+    assert.equal(formatDuration(3 * 3600 + 20 * 60 + 10), "3 h 20 min");
+});
+
+test("the battery status says what it's doing and for how long", () => {
+    assert.equal(batteryStatus({ state: 2, timeToEmpty: 12000, timeToFull: 0 }), "3 h 20 min left");
+    assert.equal(batteryStatus({ state: 2, timeToEmpty: 0, timeToFull: 0 }), "On battery");
+    assert.equal(batteryStatus({ state: 1, timeToEmpty: 0, timeToFull: 3900 }), "Charging, full in 1 h 5 min");
+    assert.equal(batteryStatus({ state: 1, timeToEmpty: 0, timeToFull: 0 }), "Charging");
+    assert.equal(batteryStatus({ state: 4, timeToEmpty: 0, timeToFull: 0 }), "Fully charged");
+    assert.equal(batteryStatus({ state: 5, timeToEmpty: 0, timeToFull: 0 }), "Plugged in, not charging");
+});
+
+test("performance is offered only where the machine has it", () => {
+    assert.deepEqual(profileChoices(true).map(p => [p.profile, p.label]), [[2, "Performance"], [1, "Balanced"], [0, "Power saver"]]);
+    assert.deepEqual(profileChoices(false).map(p => p.label), ["Balanced", "Power saver"]);
+});
+
+test("a degraded performance says why", () => {
+    assert.equal(degradedText(0), "");
+    assert.match(degradedText(1), /on a lap/);
+    assert.match(degradedText(2), /hot/);
 });
