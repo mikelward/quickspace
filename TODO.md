@@ -161,10 +161,13 @@ tested where it can be without a live session.
     `palette.json`, and move the light/dark schedule from conf's theme
     daemon into the shell (`appearance.json`).
   - Status icons (§7.4): `shell/StatusIcons.qml` has volume (scroll by 5%)
-    and battery (red below 15%), from `shell/lib/status.mjs`. Next: their
-    popovers; Bluetooth and network, which Quickshell 0.3 has no service
-    for; notifications and session; then the tray, which takes over
-    waybar's StatusNotifierWatcher, so it lands with replacing waybar.
+    and battery (red below 15%), from `shell/lib/status.mjs`, and the
+    session menu (`shell/SessionMenu.qml`, from `shell/lib/session.mjs`).
+    On a live session, check that a blocked suspend lists its inhibitors.
+    Next: the volume and battery popovers; Bluetooth and network, which
+    Quickshell 0.3 has no service for; notifications; then the tray, which
+    takes over waybar's StatusNotifierWatcher, so it lands with replacing
+    waybar.
   - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
     `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Scrolling over the
     clocks scrubs them (`scrubbed` in `shell/lib/clocks.mjs`).
