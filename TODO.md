@@ -82,9 +82,18 @@ tested where it can be without a live session.
   is news. If that turns out noisy, keep a focused notification cleared
   until it's dismissed. Agreed with the maintainer; it's the `notified`
   and `focused` cases of `updateMarks` in `shell/lib/workspaces.mjs`.
-- Next: the tzdata reader the clocks take their offsets and abbreviations
-  from (§7.3), then the bar itself in QML, then the clock popover's DST
-  finder.
+- The tzdata reader is `cmd/quickspace-tz`, and `shell/lib/tzdata.mjs` turns
+  its output into the clocks' lookups and the time of the next re-run.
+- The bar itself is `shell/*.qml` (`qs -c quickspace`): one panel per
+  monitor with the workspaces and clocks. It has only been parsed with
+  `qmlformat`, not run, since Quickshell can't run in the sandbox. Next:
+  - Try it on a real session, beside waybar.
+  - Feed `updateMarks` from the focus guard and, once the shell owns
+    notifications (M4), from them; today only Hyprland's urgent flag marks.
+  - The layout symbol, and right-click for the layout menu (§7.2).
+  - A bad clocks file notifies (§16.1); today it's a warning in the log.
+  - The light theme (§15); `Theme.qml` is dark only.
+  - The status icons and tray (§7.4), then the clock popover's DST finder.
 
 ## The rest of `quickspace doctor`
 

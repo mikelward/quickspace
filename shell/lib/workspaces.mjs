@@ -169,15 +169,16 @@ export function barWorkspaces({ monitor, monitors, windows, marks = NO_MARKS }) 
     return list;
 }
 
-// The workspace a scroll over the bar goes to from `current`: one step,
-// toward the next workspace for a positive delta and the previous for a
-// negative one, stopping at FIRST and LAST as Super+Left/Right do.
-// null means stay: no movement, already at the end, or on a special
-// workspace, which has no neighbors.
-export function scrollTarget(current, delta) {
-    if (!Number.isInteger(current) || current < FIRST || current > LAST || !delta) {
+// The workspace `notches` of scrolling over the bar go to from `current`:
+// one step per notch, toward the next workspace for a positive count and
+// the previous for a negative one, stopping at FIRST and LAST as
+// Super+Left/Right do. null means stay: no whole notch, already at the end,
+// or on a special workspace, which has no neighbors.
+export function scrollTarget(current, notches) {
+    const steps = Math.trunc(notches);
+    if (!Number.isInteger(current) || current < FIRST || current > LAST || !steps) {
         return null;
     }
-    const target = current + Math.sign(delta);
-    return target < FIRST || target > LAST ? null : target;
+    const target = Math.min(LAST, Math.max(FIRST, current + steps));
+    return target === current ? null : target;
 }
