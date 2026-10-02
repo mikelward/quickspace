@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     FIRST, LAST, MAX_ICONS, NO_MARKS, updateMarks, markedWindows, barWorkspaces, scrollTarget,
-    normalizeAddress, markEvent,
+    normalizeAddress, markEvent, sameApp, visibleWorkspaces, activatedEvent,
 } from "./workspaces.mjs";
 
 const win = (address, workspace, app, extra = {}) =>
@@ -238,4 +238,58 @@ test("a config reload drops the guard's marks and keeps notifications'", () => {
     assert.deepEqual(markEvent("configreloaded", ""), { type: "guardReset" });
     marks = updateMarks(marks, markEvent("configreloaded", ""));
     assert.deepEqual([...markedWindows({ windows, marks })], ["def"]);
+});
+
+test("a notification's app matches window classes as the focus guard does", () => {
+    assert.equal(sameApp("org.gnome.Nautilus", "org.gnome.Nautilus.desktop"), true);
+    assert.equal(sameApp("google-chrome", "Google-Chrome"), true);
+    assert.equal(sameApp("org.gnome.Nautilus", "nautilus"), true, "a bare name matches the last part");
+    assert.equal(sameApp("org.example.chat", "com.example.chat"), false, "qualified IDs match in full");
+    assert.equal(sameApp("kitty", "nautilus"), false);
+    assert.equal(sameApp("", ""), false);
+    assert.equal(sameApp(null, "kitty"), false);
+});
+
+test("a notification marks the app's windows whatever case or form its ID takes", () => {
+    const windows = [win("n1", 4, "org.gnome.Nautilus"), win("k", 6, "kitty")];
+    const marks = updateMarks(NO_MARKS, { type: "notified", id: 1, app: "nautilus", windows, visible: new Set([2]) });
+    assert.deepEqual(marked(marks, windows), ["n1"]);
+    // And the app's activation, by its window's class, replaces the mark.
+    assert.deepEqual(updateMarks(marks, activatedEvent("n1", windows)), NO_MARKS);
+});
+
+test("the workspaces on screen are each monitor's open special one, or else its active one", () => {
+    const visible = visibleWorkspaces([{ workspace: 2, special: -98 }, { workspace: 5, special: 0 }, { workspace: null }]);
+    assert.deepEqual([...visible].sort(), [-98, 5]);
+    // So a notification marks a window under an open special workspace.
+    const windows = [win("n1", 2, "nautilus")];
+    const marks = updateMarks(NO_MARKS, { type: "notified", id: 1, app: "nautilus", windows, visible });
+    assert.deepEqual(marked(marks, windows), ["n1"]);
+});
+
+test("an urgent event names its window, and the app comes from the window list", () => {
+    assert.deepEqual(markEvent("urgent", "0x55d3a1b2c0"), { type: "urgent", address: "55d3a1b2c0" });
+    const windows = [win("55d3a1b2c0", 4, "nautilus")];
+    assert.deepEqual(activatedEvent("55d3a1b2c0", windows), { type: "activated", app: "nautilus" });
+    assert.equal(activatedEvent("abc", windows), null, "a window the list doesn't have");
+    assert.equal(activatedEvent("abc", [win("abc", 4, "")]), null, "a window with no class");
+});
+
+test("a notification that takes another's place under a new ID takes over its marks", () => {
+    // Workspace 4 comes on screen, then a new ID replaces notification 1.
+    const marks = updateMarks(notified(), { type: "notified", id: 7, replaces: 1, app: "nautilus", windows: nautilus, visible: new Set([4]) });
+    assert.deepEqual(Object.keys(marks.notes), ["7"]);
+    assert.deepEqual(marked(marks), ["n1", "n2", "n3"]);
+    // So dismissing the new one clears them all.
+    assert.deepEqual(updateMarks(marks, { type: "dismissed", id: 7 }), NO_MARKS);
+});
+
+test("an update that names the app differently is matched by its new name", () => {
+    const windows = [win("a", 4, "com.example.chat"), win("b", 6, "org.example.chat")];
+    let marks = updateMarks(NO_MARKS, { type: "notified", id: 1, app: "com.example.chat", windows, visible: new Set([2]) });
+    // Updated in place under another ID for the app.
+    marks = updateMarks(marks, { type: "notified", id: 1, app: "org.example.chat", windows, visible: new Set([2]) });
+    assert.deepEqual(marked(marks, windows), ["a", "b"]);
+    // The app it names now activating replaces the app-wide marks.
+    assert.deepEqual(updateMarks(marks, activatedEvent("b", windows)), NO_MARKS);
 });

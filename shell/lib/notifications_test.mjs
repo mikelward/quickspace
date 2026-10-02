@@ -1,7 +1,7 @@
 // Tests for notifications.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { timeoutFor, MAX_SHOWN, stackHeight, withDraft, replyDraft, shown, syncKey, arrive, leave, grantId, defaultAction, buttons, bodyStyled, iconFile, countdown, held, hold, release, restarted, due, nextDeadline } from "./notifications.mjs";
+import { timeoutFor, MAX_SHOWN, stackHeight, withDraft, replyDraft, shown, syncKey, arrive, leave, grantId, clearsMarks, defaultAction, buttons, bodyStyled, iconFile, countdown, held, hold, release, restarted, due, nextDeadline } from "./notifications.mjs";
 
 // Quickshell's NotificationUrgency values.
 const URGENCY = { Low: 0, Normal: 1, Critical: 2 };
@@ -205,4 +205,11 @@ test("an update that takes the reply field away drops the draft", () => {
     assert.equal(replyDraft(drafts, 7, true), "on my w");
     assert.equal(replyDraft(drafts, 7, false), "");
     assert.equal(replyDraft(drafts, 8, true), "");
+});
+
+test("a dismissal or the app's close clears a notification's marks, and expiring doesn't", () => {
+    const reasons = { Expired: 1, Dismissed: 2, CloseRequested: 3 };
+    assert.equal(clearsMarks(reasons.Dismissed, reasons), true);
+    assert.equal(clearsMarks(reasons.CloseRequested, reasons), true);
+    assert.equal(clearsMarks(reasons.Expired, reasons), false);
 });

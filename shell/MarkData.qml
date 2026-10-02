@@ -8,18 +8,55 @@ import "lib/launch.mjs" as Run
 import "lib/workspaces.mjs" as Ws
 
 // The bar's attention marks (SPEC.md §14.4), one set for every monitor's
-// bar, kept as Hyprland's events arrive (shell/lib/workspaces.mjs). So far
-// from the focus guard: a window it kept from focus marks its workspace
-// until the window is focused or closes. Whenever the guard's state may
-// have been rebuilt, the shell drops its marks and asks it to announce
-// what still waits: when the shell starts (it may have restarted with
-// windows waiting) and after a Hyprland config reload (which runs
-// focus.lua afresh). Notifications' marks come with the shell's
-// notification server.
+// bar, kept as events arrive (shell/lib/workspaces.mjs):
+//   - The focus guard's: a window it kept from focus marks its workspace
+//     until the window is focused or closes. Whenever the guard's state may
+//     have been rebuilt, the shell drops these and asks it to announce what
+//     still waits: when the shell starts (it may have restarted with
+//     windows waiting) and after a Hyprland config reload (which runs
+//     focus.lua afresh).
+//   - Notifications': NotificationData reports each one that arrives or is
+//     updated, and each that closes, while the shell is the notification
+//     server.
 Singleton {
     id: root
 
     property var marks: Ws.NO_MARKS
+
+    // What a notification's mark is judged against: the windows, and the
+    // workspaces on screen when it arrives.
+    readonly property var windows: Hyprland.toplevels.values.map(t => ({
+        address: Ws.normalizeAddress(t.address),
+        workspace: t.workspace ? t.workspace.id : null,
+        app: t.lastIpcObject?.class || t.wayland?.appId || "",
+    }))
+    readonly property var visible: Ws.visibleWorkspaces(Hyprland.monitors.values.map(m => ({
+        workspace: m.activeWorkspace ? m.activeWorkspace.id : null,
+        special: m.lastIpcObject?.specialWorkspace?.id ?? 0,
+    })))
+
+    // A notification arrived, or was updated in place: it marks its app's
+    // windows that aren't on screen now. Each update adds to what it marked.
+    // `replaces` is the ID of one it took the place of, whose marks it
+    // takes over, or undefined.
+    function notified(id, app, replaces) {
+        if (app) {
+            root.marks = Ws.updateMarks(root.marks, {
+                type: "notified",
+                id: id,
+                replaces: replaces,
+                app: app,
+                windows: root.windows,
+                visible: root.visible
+            });
+        }
+    }
+
+    // A notification closed; whether that clears its marks depends on why
+    // (Notes.clearsMarks).
+    function dismissed(id) {
+        root.marks = Ws.updateMarks(root.marks, { type: "dismissed", id: id });
+    }
 
     // Asks the guard to announce every waiting window again. Each ask is
     // its own process with its own bookkeeping, so one overlapping another
@@ -104,7 +141,10 @@ Singleton {
         target: Hyprland
 
         function onRawEvent(event) {
-            const mark = Ws.markEvent(event.name, event.data);
+            let mark = Ws.markEvent(event.name, event.data);
+            if (mark?.type === "urgent") {
+                mark = Ws.activatedEvent(mark.address, root.windows);
+            }
             if (mark !== null) {
                 root.marks = Ws.updateMarks(root.marks, mark);
             }

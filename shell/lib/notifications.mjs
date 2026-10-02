@@ -93,6 +93,14 @@ export function grantId(notification) {
     return null;
 }
 
+// Whether a notification's closing clears the bar marks it made (§14.4):
+// a dismissal, which an invoked action is too, or its app closing it does;
+// running out of time on screen doesn't, since nobody has looked at its
+// window yet. `reasons` is Quickshell's NotificationCloseReason.
+export function clearsMarks(reason, reasons) {
+    return reason !== reasons.Expired;
+}
+
 // The default action, invoked by clicking the popup itself: the one an app
 // names "default", which the spec reserves for that.
 export function defaultAction(actions) {

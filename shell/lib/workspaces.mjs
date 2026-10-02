@@ -30,9 +30,15 @@ export const NO_MARKS = Object.freeze({ guard: Object.freeze([]), notes: Object.
 //   {type: "notified", id, app, address, windows, visible}  a notification
 //       naming its window: marked only if that window's workspace isn't on
 //       screen, like an app-wide mark.
+//   Either may name `replaces`, the ID of a notification it took the place
+//       of under another ID (Chrome's per-conversation sync key): it takes
+//       over that one's marks, as a replacement under the same ID would.
 //   {type: "guarded", address}   the focus guard kept a new window from focus.
 //   {type: "activated", app}     urgent>>ADDRESS: the app's own activation
-//       replaces its app-wide marks.
+//       replaces its app-wide marks (activatedEvent).
+//
+// A notification's `app` is the desktop entry or app name it gave
+// (notifications.mjs's grantId), matched to window classes by sameApp.
 //   {type: "focused", address}   the window was attended to: the guard's
 //       mark on it clears, and so does every notification's that covered it.
 //   {type: "dismissed", id}      the notification was dismissed.
@@ -53,15 +59,17 @@ export function updateMarks(marks, event) {
     switch (event.type) {
     case "notified": {
         Object.assign(notes, marks.notes);
-        const note = notes[event.id] ?? { app: event.app, wide: [], direct: [] };
+        // It keeps what it marked before, under the app it names now.
+        const note = { wide: [], direct: [], ...(notes[event.id] ?? notes[event.replaces]), app: event.app };
         delete notes[event.id];
+        delete notes[event.replaces];
         if (event.address !== undefined) {
             const named = event.windows.find((w) => w.address === event.address);
             const hidden = named !== undefined && !event.visible.has(named.workspace);
             put(event.id, { ...note, direct: hidden ? [...new Set([...note.direct, event.address])] : note.direct });
         } else {
             const hidden = event.windows
-                .filter((w) => w.app === event.app && !event.visible.has(w.workspace))
+                .filter((w) => sameApp(w.app, event.app) && !event.visible.has(w.workspace))
                 .map((w) => w.address);
             put(event.id, { ...note, wide: [...new Set([...note.wide, ...hidden])] });
         }
@@ -73,7 +81,7 @@ export function updateMarks(marks, event) {
         break;
     case "activated":
         for (const [id, note] of Object.entries(marks.notes)) {
-            put(id, note.app === event.app ? { ...note, wide: [] } : note);
+            put(id, sameApp(note.app, event.app) ? { ...note, wide: [] } : note);
         }
         break;
     case "focused":
@@ -104,6 +112,45 @@ export function updateMarks(marks, event) {
     return { guard, notes };
 }
 
+// Whether a window class and a notification's app name the same app, as
+// the focus guard matches them (hypr/quickspace/focus.lua's same_id):
+// case-insensitively, without a `.desktop` suffix, and with a bare name
+// matching the last part of a qualified one, so `nautilus` matches
+// `org.gnome.Nautilus`, while `org.example.chat` and `com.example.chat`
+// stay apart.
+export function sameApp(a, b) {
+    const norm = (id) => String(id ?? "").toLowerCase().replace(/\.desktop$/, "");
+    const x = norm(a);
+    const y = norm(b);
+    if (x === "" || y === "") {
+        return false;
+    }
+    if (x === y) {
+        return true;
+    }
+    const xBare = !x.includes(".");
+    if (xBare === !y.includes(".")) {
+        return false;
+    }
+    const [bare, qualified] = xBare ? [x, y] : [y, x];
+    return qualified.split(".").pop() === bare;
+}
+
+// The workspaces on screen: each monitor's open special workspace, which
+// covers its regular one, or else its active one. `monitors` is
+// [{workspace, special}], special being 0 or absent when none is open.
+export function visibleWorkspaces(monitors) {
+    return new Set(monitors.map((m) => (m.special ? m.special : m.workspace)).filter((id) => id != null));
+}
+
+// The "activated" event an urgent>>ADDRESS means: the app whose window
+// asked for focus, from `windows` ([{address, app}]). Null for a window
+// the list doesn't have or one with no class.
+export function activatedEvent(address, windows) {
+    const app = windows.find((w) => w.address === address)?.app;
+    return app ? { type: "activated", app } : null;
+}
+
 // A window address as Quickshell spells it (lowercase hex, no 0x, no
 // leading zeros), from whatever form an event or the focus guard used.
 export function normalizeAddress(address) {
@@ -113,9 +160,10 @@ export function normalizeAddress(address) {
 
 // The mark event a Hyprland socket event means, or null: the focus guard
 // keeping a window from focus (custom>>quickspace-attention>>ADDRESS,
-// SPEC.md §14.3), a window being focused, one closing, or a config reload
-// rebuilding the guard. Notifications' events come from the notification
-// server instead.
+// SPEC.md §14.3), a window being focused, one closing, a window asking for
+// focus (`urgent`, which the QML turns into activatedEvent once it knows
+// the window's app), or a config reload rebuilding the guard.
+// Notifications' events come from the notification server instead.
 export function markEvent(name, data) {
     if (name === "configreloaded") {
         return { type: "guardReset" };
@@ -130,6 +178,9 @@ export function markEvent(name, data) {
         raw = data;
     } else if (name === "closewindow") {
         type = "closed";
+        raw = data;
+    } else if (name === "urgent") {
+        type = "urgent";
         raw = data;
     } else {
         return null;

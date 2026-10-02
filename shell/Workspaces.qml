@@ -26,8 +26,8 @@ Row {
         urgent: t.urgent,
         fullscreen: t.lastIpcObject?.fullscreen ?? 0,
     }))
-    // Hyprland's own urgent flag, and the focus guard's marks (MarkData);
-    // notifications' marks aren't wired yet.
+    // Hyprland's own urgent flag, and the focus guard's and notifications'
+    // marks (MarkData).
     readonly property var list: Ws.barWorkspaces({
         monitor: root.monitorName,
         monitors: root.monitors,
