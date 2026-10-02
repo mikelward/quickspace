@@ -1,7 +1,7 @@
 // Tests for share.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isShareNode, shareLinks, liveShares, holdsPopups } from "./share.mjs";
+import { isShareNode, shareLinks, liveShares, holdsPopups, sharingPill } from "./share.mjs";
 
 const ACTIVE = 4;
 const PAUSED = 3;
@@ -40,4 +40,9 @@ test("only the links out of share nodes are bound", () => {
     const chrome = { id: 60, name: "chrome" };
     const out = { source: share, target: chrome };
     assert.deepEqual(shareLinks([out, { source: mic, target: chrome }, { source: null, target: chrome }]), [out]);
+});
+
+test("the Sharing pill shows while any share is live", () => {
+    assert.equal(sharingPill([]), false);
+    assert.equal(sharingPill([{ id: 40, name: "xdph-streaming-0" }]), true);
 });

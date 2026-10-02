@@ -283,8 +283,9 @@ holds the queue, and
   Still to do: the launcher's entry; telling a window share from a screen
   share, once the picker records its choice (§12), so a window share
   holds nothing; showing a critical on a monitor that isn't shared; and
-  the bar's red **Sharing** pill, which can use `ShareData.shares`. On a
-  live session, check that Chrome's consumer link reads as active.
+  the Sharing pill's click (§7.4: what is being shared), which waits on
+  the same. The pill itself is `shell/SharingPill.qml`. On a live
+  session, check that Chrome's consumer link reads as active.
 - Keep popups out of screen shares: a `no_screen_share` layer rule for the
   `quickspace-notifications` namespace in `conf`.
 - Retire swaync: the shell owns the name, joins the ready check, and
