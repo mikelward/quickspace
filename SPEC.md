@@ -507,7 +507,8 @@ See [`layouts.png`](docs/mocks/layouts.png).
 - **The bar learns the layout** from Hyprland's event socket. The layout
   keys are Lua bindings in the Hyprland config, so they work even while the
   shell restarts, and each one announces the new mode as
-  `custom>>quickspace-layout>>WORKSPACE,MODE`.
+  `custom>>quickspace-layout>>WORKSPACE,MODE`. A workspace not announced
+  since the shell started shows its default mode.
 
 ### 6.2 Focus cue: dim, nothing else
 
