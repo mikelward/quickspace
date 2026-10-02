@@ -300,7 +300,7 @@ check "each autostart unit off the allowlist whose command started is a problem"
     test "$(grep -c '^autostart unit' "$tmp/out")" -eq 2
 check "an autostart unit that ran and exited counts" contains "$out" "autostart unit app-oneshot@autostart.service ran in quickspace"
 check "an autostart unit is named, with the fix" \
-    contains "$out" "autostart unit app-hplip\\x2dsystray@autostart.service ran in quickspace but isn't on the autostart allowlist: run quickspace's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload"
+    contains "$out" "autostart unit app-hplip\\x2dsystray@autostart.service ran in quickspace but isn't on the autostart allowlist: run quickspace's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload, then systemctl --user stop 'app-hplip\\x2dsystray@autostart.service'"
 check "an allowlisted autostart unit isn't a problem" test -z "$(grep 'nm\\x2dapplet' "$tmp/out")"
 check "a unit whose condition stopped its command isn't a problem" test -z "$(grep 'app-skipped' "$tmp/out")"
 check "a unit that ran before this session began isn't a problem" test -z "$(grep 'app-earlier' "$tmp/out")"
