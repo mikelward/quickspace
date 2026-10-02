@@ -2,9 +2,21 @@ import QtQuick
 
 // The clocks at the bar's right end (SPEC.md §7.3): each listed zone as
 // "LABEL HH:MM", then local as "MMM d HH:MM", with a small −1 / +1 on a zone
-// whose date differs from local's.
+// whose date differs from local's. A click opens the popover.
 Row {
+    id: root
+
     spacing: 2
+
+    TapHandler {
+        onTapped: popover.toggle()
+    }
+
+    ClocksPopover {
+        id: popover
+
+        clocks: root
+    }
 
     Repeater {
         model: ClockData.items
@@ -30,6 +42,8 @@ Row {
                 Text {
                     visible: clock.label !== ""
                     anchors.baseline: time.baseline
+                    // Labels are any text (SPEC.md §7.3), never markup.
+                    textFormat: Text.PlainText
                     text: clock.label
                     color: Theme.fgDim
                     font.family: Theme.font

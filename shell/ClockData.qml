@@ -20,6 +20,8 @@ Singleton {
     property var good: Clocks.DEFAULT_CLOCKS
     property var trying: Clocks.DEFAULT_CLOCKS
     property var table: null
+    // The instant `items` was drawn for, so the popover ticks with the bar.
+    property real now: Date.now()
 
     readonly property string dir: (Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`) + "/quickspace"
 
@@ -107,12 +109,13 @@ Singleton {
             return;
         }
         const table = root.table;
+        root.now = Date.now();
         root.items = Clocks.barClocks({
             // Skip any zone that didn't load, so one bad entry in an
             // otherwise unchanged list can't blank the clocks.
             clocks: root.good.filter(c => table.periods.has(c.zone)),
             localZone: table.localZone,
-            instant: Date.now(),
+            instant: root.now,
             offsetOf: Tz.offsetOf(table),
             abbrOf: Tz.abbrOf(table),
         });
