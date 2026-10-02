@@ -1385,7 +1385,9 @@ to be focused.
   - The workspace turns amber with a dot, and the marked window's icon is
     ringed.
   - The state clears when a marked window is focused, or when its
-    notification is dismissed.
+    notification is dismissed. Invoking one of its actions or replying
+    counts, even when a resident notification stays, and so does its app
+    closing it; its popup timing out doesn't.
   - `Super+Tab` goes to the most recent mark, switching workspace. For an
     app-wide mark, that is the app's most recently focused window, the same
     rule a notification click falls back on (§9).

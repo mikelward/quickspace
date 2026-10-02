@@ -233,6 +233,8 @@ Rectangle {
                     onAccepted: {
                         if (text !== "") {
                             root.notification.sendInlineReply(text);
+                            // A reply attends to it too, even when it stays.
+                            MarkData.dismissed(root.notification.id);
                         }
                         // Sent, the draft is gone, so a resident notification
                         // that stays gets its time back.

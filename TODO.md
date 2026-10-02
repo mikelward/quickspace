@@ -18,6 +18,12 @@ once you have agreed with it or reversed it.
       ring is never hidden in `+n`. The alternative is plain window order,
       leaving the workspace's amber fill as the only cue. It's one function,
       `icons` in `shell/lib/workspaces.mjs`.
+- [ ] **A notification's marks stay when its popup times out.** SPEC.md
+      §14.4 clears them when it's dismissed; an action invoked from it, a
+      reply, or its app closing it counts as that too, but running out of time on
+      screen doesn't, since nobody has looked yet. The alternative clears
+      them on every close. It's `clearsMarks` in
+      `shell/lib/notifications.mjs`.
 - [ ] **Focusing one window an app-wide mark covered clears the whole
       mark.** SPEC.md §14.4 says the state clears when a marked window is
       focused; with Nautilus marked on two hidden workspaces, visiting one
@@ -157,10 +163,14 @@ tested where it can be without a live session.
     notification's window too (§14.4's marks), the way a click on its
     popup does.
   - `updateMarks` is fed the focus guard's events (`shell/MarkData.qml`,
-    via `markEvent`) and Hyprland's urgent flag. Feed it notifications'
-    events too, once the shell owns notifications (M4). On a live session,
-    check that the Lua side's addresses match Quickshell's
-    (`normalizeAddress` takes either form).
+    via `markEvent`), Hyprland's urgent flag and `urgent` events, and
+    notifications' events while the shell is the notification server
+    (`QUICKSPACE_NOTIFICATIONS=1`). On a live session, check:
+    - that the Lua side's addresses match Quickshell's
+      (`normalizeAddress` takes either form);
+    - which window classes the apps in use give, against the desktop
+      entry or app name their notifications send (`sameApp`). Chrome's
+      `--app` windows are the known gap (§14.4).
   - The layout symbol is `shell/LayoutSymbol.qml`, from
     `shell/lib/layouts.mjs`. On a live session, check that a Hyprland
     config reload resets `layout.lua`'s modes, as `LayoutData.qml` assumes
@@ -228,7 +238,6 @@ holds the queue, and
   criticals get through.
 - Keep popups out of screen shares: a `no_screen_share` layer rule for the
   `quickspace-notifications` namespace in `conf`.
-- Mark workspaces from notifications (`updateMarks`).
 - Retire swaync: the shell owns the name, joins the ready check, and
   `quickspace-shell` stops starting it; drop the opt-in.
 

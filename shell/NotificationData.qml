@@ -25,6 +25,11 @@ Singleton {
             Normal: NotificationUrgency.Normal,
             Critical: NotificationUrgency.Critical
         })
+    readonly property var closeReason: ({
+            Expired: NotificationCloseReason.Expired,
+            Dismissed: NotificationCloseReason.Dismissed,
+            CloseRequested: NotificationCloseReason.CloseRequested
+        })
 
     // While M2's quickspace-shell runs swaync, the shell mustn't take
     // org.freedesktop.Notifications from it: Quickshell claims the name
@@ -90,6 +95,9 @@ Singleton {
     // after its action, and its time runs again. Here rather than in the
     // popup, which may be gone by the time the grant is.
     function run(notification, action) {
+        // Clicking it is attending to it, so its marks go now (§14.4),
+        // whether or not a resident notification stays after its action.
+        MarkData.dismissed(notification.id);
         const app = Notes.grantId(notification);
         if (!app) {
             action.invoke();
@@ -158,19 +166,31 @@ Singleton {
 
             onNotification: notification => {
                 notification.tracked = true;
+                const id = notification.id;
                 const result = Notes.arrive(root.queue, notification);
                 root.queue = result.queue;
+                // It marks its app's windows that are off screen (§14.4),
+                // taking over the marks of any it replaced.
+                MarkData.notified(id, Notes.grantId(notification), result.replaced?.id);
                 // However it goes (dismissed, expired, invoked, closed by
-                // its app, or replaced), its popup goes with it.
-                notification.closed.connect(() => {
+                // its app, or replaced), its popup goes with it. Its marks
+                // go too, unless it only ran out of time.
+                notification.closed.connect(reason => {
                     root.queue = Notes.leave(root.queue, notification);
-                    root.drafts = Notes.withDraft(root.drafts, notification.id, "");
+                    root.drafts = Notes.withDraft(root.drafts, id, "");
+                    if (Notes.clearsMarks(reason, root.closeReason)) {
+                        MarkData.dismissed(id);
+                    }
                 });
                 // Quickshell has no signal for a replaces_id update as such,
                 // only one per property that changed, so any of them counts.
                 // (A resend identical to the last changes nothing it can see.)
+                // An update is news, so it marks again.
                 for (const changed of [notification.appNameChanged, notification.appIconChanged, notification.summaryChanged, notification.bodyChanged, notification.urgencyChanged, notification.actionsChanged, notification.imageChanged, notification.hintsChanged, notification.desktopEntryChanged, notification.expireTimeoutChanged]) {
-                    changed.connect(() => root.restart(notification));
+                    changed.connect(() => {
+                        root.restart(notification);
+                        MarkData.notified(id, Notes.grantId(notification));
+                    });
                 }
                 // An update that takes the reply field away drops its draft,
                 // and with it the draft's hold.
