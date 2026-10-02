@@ -22,6 +22,14 @@
 #          outlives a shell restart.
 #     Outside a quickspace session it just runs COMMAND.
 #
+#   quickspace grant ID
+#
+#     Records only the focus grant, for an app that something other than
+#     a launch is about to bring up: the shell grants the app a clicked
+#     notification came from (SPEC.md §9). Exits 1 if the grant couldn't
+#     be recorded. Outside a quickspace session there's no guard, and it
+#     does nothing.
+#
 #   quickspace autostart-allowed UNIT
 #
 #     The condition on every XDG autostart unit in the quickspace session
@@ -43,6 +51,7 @@ prog=${0##*/}
 
 usage() {
     echo "usage: $prog launch [--app ID] [--] COMMAND [ARG...]" >&2
+    echo "       $prog grant ID" >&2
     echo "       $prog autostart-allowed UNIT" >&2
     echo "       $prog doctor" >&2
     exit 2
@@ -76,16 +85,29 @@ wait_for_shell() {
 
 # The guard lives in Hyprland's Lua config (hypr/quickspace/focus.lua), so the
 # grant goes in through `hyprctl eval`, with the ID escaped for a Lua string.
+# Returns 1, having said why, when the grant isn't recorded; $2 names the
+# subcommand for the message.
 grant() {
     if ! command -v hyprctl >/dev/null 2>&1; then
-        echo "$prog launch: no hyprctl, so $1 gets no focus grant" >&2
-        return
+        echo "$prog $2: no hyprctl, so $1 gets no focus grant" >&2
+        return 1
     fi
     lua_id=$(printf '%s' "$1" | sed 's/[\\"]/\\&/g')
     reply=$(hyprctl eval "quickspace_focus.grant(\"$lua_id\")" 2>&1)
     if test "$reply" != ok; then
-        echo "$prog launch: couldn't record a focus grant for $1: $reply" >&2
+        echo "$prog $2: couldn't record a focus grant for $1: $reply" >&2
+        return 1
     fi
+}
+
+grant_only() {
+    if test $# -ne 1 || test -z "$1"; then
+        usage
+    fi
+    if ! in_quickspace; then
+        exit 0
+    fi
+    grant "$1" grant || exit 1
 }
 
 launch() {
@@ -113,7 +135,8 @@ launch() {
             *) app=${1##*/} ;;
         esac
     fi
-    grant "$app"
+    # A grant that fails is reported; the app starts anyway.
+    grant "$app" launch
     wait_for_shell "$app"
     exec uwsm app -- "$@"
 }
@@ -168,6 +191,7 @@ autostart_allowed() {
 
 case "${1:-}" in
     launch) shift; launch "$@" ;;
+    grant) shift; grant_only "$@" ;;
     autostart-allowed) shift; autostart_allowed "$@" ;;
     # Installed beside this script.
     doctor) shift; exec sh "$(dirname "$0")/quickspace-doctor" "$@" ;;

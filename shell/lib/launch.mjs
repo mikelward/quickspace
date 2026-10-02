@@ -66,3 +66,29 @@ export function step(run, event, command) {
     }
     return Object.freeze(next);
 }
+
+// One run, from its first signal to its last: `on(event)` steps it, logs
+// its report through `log` ({warn, log}), calls `then` exactly once when
+// it's done (whether it worked or not), and returns whether it's done, so
+// the QML can let the Process go. Signals after that change nothing.
+export function track(command, then, log) {
+    let run = initial();
+    return {
+        on(event) {
+            if (run.done) {
+                return true;
+            }
+            run = step(run, event, command);
+            if (!run.done) {
+                return false;
+            }
+            if (run.report?.level === "warn") {
+                log.warn(run.report.message);
+            } else if (run.report?.level === "log") {
+                log.log(run.report.message);
+            }
+            then?.();
+            return true;
+        },
+    };
+}
