@@ -20,3 +20,9 @@ export function focusWindow(address, lua) {
     }
     return lua ? `hl.dsp.focus({ window = "address:0x${hex}" })` : `focuswindow address:0x${hex}`;
 }
+
+// Toggle maximize on the focused window (SPEC.md §6.3: Hyprland's
+// fullscreen state 1), as conf's Super+Up and Super+middle-click do.
+export function toggleMaximize(lua) {
+    return lua ? 'hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" })' : "fullscreen 1";
+}

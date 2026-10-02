@@ -1,7 +1,7 @@
 // Tests for title.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_TITLE, barTitle, shownWorkspace, hasFocus, titleWidth } from "./title.mjs";
+import { MAX_TITLE, barTitle, barWindow, focusReached, shownWorkspace, hasFocus, titleWidth } from "./title.mjs";
 
 const editor = { address: "abc", workspace: 2, monitor: "DP-1", title: "SPEC.md - quickspace" };
 const chat = { address: "def", workspace: 5, monitor: "DP-2", title: "Chat" };
@@ -82,4 +82,27 @@ test("the title keeps clear of the nearer side, the Sharing pill included", () =
     assert.equal(titleWidth({ ...bar, right: 620 }), 2 * 120 - 32);
     assert.equal(titleWidth({ ...bar, implicit: 600, right: 900 }), 500);
     assert.equal(titleWidth({ ...bar, right: 500 }), 0);
+});
+
+test("the bar's title stands for a window a double-click can maximize", () => {
+    const windows = [
+        { address: "0xabc", workspace: 2, title: "SPEC.md - quickspace" },
+        { address: "0xdef", workspace: 5, title: "Chat" },
+    ];
+    const editor = { monitor: "DP-1", address: "0xABC", title: "SPEC.md - quickspace" };
+    // The focused window, on its own monitor.
+    assert.deepEqual(barWindow({ monitor: "DP-1", workspace: 2, active: editor, lastWindow: "0xabc", windows }), { address: "abc", title: "SPEC.md - quickspace" });
+    // Another monitor's last focused window.
+    assert.deepEqual(barWindow({ monitor: "DP-2", workspace: 5, active: editor, lastWindow: "0xdef", windows }), { address: "def", title: "Chat" });
+    // Nothing to maximize on an empty workspace.
+    assert.equal(barWindow({ monitor: "DP-2", workspace: 7, active: null, lastWindow: "", windows }), null);
+});
+
+test("a cross-monitor maximize waits for focus to reach its window", () => {
+    assert.equal(focusReached("abc", "0xabc"), true);
+    assert.equal(focusReached("abc", "abc,"), true);
+    assert.equal(focusReached("abc", "0xdef"), false);
+    // Focus moving to an empty workspace names no window.
+    assert.equal(focusReached("abc", ","), false);
+    assert.equal(focusReached(null, "0xabc"), false);
 });

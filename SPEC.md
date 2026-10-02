@@ -659,6 +659,9 @@ See [`bar.png`](docs/mocks/bar.png).
   character.
   Titles do show up in screenshots and screen shares of the bar; having
   the title where waybar had it is worth that.
+- **Double-clicking the title** toggles maximize on the window it names, as
+  a title bar's double-click would (§6.3); on a monitor without focus it
+  focuses that window first.
 
 ### 7.2 Workspaces
 
