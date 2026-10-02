@@ -24,11 +24,6 @@ once you have agreed with it or reversed it.
       clears both. The alternative clears only the focused window, leaving
       the other workspace amber until visited too. It's the `focused` case
       of `updateMarks` in `shell/lib/workspaces.mjs`.
-- [ ] **A replacement notification marks again after a focus cleared it.**
-      A chat app replacing its notification usually means a new message,
-      so it's news worth the amber again. The alternative keeps a cleared
-      notification cleared until it's dismissed. It's the `notified` and
-      `focused` cases of `updateMarks`.
 
 ## Transitional shell (M2)
 
@@ -80,6 +75,13 @@ tested where it can be without a live session.
   as events arrive (`updateMarks`), since what a notification marked
   depends on what was on screen when it came; the QML feeds it Hyprland's
   and the notification daemon's events.
+- Reconsider, once the bar is in daily use, whether a replaced
+  notification should mark its workspace again after a focus cleared it.
+  Today it does: Chat in Chrome replaces one conversation's notification
+  with each new message, and a reply to a conversation already looked at
+  is news. If that turns out noisy, keep a focused notification cleared
+  until it's dismissed. Agreed with the maintainer; it's the `notified`
+  and `focused` cases of `updateMarks` in `shell/lib/workspaces.mjs`.
 - Next: the tzdata reader the clocks take their offsets and abbreviations
   from (§7.3), then the bar itself in QML, then the clock popover's DST
   finder.
