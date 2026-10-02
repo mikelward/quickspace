@@ -155,8 +155,9 @@ Singleton {
         NotificationServer {
             // What §9 advertises. Chrome sends native notifications only
             // with body and actions, and actions are off by default.
-            // Persistence waits for the history (TODO.md): an app that sees
-            // it may leave keeping its notifications to the server.
+            // Persistence waits for the center to run a past notification's
+            // actions (TODO.md): an app that sees it may leave keeping its
+            // notifications to the server, and the history keeps only text.
             bodySupported: true
             bodyMarkupSupported: true
             actionsSupported: true
@@ -172,6 +173,9 @@ Singleton {
                 // It marks its app's windows that are off screen (§14.4),
                 // taking over the marks of any it replaced.
                 MarkData.notified(id, Notes.grantId(notification), result.replaced?.id);
+                // The center's history keeps it, past its popup (§9). One
+                // carried over a config reload is usually there already.
+                HistoryData.record(notification, result.replaced?.id, notification.lastGeneration);
                 // However it goes (dismissed, expired, invoked, closed by
                 // its app, or replaced), its popup goes with it. Its marks
                 // go too, unless it only ran out of time.
@@ -190,6 +194,7 @@ Singleton {
                     changed.connect(() => {
                         root.restart(notification);
                         MarkData.notified(id, Notes.grantId(notification));
+                        HistoryData.record(notification);
                     });
                 }
                 // An update that takes the reply field away drops its draft,

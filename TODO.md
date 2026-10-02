@@ -36,6 +36,17 @@ once you have agreed with it or reversed it.
       clears both. The alternative clears only the focused window, leaving
       the other workspace amber until visited too. It's the `focused` case
       of `updateMarks` in `shell/lib/workspaces.mjs`.
+- [ ] **A history file that isn't valid JSON is replaced.** The shell warns
+      and starts an empty history, which its next write saves over the
+      damaged file; one it can't read at all (permissions) is left alone,
+      and that shell's history isn't saved. The alternative keeps the
+      damaged file aside as `notifications.json.bad` first. It's the
+      `FileView` in `shell/HistoryData.qml`.
+- [ ] **The center's entries are text only, and a click does nothing.**
+      SPEC.md §9 doesn't say what a click on a past notification does; most
+      have gone from the server by then, so their actions can't run. The
+      alternative runs a still-live one's default action. It's
+      `shell/NotificationCenter.qml`.
 - [ ] **The bar follows the desktop's light/dark color scheme for now.**
       SPEC.md §15 has the shell own the schedule (`appearance.json`); until
       it does, `shell/Theme.qml` watches `org.gnome.desktop.interface
@@ -238,10 +249,13 @@ holds the queue, and
   and that a click brings up the right window.
 - When a click's app sends no activation within 10 s and already has
   windows, focus its most recently focused one (§9).
-- History: the notification center, the bell, `Super+Shift+N`, and
-  `notifications.json` (capped at 200). Then advertise `persistence`
-  (`persistenceSupported`), which §9 lists but the popups alone don't
-  honor.
+- History: the center (`shell/NotificationCenter.qml`), the bell, and
+  `notifications.json` (`shell/HistoryData.qml`, `shell/lib/history.mjs`)
+  are in, behind the same opt-in; only parsed with `qmlformat`. Still to
+  do: `Super+Shift+N` in `conf` (`qs -c quickspace ipc call notifications
+  toggle`, falling back to swaync's panel while the call fails); a click on
+  an entry, which could run a live notification's default action; then
+  advertise `persistence` (`persistenceSupported`), which §9 lists.
 - Do not disturb: manual, automatic while sharing a screen, and which
   criticals get through.
 - Keep popups out of screen shares: a `no_screen_share` layer rule for the
