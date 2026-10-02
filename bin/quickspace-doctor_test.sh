@@ -106,15 +106,20 @@ for p in $FAKE_PROCS; do
 done
 exit $found
 FAKE
-# hyprctl configerrors prints $FAKE_CONFIGERRORS, or fails with
-# $FAKE_HYPRCTL_FAILS.
+# hyprctl configerrors prints $FAKE_CONFIGERRORS; -j monitors and -j layers
+# print $FAKE_MONITORS and $FAKE_LAYERS (none of either by default). Any of
+# them fails with $FAKE_HYPRCTL_FAILS.
 cat > "$fake/hyprctl" <<'FAKE'
 #!/bin/sh
 if test -n "$FAKE_HYPRCTL_FAILS"; then
     echo "$FAKE_HYPRCTL_FAILS"
     exit 1
 fi
-printf '%s' "$FAKE_CONFIGERRORS"
+case "$*" in
+    "-j monitors") printf '%s' "${FAKE_MONITORS:-[]}" ;;
+    "-j layers") printf '%s' "${FAKE_LAYERS:-{\}}" ;;
+    *) printf '%s' "$FAKE_CONFIGERRORS" ;;
+esac
 FAKE
 chmod +x "$fake"/*
 
@@ -301,6 +306,43 @@ check "config errors fail the check" test "$status" -eq 1
 run FAKE_HYPRCTL_FAILS="HYPRLAND_INSTANCE_SIGNATURE not set"
 check "hyprctl failing is reported" \
     contains "$out" "hyprctl configerrors failed (HYPRLAND_INSTANCE_SIGNATURE not set)"
+check "hyprctl failing leaves the bar check incomplete" \
+    contains "$out" "hyprctl monitors failed: HYPRLAND_INSTANCE_SIGNATURE not set, so the one-bar-per-monitor check is incomplete"
+
+# Bars: a 3440x1440 monitor at scale 1.25 is 2752x1152 logical, and a
+# rotated 1920x1080 one beside it is 1080 wide.
+if command -v jq >/dev/null 2>&1; then
+    monitors='[{"name":"DP-1","x":0,"y":0,"width":3440,"height":1440,"scale":1.25,"transform":0},
+               {"name":"DP-2","x":2752,"y":0,"width":1920,"height":1080,"scale":1,"transform":1}]'
+    bar() { printf '{"x":%s,"y":%s,"w":%s,"h":%s,"namespace":"%s"}' "$@"; }
+    healthy
+    run FAKE_MONITORS="$monitors" FAKE_LAYERS="{\"DP-1\":{\"levels\":{\"0\":[$(bar 0 0 2752 1152 wallpaper)],\"2\":[$(bar 0 0 2752 32 waybar)],\"3\":[$(bar 2400 40 340 100 notifications)]}},\"DP-2\":{\"levels\":{\"2\":[$(bar 2752 0 1080 32 waybar)]}}}"
+    check "one bar per monitor, a wallpaper and a popup are fine" test -z "$(grep 'bars on' "$tmp/out")"
+    run FAKE_MONITORS="$monitors" FAKE_LAYERS="{\"DP-1\":{\"levels\":{\"2\":[$(bar 0 0 2752 32 waybar),$(bar 0 0 2752 30 quickspace-bar)]}},\"DP-2\":{\"levels\":{\"2\":[$(bar 2752 0 1080 32 waybar)],\"3\":[$(bar 2752 0 1080 28 other)]}}}"
+    check "two bars on a monitor are a problem, named" \
+        contains "$out" "2 bars on DP-1 (waybar, quickspace-bar): only quickspace's should be there"
+    check "a bar on the overlay layer counts, on a rotated monitor" \
+        contains "$out" "2 bars on DP-2 (waybar, other)"
+    run FAKE_MONITORS="$monitors" FAKE_LAYERS="{\"DP-1\":{\"levels\":{\"2\":[$(bar 0 1120 2752 32 bottom-bar),$(bar 0 0 2752 32 waybar),$(bar 1076 300 600 400 launcher)]}}}"
+    check "a bottom bar or the launcher isn't counted" test -z "$(grep 'bars on' "$tmp/out")"
+    run FAKE_MONITORS="$monitors" FAKE_LAYERS="{\"DP-1\":{\"levels\":{\"2\":[$(bar 0 0 2752 32 waybar),$(bar 8 40 1800 30 floating-bar)]}}}"
+    check "a bar with margins and a set width still counts" contains "$out" "2 bars on DP-1 (waybar, floating-bar)"
+    run FAKE_MONITORS="$monitors" FAKE_LAYERS="{\"DP-1\":{\"levels\":{\"1\":[$(bar 0 0 2752 32 bottom-layer-bar)],\"2\":[$(bar 0 0 2752 32 waybar)]}}}"
+    check "a bar on the bottom layer counts" contains "$out" "2 bars on DP-1 (bottom-layer-bar, waybar)"
+    run FAKE_MONITORS="$monitors" FAKE_LAYERS="not json"
+    check "unreadable layers leave the bar check incomplete" \
+        contains "$out" "so the one-bar-per-monitor check is incomplete"
+fi
+mkdir "$tmp/no-jq"
+for cmd in sh cat sed awk grep tr tail head mktemp rm id dirname; do
+    real=$(command -v "$cmd") && ln -s "$real" "$tmp/no-jq/$cmd"
+done
+healthy
+out=$(env PATH="$fake:$tmp/no-jq" FAKE_OWNED="$tmp/owned" FAKE_TMP="$tmp" XDG_CURRENT_DESKTOP=quickspace:Hyprland \
+    XDG_CONFIG_HOME="$tmp/config" QUICKSPACE_PROC="$tmp/proc" XDG_CONFIG_DIRS="$tmp/etc" XDG_DATA_DIRS="$tmp/share" \
+    FAKE_PROCS="hypridle swaync waybar hyprpolkitagent" FAKE_PID_hypridle=101 \
+    "$tmp/no-jq/sh" "$doctor" 2>&1)
+check "no jq is reported" contains "$out" "jq isn't installed, so the one-bar-per-monitor check is skipped"
 
 healthy
 run FAKE_AUTOSTART_UNITS="app-nm\\x2dapplet@autostart.service=123 app-hplip\\x2dsystray@autostart.service=789 app-oneshot@autostart.service=456 app-skipped@autostart.service=0 app-earlier@autostart.service=50"

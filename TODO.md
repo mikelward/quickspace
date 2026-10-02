@@ -51,15 +51,19 @@ swww isn't packaged). It also runs
 
 M2's `quickspace doctor` (`bin/quickspace-doctor`) checks units, D-Bus
 owners, duplicate and rival daemons, the portal config, Hyprland's config
-errors, and autostart entries. SPEC.md §5.4 also wants:
+errors, autostart entries, and a second bar on any monitor. SPEC.md §5.4
+also wants:
 
+- **Bars by a better signal than geometry.** `hyprctl layers` has no
+  anchors or exclusive zones, so the bar check guesses from position and
+  size, and misses a second bar narrower than half the monitor rather than
+  report every notification as a bar. Once quickspace's own bar exists
+  (M3), count bars by the exclusive zones Hyprland reserves, or have the
+  shell report its own.
 - **Activatable services that could steal a name.** In M2 swaync's own
   activation file names `org.freedesktop.Notifications`, so flagging every
   activatable one would flag the owner. Check it once the shell owns the
   name, naming the service file and the package that ships it.
-- **More than one top-anchored layer surface per monitor.** It needs
-  `hyprctl layers -j` parsed per monitor, which wants a JSON reader the
-  session doesn't have yet (jq, or the shell itself in M3).
 
 ## Grants for terminal commands
 

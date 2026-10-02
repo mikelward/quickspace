@@ -12,6 +12,7 @@
 #   - no daemon runs twice, and no rival to an owner runs at all;
 #   - quickspace-portals.conf is installed and XDG_CURRENT_DESKTOP selects it;
 #   - Hyprland reports no config errors;
+#   - no monitor has more than one bar;
 #   - no XDG autostart unit off the allowlist ran in quickspace.
 
 prog=${0##*/}
@@ -241,6 +242,48 @@ elif ! installed=$(cat "$found" 2>&1); then
     problem "couldn't read $found ($installed): check its permissions, or reinstall it with \`make install\` in the quickspace checkout"
 elif test "$installed" != "$(shipped_portals_conf)"; then
     problem "$found isn't the one quickspace ships (default=hyprland;gtk under [preferred]), so portals may pick the wrong backend: reinstall it with \`make install\` in the quickspace checkout"
+fi
+
+# One bar per monitor (§5.2): a second one stacks above or below the first.
+# A bar is a strip near its monitor's top edge on any layer but the
+# wallpaper's background one: at least half the monitor's width (margins
+# and a set width allowed), at most an eighth of its height, and starting
+# within the top eighth. Popups and the launcher are narrower; a bottom bar
+# starts lower. Layer geometry
+# is logical, so the monitor's size is too: its pixels over its scale,
+# swapped when it's rotated a quarter turn.
+bars_on_monitors() {
+    # On failure it prints the error instead, and returns false.
+    if ! monitors=$(hyprctl -j monitors 2>&1); then
+        printf 'hyprctl monitors failed: %s' "$monitors"
+        return 1
+    fi
+    if ! layers=$(hyprctl -j layers 2>&1); then
+        printf 'hyprctl layers failed: %s' "$layers"
+        return 1
+    fi
+    printf '%s' "$layers" | jq -r --argjson monitors "$monitors" '
+        to_entries[] | .key as $name | .value as $layers
+        | $monitors[] | select(.name == $name) as $m
+        | (if $m.transform % 2 == 0 then [$m.width, $m.height] else [$m.height, $m.width] end) as $size
+        | ($size[0] / $m.scale) as $w | ($size[1] / $m.scale) as $h
+        | [($layers.levels["1"] // [])[], ($layers.levels["2"] // [])[], ($layers.levels["3"] // [])[]
+           | select(.x >= $m.x and .x < $m.x + $w and .y >= $m.y and .y - $m.y < $h / 8
+                    and .w >= $w / 2 and .h <= $h / 8)]
+        | select(length > 1)
+        | "\($name)\t\(length)\t\(map(.namespace) | join(", "))"' 2>&1
+}
+if ! command -v jq >/dev/null 2>&1; then
+    problem "jq isn't installed, so the one-bar-per-monitor check is skipped: install jq (scripts' setup does)"
+elif ! bars=$(bars_on_monitors); then
+    problem "$bars, so the one-bar-per-monitor check is incomplete: is Hyprland running?"
+else
+    while IFS='	' read -r monitor n namespaces; do
+        test -n "$monitor" || continue
+        problem "$n bars on $monitor ($namespaces): only quickspace's should be there; stop the others and remove them from autostart"
+    done <<EOF
+$bars
+EOF
 fi
 
 # Hyprland's config errors, one problem each.

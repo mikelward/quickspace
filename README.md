@@ -23,6 +23,12 @@ this is the way to install by hand:
     systemctl --user daemon-reload
     systemctl --user enable quickspace.service
 
+By hand, also install what the session runs: Hyprland 0.56 or later,
+hypridle, uwsm, waybar, swaync, a polkit agent, swww or swaybg, and jq,
+which `quickspace doctor` reads Hyprland's JSON with. `setup-quickspace`
+installs them all. jq is a free distro package that runs locally, with no
+network calls; without it, the doctor reports its bar check as skipped.
+
 Then pick **quickspace** at the display manager. It runs Hyprland through
 uwsm as `quickspace-hyprland`, which gives the session its own systemd
 target, so quickspace's units never start in a plain Hyprland or Plasma
