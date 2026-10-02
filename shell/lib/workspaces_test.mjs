@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     FIRST, LAST, MAX_ICONS, NO_MARKS, updateMarks, markedWindows, barWorkspaces, scrollTarget,
+    normalizeAddress, markEvent,
 } from "./workspaces.mjs";
 
 const win = (address, workspace, app, extra = {}) =>
@@ -198,4 +199,43 @@ test("scrolling steps one workspace per notch and stops at 1 and 9", () => {
     assert.equal(scrollTarget(4, 0.5), null);
     assert.equal(scrollTarget(-98, 1), null);
     assert.equal(scrollTarget(undefined, 1), null);
+});
+
+test("addresses are compared the way Quickshell spells them", () => {
+    assert.equal(normalizeAddress("0x55D3A1B2C0"), "55d3a1b2c0");
+    assert.equal(normalizeAddress("55d3a1b2c0"), "55d3a1b2c0");
+    assert.equal(normalizeAddress("0x0000abc"), "abc");
+    assert.equal(normalizeAddress("0"), "0");
+    assert.equal(normalizeAddress(""), null);
+    assert.equal(normalizeAddress("nope"), null);
+    assert.equal(normalizeAddress(undefined), null);
+});
+
+test("Hyprland events become mark events", () => {
+    assert.deepEqual(markEvent("custom", "quickspace-attention>>0x55d3a1b2c0"), { type: "guarded", address: "55d3a1b2c0" });
+    assert.deepEqual(markEvent("activewindowv2", "55d3a1b2c0"), { type: "focused", address: "55d3a1b2c0" });
+    assert.deepEqual(markEvent("closewindow", "55d3a1b2c0"), { type: "closed", address: "55d3a1b2c0" });
+});
+
+test("other events, and ones with no window, mark nothing", () => {
+    assert.equal(markEvent("custom", "something-else>>abc"), null);
+    assert.equal(markEvent("activewindowv2", ""), null);
+    assert.equal(markEvent("openwindow", "abc,1,app,title"), null);
+});
+
+test("a guarded window marks its workspace until it's focused", () => {
+    const windows = [win("abc", 4, "chat")];
+    let marks = updateMarks(NO_MARKS, markEvent("custom", "quickspace-attention>>0xabc"));
+    assert.deepEqual([...markedWindows({ windows, marks })], ["abc"]);
+    marks = updateMarks(marks, markEvent("activewindowv2", "abc"));
+    assert.deepEqual([...markedWindows({ windows, marks })], []);
+});
+
+test("a config reload drops the guard's marks and keeps notifications'", () => {
+    const windows = [win("abc", 4, "chat"), win("def", 5, "mail")];
+    let marks = updateMarks(NO_MARKS, { type: "guarded", address: "abc" });
+    marks = updateMarks(marks, { type: "notified", id: 7, app: "mail", windows, visible: new Set([2]) });
+    assert.deepEqual(markEvent("configreloaded", ""), { type: "guardReset" });
+    marks = updateMarks(marks, markEvent("configreloaded", ""));
+    assert.deepEqual([...markedWindows({ windows, marks })], ["def"]);
 });

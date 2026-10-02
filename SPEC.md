@@ -1233,7 +1233,10 @@ this spec.
   `conf`'s `hyprland.lua` loads. It publishes itself as the Lua global
   `quickspace_focus`, and `quickspace launch` records a grant with
   `hyprctl eval 'quickspace_focus.grant("APP")'`. A window it keeps from
-  focus is announced as `custom>>quickspace-attention>>ADDRESS`.
+  focus is announced as `custom>>quickspace-attention>>ADDRESS`. The shell
+  calls `quickspace_focus.announce_waiting()`, which announces each
+  waiting window again, when it starts and after a config reload, since
+  either may have lost or reset what it knew.
 - **Super+U.** Lua can't set Hyprland's urgent flag, so the guard keeps its
   own list of waiting windows: the ones it kept from focus, and activations
   without a grant. `quickspace_focus.focus_attention()` goes to the latest

@@ -19,18 +19,19 @@ Row {
         workspace: m.activeWorkspace ? m.activeWorkspace.id : null,
     }))
     readonly property var windows: Hyprland.toplevels.values.map(t => ({
-        address: t.address,
+        address: Ws.normalizeAddress(t.address),
         workspace: t.workspace ? t.workspace.id : null,
         app: t.lastIpcObject?.class || t.wayland?.appId || "",
         urgent: t.urgent,
         fullscreen: t.lastIpcObject?.fullscreen ?? 0,
     }))
-    // Notification and focus-guard marks (SPEC.md §14.4) aren't wired yet;
-    // Hyprland's own urgent flag is.
+    // Hyprland's own urgent flag, and the focus guard's marks (MarkData);
+    // notifications' marks aren't wired yet.
     readonly property var list: Ws.barWorkspaces({
         monitor: root.monitorName,
         monitors: root.monitors,
         windows: root.windows,
+        marks: MarkData.marks,
     })
     readonly property var current: root.monitors.find(m => m.name === root.monitorName)?.workspace ?? null
 
