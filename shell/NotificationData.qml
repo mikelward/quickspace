@@ -25,6 +25,11 @@ Singleton {
     // critical one (Notes.passesDnd); it still goes to the history and
     // marks its app's windows. It's kept across config reloads.
     readonly property bool dnd: dndState.on
+    // Popups are held for Do not disturb, or while a screen is shared
+    // (ShareData). The same rule decides what gets through either way.
+    readonly property bool quiet: root.dnd || ShareData.holdingPopups
+
+    onQuietChanged: root.holdForDnd()
 
     PersistentProperties {
         id: dndState
@@ -36,15 +41,18 @@ Singleton {
 
     function setDnd(on) {
         dndState.on = on;
-        root.holdForDnd();
     }
 
-    // Takes down every popup, shown or waiting, that Do not disturb holds as
-    // things stand (Notes.heldByDnd). It runs whenever the answer could
-    // change: turning it on, an arrival, an update. Expiring keeps a
+    // Takes down every popup, shown or waiting, that Do not disturb or a
+    // screen share holds as things stand (Notes.heldByDnd). It runs whenever
+    // the answer could change: either starting, an arrival, an update. Expiring keeps a
     // notification's history entry and marks, as a popup timing out does.
     function holdForDnd() {
-        for (const n of Notes.heldByDnd(root.queue, root.dnd, root.urgency)) {
+        const held = Notes.heldByDnd(root.queue, root.quiet, root.urgency);
+        if (ShareData.holdingPopups) {
+            ShareData.counted(held.length);
+        }
+        for (const n of held) {
             n.expire();
         }
     }
