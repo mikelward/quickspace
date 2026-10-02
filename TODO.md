@@ -172,7 +172,9 @@ tested where it can be without a live session.
     session menu (`shell/SessionMenu.qml`, from `shell/lib/session.mjs`).
     On a live session, check that a blocked suspend lists its inhibitors.
     The battery popover (`shell/BatteryPopover.qml`) has the time left and
-    the power profile. Next: the volume popover; Bluetooth and network, which
+    the power profile. The volume popover (`shell/VolumePopover.qml`, from
+    `shell/lib/audio.mjs`) picks the output and input and sets each app's
+    level. Next: Bluetooth and network, which
     Quickshell 0.3 has no service for; notifications; then the tray, which
     takes over waybar's StatusNotifierWatcher, so it lands with replacing
     waybar.

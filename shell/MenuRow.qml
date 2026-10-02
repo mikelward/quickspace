@@ -21,28 +21,35 @@ Item {
         visible: hover.hovered || root.selected
     }
 
-    Row {
+    SymbolicIcon {
+        id: lead
+
         anchors.left: parent.left
         anchors.leftMargin: 10
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 10
+        name: root.icon
+        color: Theme.fg
+    }
 
-        SymbolicIcon {
-            anchors.verticalCenter: parent.verticalCenter
-            name: root.icon
-            color: Theme.fg
-        }
-
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: root.label
-            color: Theme.fg
-            font.family: Theme.font
-            font.pixelSize: 13
-        }
+    // Between the icon and the check mark, cut short if it's too long.
+    Text {
+        anchors.left: lead.right
+        anchors.leftMargin: 10
+        anchors.right: check.left
+        anchors.rightMargin: 8
+        anchors.verticalCenter: parent.verticalCenter
+        elide: Text.ElideRight
+        // Labels can come from other programs (device names): never markup.
+        textFormat: Text.PlainText
+        text: root.label
+        color: Theme.fg
+        font.family: Theme.font
+        font.pixelSize: 13
     }
 
     SymbolicIcon {
+        id: check
+
         anchors.right: parent.right
         anchors.rightMargin: 10
         anchors.verticalCenter: parent.verticalCenter
