@@ -8,6 +8,7 @@ PanelWindow {
     id: bar
 
     required property var modelData
+    readonly property var monitor: Hyprland.monitorFor(bar.screen)
 
     screen: modelData
     anchors {
@@ -19,10 +20,19 @@ PanelWindow {
     color: Theme.barBg
 
     Workspaces {
+        id: workspaces
+
         anchors.left: parent.left
         anchors.leftMargin: 5
         anchors.verticalCenter: parent.verticalCenter
-        monitorName: Hyprland.monitorFor(bar.screen)?.name ?? ""
+        monitorName: bar.monitor?.name ?? ""
+    }
+
+    LayoutSymbol {
+        anchors.left: workspaces.right
+        anchors.leftMargin: 7
+        anchors.verticalCenter: parent.verticalCenter
+        monitor: bar.monitor
     }
 
     Clocks {

@@ -24,6 +24,18 @@ once you have agreed with it or reversed it.
       clears both. The alternative clears only the focused window, leaving
       the other workspace amber until visited too. It's the `focused` case
       of `updateMarks` in `shell/lib/workspaces.mjs`.
+- [ ] **Until a workspace's layout is announced, the bar shows the
+      default.** `layout.lua` only announces a mode when a key changes it,
+      so after the shell starts, the bar assumes each workspace is in the
+      mode its monitor's aspect gives (2.1, the layout's default
+      `ultrawide_aspect`). A changed mode from before the restart, or a
+      changed `ultrawide_aspect`, shows wrong until the next change. The
+      alternative is for `layout.lua` to announce on each workspace switch
+      too. It's `defaultMode` in `shell/lib/layouts.mjs` and
+      `shell/LayoutData.qml`.
+- [ ] **Monocle with nothing hidden shows `[M]`, not `[0]`.** SPEC.md §6.1
+      says monocle shows the hidden count; with one window there's nothing
+      hidden to count. It's `layoutSymbol` in `shell/lib/layouts.mjs`.
 
 ## Transitional shell (M2)
 
@@ -90,7 +102,11 @@ tested where it can be without a live session.
   - Try it on a real session, beside waybar.
   - Feed `updateMarks` from the focus guard and, once the shell owns
     notifications (M4), from them; today only Hyprland's urgent flag marks.
-  - The layout symbol, and right-click for the layout menu (§7.2).
+  - The layout symbol is `shell/LayoutSymbol.qml`, from
+    `shell/lib/layouts.mjs`. On a live session, check that a Hyprland
+    config reload resets `layout.lua`'s modes, as `LayoutData.qml` assumes
+    when it forgets them on `configreloaded`.
+  - Right-click a workspace for the layout menu (§7.2).
   - A bad clocks file notifies (§16.1); today it's a warning in the log.
   - The light theme (§15); `Theme.qml` is dark only.
   - The status icons and tray (§7.4), then the clock popover's DST finder.

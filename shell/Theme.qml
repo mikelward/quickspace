@@ -23,4 +23,5 @@ Singleton {
     readonly property color urgentRing: "#f6d32d"
 
     readonly property string font: "Inter"
+    readonly property string monoFont: "Ubuntu Mono"
 }
