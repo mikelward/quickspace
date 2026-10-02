@@ -127,9 +127,10 @@ packaged). It also runs
   **Authenticate** notification yet. Both come with the Quickshell agent.
 - The Quickshell bar marks the windows the focus guard leaves waiting
   (`quickspace-attention`, in `shell/MarkData.qml`), and it's now the bar
-  wherever Quickshell is installed. The guard still shows a Hyprland
-  notification for each, since `QUICKSPACE_BAR=waybar` still falls back to
-  waybar, which can't. Turn that off (`notify = false`) once waybar goes.
+  wherever Quickshell is installed. The guard shows a Hyprland notification
+  for each only until the bar first calls `set_order`, so under
+  `QUICKSPACE_BAR=waybar`, which can't mark them, it still does. Drop
+  `notify` once waybar goes.
 - The theme daemon restarts swaync at each light/dark boundary (and waybar,
   when it's the bar); the Quickshell bar changes theme in place.
 

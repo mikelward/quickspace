@@ -10,8 +10,9 @@
 -- Anything else stays where it opened, dimmed, and is announced on the event
 -- socket as `custom>>quickspace-attention>>ADDRESS` for the shell to mark.
 -- Lua can't set Hyprland's urgent flag, so the guard also keeps these
--- windows itself, and until the shell marks them (TODO.md), each shows a
--- Hyprland notification (`notify`).
+-- windows itself. Until a shell has marked them (it calls `set_order`, as
+-- quickspace's Quickshell bar does at startup; waybar never does), each
+-- also shows a Hyprland notification (`notify`).
 --
 -- `quickspace_focus.focus_attention()` (Super+Tab) goes to the latest
 -- marked window: one the guard kept waiting, an activation without a grant,
@@ -47,8 +48,8 @@ local M = {}
 M.defaults = {
     -- How long a launch grant holds, in seconds.
     grant_seconds = 10,
-    -- Show a Hyprland notification for each window left waiting, while no
-    -- shell consumes quickspace-attention.
+    -- Show a Hyprland notification for each window left waiting, until a
+    -- shell that marks them has called set_order.
     notify = true,
     -- Window classes of polkit agents. Their password prompt takes focus
     -- when you pressed a key in the last prompt_seconds, since that's you
@@ -299,7 +300,9 @@ local function announce(w)
         return
     end
     hl.dispatch(hl.dsp.event("quickspace-attention>>" .. address))
-    if state.opts.notify then
+    -- A shell that marks waiting windows has said so by giving its order;
+    -- one that stops after that leaves the guard quiet until a reload.
+    if state.opts.notify and not state.shell_order then
         hl.notification.create({
             text = (field(w, "class") or "A window") .. " is waiting: Super+Tab to go there",
             duration = 5000,

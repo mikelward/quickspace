@@ -789,6 +789,16 @@ test("a waiting window shows a notification unless notify is off", function()
     eq(#S.notified, 0, "silent")
 end)
 
+test("once a shell marks waiting windows, the guard's notification stops", function()
+    local m = load()
+    focused(window("kitty"), FFM)
+    m.set_order({}) -- the shell, starting with nothing marked
+    local updater = window("updater")
+    local d = fire("window.open", updater)
+    eq(#S.notified, 0, "the bar marks it instead")
+    eq(is_attention(d[1], updater), true, "still announced")
+end)
+
 test("the waiting windows can be announced again, for a shell that restarted", function()
     local m = load()
     focused(window("kitty"), FFM)
