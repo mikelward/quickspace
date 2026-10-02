@@ -24,6 +24,19 @@ once you have agreed with it or reversed it.
       clears both. The alternative clears only the focused window, leaving
       the other workspace amber until visited too. It's the `focused` case
       of `updateMarks` in `shell/lib/workspaces.mjs`.
+- [ ] **The bar follows the desktop's light/dark color scheme for now.**
+      SPEC.md §15 has the shell own the schedule (`appearance.json`); until
+      it does, `shell/Theme.qml` watches `org.gnome.desktop.interface
+      color-scheme`, which conf's theme daemon already flips. The
+      alternative was building the shell's schedule first. The watch is two
+      `gsettings` processes in `Theme.qml`, easy to swap for the shell's
+      own schedule later.
+- [ ] **The bar can miss a light/dark flip at its own startup.** `gsettings
+      monitor` has no "ready" signal, so a flip in the instant before it
+      subscribes leaves the startup read's old value up until the next flip
+      (at most twice a day). Accepted for now; the alternatives were polling
+      `gsettings get` every minute, or building the shell's own schedule
+      (SPEC.md §15), which removes the watch altogether. It's `Theme.qml`.
 - [ ] **Monocle with nothing hidden shows `[M]`, not `[0]`.** SPEC.md §6.1
       says monocle shows the hidden count; with one window there's nothing
       hidden to count. It's `layoutSymbol` in `shell/lib/layouts.mjs`.
@@ -103,7 +116,10 @@ tested where it can be without a live session.
     workspace argument to `layout.lua`'s `layoutmsg`. A plain `layoutmsg`
     also doesn't announce the new mode today.
   - A bad clocks file notifies (§16.1); today it's a warning in the log.
-  - The light theme (§15); `Theme.qml` is dark only.
+  - `Theme.qml` has the mocks' light and dark palettes and follows the
+    desktop's `color-scheme`. Next for §15: generate it from one
+    `palette.json`, and move the light/dark schedule from conf's theme
+    daemon into the shell (`appearance.json`).
   - The status icons and tray (§7.4), then the clock popover's DST finder.
 
 ## The rest of `quickspace doctor`

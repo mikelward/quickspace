@@ -42,7 +42,7 @@ test:
 	sh bin/quickspace_test.sh
 	sh bin/quickspace-shell_test.sh
 	sh bin/quickspace-doctor_test.sh
-	$(NODE) --test shell/lib/clocks_test.mjs shell/lib/workspaces_test.mjs shell/lib/tzdata_test.mjs shell/lib/layouts_test.mjs
+	$(NODE) --test shell/lib/clocks_test.mjs shell/lib/workspaces_test.mjs shell/lib/tzdata_test.mjs shell/lib/layouts_test.mjs shell/lib/appearance_test.mjs
 	$(GO) vet ./...
 	$(GO) test ./...
 
