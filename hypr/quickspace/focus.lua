@@ -10,7 +10,7 @@
 -- Anything else stays where it opened, dimmed, and is announced on the event
 -- socket as `custom>>quickspace-attention>>ADDRESS` for the shell to mark.
 -- Lua can't set Hyprland's urgent flag, so the guard also keeps these
--- windows itself: `quickspace_focus.focus_attention()` (Super+U) goes to the
+-- windows itself: `quickspace_focus.focus_attention()` (Super+Tab) goes to the
 -- latest, and until the shell marks them (TODO.md), each shows a Hyprland
 -- notification (`notify`).
 -- If the guard itself fails, windows still open unfocused: the failure mode
@@ -279,7 +279,7 @@ local function announce(w)
     hl.dispatch(hl.dsp.event("quickspace-attention>>" .. address))
     if state.opts.notify then
         hl.notification.create({
-            text = (field(w, "class") or "A window") .. " is waiting: Super+U to go there",
+            text = (field(w, "class") or "A window") .. " is waiting: Super+Tab to go there",
             duration = 5000,
             icon = "info",
         })
@@ -298,7 +298,7 @@ end
 
 -- A polkit agent's prompt right after a key press (§14.1). Lua sees key
 -- presses but not clicks, and not which process asked, so this is the
--- keyboard half of the rule: a prompt after a click waits for Super+U.
+-- keyboard half of the rule: a prompt after a click waits for Super+Tab.
 local function prompt_you_asked_for(w)
     if not state.last_key or M.clock() - state.last_key > state.opts.prompt_seconds then
         return false
@@ -331,7 +331,7 @@ end
 
 -- An existing window asked to be activated. Hyprland has already marked it
 -- urgent (misc:focus_on_activate is off); a launch grant lets it through,
--- and otherwise it waits with the rest, so Super+U takes the latest of both.
+-- and otherwise it waits with the rest, so Super+Tab takes the latest of both.
 function M.on_urgent(w)
     if take_grant(w) then
         focus(w)
