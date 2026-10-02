@@ -872,9 +872,14 @@ See [`notifications.png`](docs/mocks/notifications.png).
 - **Critical during a full-screen share:** shown on a monitor that isn't
   being shared if there is one; otherwise held, with the bar's bell flashing.
 - **Which "critical" gets through manual DND.** Only criticals from system
-  senders (battery, the shell, polkit) do. Chrome marks every
+  senders (battery, the shell, polkit) do. A system sender's app name or
+  desktop entry is `quickspace` (the shell, its battery warning, and the
+  `quickspace` tools) or names a polkit agent. Chrome marks every
   `requireInteraction` web notification critical unless the server calls
-  itself "Plasma", so browser criticals are treated as normal and persistent.
+  itself "Plasma" (or "wf-panel-pi"), so browser criticals are treated as
+  normal and persistent. That's `ShouldMarkPersistentNotificationsAsCritical`
+  in Chromium's `chrome/browser/notifications/notification_platform_bridge_linux.cc`,
+  checked on `main` on 2026-10-02.
 
 ### Not a notification
 

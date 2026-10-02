@@ -20,6 +20,35 @@ Singleton {
     // another monitor as focus does.
     property var drafts: ({})
 
+    // Do not disturb (§9), set from the center, the bell or IPC. While it's
+    // on, a notification gets no popup unless it's a system sender's
+    // critical one (Notes.passesDnd); it still goes to the history and
+    // marks its app's windows. It's kept across config reloads.
+    readonly property bool dnd: dndState.on
+
+    PersistentProperties {
+        id: dndState
+
+        reloadableId: "quickspace-dnd"
+
+        property bool on: false
+    }
+
+    function setDnd(on) {
+        dndState.on = on;
+        root.holdForDnd();
+    }
+
+    // Takes down every popup, shown or waiting, that Do not disturb holds as
+    // things stand (Notes.heldByDnd). It runs whenever the answer could
+    // change: turning it on, an arrival, an update. Expiring keeps a
+    // notification's history entry and marks, as a popup timing out does.
+    function holdForDnd() {
+        for (const n of Notes.heldByDnd(root.queue, root.dnd, root.urgency)) {
+            n.expire();
+        }
+    }
+
     readonly property var urgency: ({
             Low: NotificationUrgency.Low,
             Normal: NotificationUrgency.Normal,
@@ -195,12 +224,14 @@ Singleton {
                         root.restart(notification);
                         MarkData.notified(id, Notes.grantId(notification));
                         HistoryData.record(notification);
+                        root.holdForDnd();
                     });
                 }
                 // An update that takes the reply field away drops its draft,
                 // and with it the draft's hold.
                 notification.hasInlineReplyChanged.connect(() => root.setDraft(notification, Notes.replyDraft(root.drafts, notification.id, notification.hasInlineReply)));
                 result.replaced?.expire();
+                root.holdForDnd();
             }
         }
     }

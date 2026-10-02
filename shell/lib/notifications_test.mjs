@@ -1,7 +1,7 @@
 // Tests for notifications.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { timeoutFor, MAX_SHOWN, stackHeight, withDraft, replyDraft, shown, syncKey, arrive, leave, grantId, clearsMarks, defaultAction, buttons, bodyStyled, iconFile, countdown, held, hold, release, restarted, due, nextDeadline } from "./notifications.mjs";
+import { timeoutFor, MAX_SHOWN, stackHeight, withDraft, replyDraft, shown, syncKey, arrive, leave, grantId, clearsMarks, defaultAction, buttons, bodyStyled, iconFile, countdown, held, hold, release, restarted, due, nextDeadline, passesDnd, heldByDnd } from "./notifications.mjs";
 
 // Quickshell's NotificationUrgency values.
 const URGENCY = { Low: 0, Normal: 1, Critical: 2 };
@@ -212,4 +212,27 @@ test("a dismissal or the app's close clears a notification's marks, and expiring
     assert.equal(clearsMarks(reasons.Dismissed, reasons), true);
     assert.equal(clearsMarks(reasons.CloseRequested, reasons), true);
     assert.equal(clearsMarks(reasons.Expired, reasons), false);
+});
+
+test("only a system sender's critical notification gets through Do not disturb", () => {
+    const n = (appName, urgency, desktopEntry = "") => ({ appName, desktopEntry, urgency });
+    assert.equal(passesDnd(n("quickspace", URGENCY.Critical), URGENCY), true);
+    assert.equal(passesDnd(n("Quickspace ", URGENCY.Critical), URGENCY), true);
+    assert.equal(passesDnd(n("", URGENCY.Critical, "polkit-gnome-authentication-agent-1"), URGENCY), true);
+    assert.equal(passesDnd(n("PolicyKit1 polkit agent", URGENCY.Critical), URGENCY), true);
+    // Not critical, even from the shell.
+    assert.equal(passesDnd(n("quickspace", URGENCY.Normal), URGENCY), false);
+    // Chrome marks requireInteraction notifications critical.
+    assert.equal(passesDnd(n("Google Chrome", URGENCY.Critical, "google-chrome"), URGENCY), false);
+    assert.equal(passesDnd(n("", URGENCY.Critical), URGENCY), false);
+});
+
+test("Do not disturb holds whatever in the queue doesn't pass, as it is now", () => {
+    const shell = { appName: "quickspace", desktopEntry: "", urgency: URGENCY.Critical };
+    const chat = { appName: "Chat", desktopEntry: "", urgency: URGENCY.Normal };
+    assert.deepEqual(heldByDnd([shell, chat], false, URGENCY), []);
+    assert.deepEqual(heldByDnd([shell, chat], true, URGENCY), [chat]);
+    // A system critical updated to normal no longer passes.
+    shell.urgency = URGENCY.Normal;
+    assert.deepEqual(heldByDnd([shell, chat], true, URGENCY), [shell, chat]);
 });

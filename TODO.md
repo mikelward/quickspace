@@ -47,6 +47,16 @@ once you have agreed with it or reversed it.
       have gone from the server by then, so their actions can't run. The
       alternative runs a still-live one's default action. It's
       `shell/NotificationCenter.qml`.
+- [ ] **Do not disturb lasts until the shell restarts.** It survives a
+      config reload (`PersistentProperties` in `shell/NotificationData.qml`),
+      but a new shell starts with it off, so it can't be left on by
+      accident. The alternative saves it with the history in
+      `notifications.json`.
+- [ ] **A notification Do not disturb holds is expired at once.** It goes
+      to the history and keeps its marks, but its app is told it expired,
+      as when a popup times out. The alternative keeps it open until
+      Do not disturb ends and shows it then. It's `holdForDnd` in
+      `shell/NotificationData.qml`.
 - [ ] **The bar follows the desktop's light/dark color scheme for now.**
       SPEC.md §15 has the shell own the schedule (`appearance.json`); until
       it does, `shell/Theme.qml` watches `org.gnome.desktop.interface
@@ -256,8 +266,13 @@ holds the queue, and
   toggle`, falling back to swaync's panel while the call fails); a click on
   an entry, which could run a live notification's default action; then
   advertise `persistence` (`persistenceSupported`), which §9 lists.
-- Do not disturb: manual, automatic while sharing a screen, and which
-  criticals get through.
+- Do not disturb: manual DND is in (the center's tile, the bell's
+  middle-click, and `qs -c quickspace ipc call notifications dnd`), with
+  only system senders' criticals getting through (`passesDnd` in
+  `shell/lib/notifications.mjs`); only parsed with `qmlformat`. Still to
+  do: the launcher's entry; automatic while sharing a screen or region,
+  with the "held while you were sharing" banner; and a critical during a
+  full-screen share.
 - Keep popups out of screen shares: a `no_screen_share` layer rule for the
   `quickspace-notifications` namespace in `conf`.
 - Retire swaync: the shell owns the name, joins the ready check, and

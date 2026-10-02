@@ -180,6 +180,16 @@ Singleton {
         target: "notifications"
         enabled: NotificationData.enabled
 
+        // Do not disturb, for a key or the launcher: `dnd` toggles it,
+        // `setDnd true|false` sets it.
+        function dnd(): void {
+            NotificationData.setDnd(!NotificationData.dnd);
+        }
+
+        function setDnd(on: bool): void {
+            NotificationData.setDnd(on);
+        }
+
         function toggle(): void {
             const monitor = Hyprland.focusedMonitor?.name ?? "";
             if (monitor === "") {
