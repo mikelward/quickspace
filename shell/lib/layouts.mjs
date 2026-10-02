@@ -1,8 +1,10 @@
 // The layout symbol after the workspaces (SPEC.md §6.1, §7.1), as pure
 // functions the QML binds to. hypr/quickspace/layout.lua keeps each
-// workspace's mode and announces a change on Hyprland's event socket as
-// `custom>>quickspace-layout>>WORKSPACE,MODE`; the bar can't ask for a mode,
-// so until a workspace's first announcement it assumes the layout's default.
+// workspace's mode and announces it on Hyprland's event socket as
+// `custom>>quickspace-layout>>WORKSPACE,MODE`, on each change and whenever
+// the workspace becomes active. The bar can't ask for a mode, so until a
+// workspace's first announcement (a shell that just started) it assumes the
+// layout's default.
 
 export const SYMBOLS = Object.freeze({
     tile: "[]=",

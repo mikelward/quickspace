@@ -50,7 +50,9 @@ naming the path (`quickspace.setup: modes.tile.mfat is not an option`), so
 a typo shows up once, as a config error at load, not later on a keypress.
 
 The mode-changing helpers announce the new mode on Hyprland's event socket
-as `custom>>quickspace-layout>>WORKSPACE,MODE`, which the bar follows. The
+as `custom>>quickspace-layout>>WORKSPACE,MODE`, which the bar follows, and
+`setup()` adds a `workspace.active` handler that announces each workspace's
+mode as it becomes active, so a bar that started later catches up. The
 same commands also work as plain `layoutmsg`s (`mode <name>`, `next`, `prev`,
 `monocle`, `mfact <+d|-d|value>`, `addmaster`, `removemaster`, `reset`), but
 those don't announce.

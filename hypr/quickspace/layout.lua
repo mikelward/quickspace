@@ -15,8 +15,10 @@
 --
 -- The helpers dispatch `layoutmsg`s and then announce the new mode on the
 -- IPC socket as `custom>>quickspace-layout>>WORKSPACE,MODE`, which the bar
--- follows. They announce from the keybind rather than from inside the
--- layout callback, so no dispatch ever runs inside a layout callback.
+-- follows. A workspace becoming active announces its mode too, so a bar
+-- that started after a mode changed learns it. They announce from a keybind
+-- or an event rather than from inside the layout callback, so no dispatch
+-- ever runs inside a layout callback.
 
 -- geometry.lua sits beside this file. If the debug library isn't loaded,
 -- fall back to where `make install` puts both.
@@ -254,8 +256,10 @@ function M.order(id)
     return st and copy(st.order) or {}
 end
 
-local function announce()
-    local id = active_workspace_id()
+-- Announce workspace `id`'s mode, or the active one's. A workspace the
+-- layout hasn't laid out yet has no mode to announce.
+local function announce(id)
+    id = id or active_workspace_id()
     local mode = M.mode(id)
     if id ~= nil and mode then
         hl.dispatch(hl.dsp.event("quickspace-layout>>" .. tostring(id) .. "," .. mode))
@@ -470,6 +474,9 @@ function M.setup(opts)
         recalculate = recalculate,
         layout_msg = layout_msg,
     })
+    hl.on("workspace.active", function(ws)
+        announce(field(ws, "id"))
+    end)
     return M
 end
 
