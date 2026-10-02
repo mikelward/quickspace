@@ -18,8 +18,8 @@ The mocks are in [`docs/mocks/`](docs/mocks/).
 `setup --quickspace` in the scripts repo will do all of this; until it lands,
 this is the way to install by hand:
 
-    make install                       # builds quickspace-grant (needs Go 1.22+); layout, user units, portal config under ~/.config
-    sudo make install-session          # session entry, compositor wrapper, `quickspace` and quickspace-grant under /usr/local
+    make install                       # builds quickspace-grant and quickspace-tz (needs Go 1.22+); layout, user units, portal config under ~/.config
+    sudo make install-session          # session entry, compositor wrapper, `quickspace`, quickspace-grant and quickspace-tz under /usr/local
     systemctl --user daemon-reload
     systemctl --user enable quickspace.service
 

@@ -679,16 +679,24 @@ See [`bar.png`](docs/mocks/bar.png).
   - **en-GB** gives `BST`, but `GMT-7` for Los Angeles.
 
   (Verified with Node's ICU on 2026-09-28.) So the shell reads abbreviations
-  via `QTimeZone` (a tiny C++ plugin) or `TZ=<zone> date +%Z`, re-read at
+  from `quickspace-tz` (`cmd/quickspace-tz`), which reads the system's
+  tzdata. It lists each zone's periods of constant offset and abbreviation
+  for the next 400 days, local's included, and the shell re-reads it at
   each transition. Tests pin both sides of every DST change (§20).
 - **Local is always last, on the far right.** Any listed zone that is the
   same zone as local is hidden, whichever zone that is: in London the bar
   shows SF, NYC and local, and in New York it shows SF, LON and local.
   Decided in review of this spec.
-  - "Same zone" compares canonical tzdata IDs after resolving links, so
-    `US/Pacific` matches `America/Los_Angeles`. A zone that only shares the
-    current offset (Arizona against Los Angeles in summer) stays, so no
-    clock appears and disappears at a DST change.
+  - "Same zone" compares zone IDs. When `$TZ` is set, local's ID is the
+    zone it names (`UTC` when it's empty); otherwise it's the target of
+    `/etc/localtime`'s link into the zoneinfo tree. A local zone with no ID
+    (a `$TZ` that names no zone, a copied file) hides nothing.
+  - **Hiding is best effort.** It must work for a zone named by `$TZ` or by
+    `/etc/localtime`'s link. Any other setup (a malformed or custom
+    `/etc/localtime`, `$ZONEINFO` overrides, link names) may show the local
+    zone's clock twice; that's accepted, not a bug to chase.
+  - A zone that only shares the current offset (Arizona against Los Angeles
+    in summer) stays, so no clock appears and disappears at a DST change.
   - The popover still lists the hidden zone, marked as local.
 - **Different day.** A zone whose date differs from local shows a small
   `−1` or `+1` (`−2` or `+2` only between zones either side of the date
@@ -709,6 +717,18 @@ See [`bar.png`](docs/mocks/bar.png).
   own list in **`clocks.local.json`**, which replaces the shared list
   (§16.1). `setup` can seed the local file from the existing `~/.timezones`
   that the `clocks` script reads.
+  - **`zone` is a canonical IANA zone ID:** the `Area/City` form, such as
+    `America/Los_Angeles`, `Europe/London` or `Asia/Kolkata`, plus `UTC`.
+    `timedatectl list-timezones` lists them.
+  - **Not supported:** the old link names (`US/Pacific`, `GB`);
+    abbreviations (`PST`); offsets (`+05:30`); POSIX rules; and file
+    paths.
+  - **An unsupported zone is an error at load** that names the entry and
+    points at `timedatectl list-timezones`. The last good list stays in
+    effect. The check is by form, not against tzdata's full list, so an
+    old link name under a city area (`Asia/Calcutta`) still loads. It
+    shows the right time, but never counts as the local zone.
+  - `label` is any text, `""` for just the time, or `"abbr"` (above).
 
 ### 7.4 Status icons
 
@@ -1607,9 +1627,9 @@ are what "done" means.
 ## 20. Testing
 
 - **Pure logic in plain JavaScript** modules, run by `node --test` in CI:
-  clock labels, day offsets and hiding the zone that is local (link IDs
-  included), workspace states, icons and attention marks, the DST-change
-  finder, fuzzy scoring, the
+  clock labels, day offsets and hiding the zone that is local, workspace
+  states, icons and attention marks, the DST-change finder, fuzzy scoring,
+  the
   single-window width rule, layout geometry, the light/dark boundaries
   (schedule, sunrise and sunset, manual flip expiry), and config loading (`.local`
   merge rules; a bad file keeps the last good settings). The QML only binds

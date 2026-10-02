@@ -1,5 +1,5 @@
 // Tests for clocks.mjs. Node's ICU stands in for the shell's tzdata reader
-// for offsets and canonical IDs; abbreviations are stubbed, since ICU's are
+// for offsets and zone IDs; abbreviations are stubbed, since ICU's are
 // the ones SPEC.md §7.3 rules out.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -50,7 +50,7 @@ test("an unknown zone is an error at load, keeping the last good clocks", () => 
     const r = loadClocks('[{"zone": "Not/AZone", "label": "X"}]', null, lastGood, isZone);
     assert.deepEqual(r.clocks, lastGood);
     assert.deepEqual(r.errors, ['clocks.json: entry 1: unknown time zone "Not/AZone"']);
-    assert.deepEqual(loadClocks('[{"zone": "US/Pacific", "label": "SF"}]', null, lastGood, isZone).errors, []);
+    assert.deepEqual(loadClocks('[{"zone": "America/Los_Angeles", "label": "SF"}]', null, lastGood, isZone).errors, []);
 });
 
 test("a JSON error names its line", () => {
@@ -77,7 +77,7 @@ test("no files means the defaults", () => {
 
 test("the local list replaces the shared one whole", () => {
     const { clocks, errors } = loadClocks(
-        '[{"zone": "US/Pacific", "label": "SF"}, {"zone": "Asia/Tokyo", "label": "TYO"}]',
+        '[{"zone": "America/Los_Angeles", "label": "SF"}, {"zone": "Asia/Tokyo", "label": "TYO"}]',
         '[{"zone": "Australia/Sydney", "label": "SYD"}]');
     assert.deepEqual(errors, []);
     assert.deepEqual(clocks, [{ zone: "Australia/Sydney", label: "SYD" }]);
@@ -94,21 +94,21 @@ test("a bad file keeps the last good clocks and is named", () => {
     assert.match(badShared.errors[0], /^clocks\.json: /);
 });
 
-test("a clock in the local zone is hidden, links included", () => {
-    const shown = (local) => visibleClocks(DEFAULT_CLOCKS, local, canonical).map((c) => c.label);
+test("a clock in the local zone is hidden", () => {
+    const shown = (local) => visibleClocks(DEFAULT_CLOCKS, local).map((c) => c.label);
     assert.deepEqual(shown("Europe/London"), ["SF", "NYC"]);
     assert.deepEqual(shown("America/New_York"), ["SF", "LON"]);
     assert.deepEqual(shown("America/Los_Angeles"), ["NYC", "LON"]);
     assert.deepEqual(shown("Asia/Tokyo"), ["SF", "NYC", "LON"]);
-    const linked = [{ zone: "US/Pacific", label: "SF" }, { zone: "Asia/Tokyo", label: "TYO" }];
-    assert.deepEqual(visibleClocks(linked, "America/Los_Angeles", canonical).map((c) => c.label), ["TYO"]);
+    // A local zone with no ID hides none.
+    assert.deepEqual(shown(""), ["SF", "NYC", "LON"]);
 });
 
 test("a zone sharing only the current offset stays", () => {
     // Phoenix matches Los Angeles all summer, but it's a different zone.
     const summer = at("2026-07-01T12:00:00Z");
     assert.equal(offsetOf("America/Phoenix", summer), offsetOf("America/Los_Angeles", summer));
-    assert.deepEqual(visibleClocks(DEFAULT_CLOCKS, "America/Phoenix", canonical).map((c) => c.label),
+    assert.deepEqual(visibleClocks(DEFAULT_CLOCKS, "America/Phoenix").map((c) => c.label),
         ["SF", "NYC", "LON"]);
 });
 
@@ -181,7 +181,7 @@ for (const { zone, before, after } of DST) {
         for (const [iso, , text, days] of [before, after]) {
             const bar = barClocks({
                 clocks: [{ zone, label: "abbr" }], localZone: "Pacific/Honolulu",
-                instant: at(iso), canonical, offsetOf, abbrOf: abbrAt,
+                instant: at(iso), offsetOf, abbrOf: abbrAt,
             });
             assert.deepEqual(bar[0], { text, dayOffset: days }, iso);
             assert.equal(bar[1].local, true);
@@ -194,7 +194,7 @@ test("the week the London gap is off by an hour shows on the bar", () => {
     const t = at("2026-10-26T16:00:00Z");
     const bar = barClocks({
         clocks: DEFAULT_CLOCKS, localZone: "Europe/London", instant: t,
-        canonical, offsetOf, abbrOf: () => "",
+        offsetOf, abbrOf: () => "",
     });
     assert.deepEqual(bar.map((c) => c.text), ["SF 09:00", "NYC 12:00", "Oct 26 16:00"]);
 });
@@ -203,7 +203,7 @@ test("the bar ends with local and marks other days", () => {
     const t = at("2026-10-02T23:30:00Z");
     const bar = barClocks({
         clocks: DEFAULT_CLOCKS, localZone: "Europe/London", instant: t,
-        canonical, offsetOf, abbrOf: () => "",
+        offsetOf, abbrOf: () => "",
     });
     assert.deepEqual(bar, [
         { text: "SF 16:30", dayOffset: -1 },
@@ -222,7 +222,7 @@ test("GMT+1 trap: abbr labels come from tzdata, not ICU", () => {
     const tzdata = { "Europe/London": "BST", "America/Los_Angeles": "PDT" };
     const bar = barClocks({
         clocks: [{ zone: "Europe/London", label: "abbr" }, { zone: "America/Los_Angeles", label: "abbr" }],
-        localZone: "Asia/Tokyo", instant: t, canonical, offsetOf,
+        localZone: "Asia/Tokyo", instant: t, offsetOf,
         abbrOf: (zone) => tzdata[zone],
     });
     assert.deepEqual(bar.map((c) => c.text), ["BST 13:00", "PDT 05:00", "Jul 1 21:00"]);
@@ -231,7 +231,7 @@ test("GMT+1 trap: abbr labels come from tzdata, not ICU", () => {
 test("an empty label shows just the time", () => {
     const bar = barClocks({
         clocks: [{ zone: "UTC", label: "" }], localZone: "Asia/Tokyo",
-        instant: at("2026-10-02T12:00:00Z"), canonical, offsetOf, abbrOf: () => "",
+        instant: at("2026-10-02T12:00:00Z"), offsetOf, abbrOf: () => "",
     });
     assert.equal(bar[0].text, "12:00");
 });

@@ -1,7 +1,8 @@
 # quickspace
 #
 #   make test             run the tests
-#   make build            build quickspace-grant (needs Go) into build/
+#   make build            build quickspace-grant and quickspace-tz (needs Go)
+#                         into build/
 #   make install          build, then install the per-user parts: the
 #                         Hyprland layout and focus guard,
 #                         the session's systemd user units and the portal
@@ -43,10 +44,13 @@ test:
 	$(GO) vet ./...
 	$(GO) test ./...
 
-build: build/quickspace-grant
+build: build/quickspace-grant build/quickspace-tz
 
 build/quickspace-grant: go.mod go.sum $(wildcard cmd/quickspace-grant/*.go)
 	$(GO) build -o $@ ./cmd/quickspace-grant
+
+build/quickspace-tz: go.mod $(wildcard cmd/quickspace-tz/*.go)
+	$(GO) build -o $@ ./cmd/quickspace-tz
 
 # Copies only. Enabling quickspace.service, which hangs it off the quickspace
 # session's target, is `setup --quickspace`'s job (scripts repo).
@@ -72,11 +76,13 @@ install: build
 # dirs. Not every one searches /usr/local/share; if the session doesn't show
 # up at the greeter, install with PREFIX=/usr.
 # Root has no Go module cache to build with, so install-session only copies
-# the quickspace-grant that `make build` (or `make install`) left in build/.
+# the Go commands that `make build` (or `make install`) left in build/.
 install-session:
-	@test -x build/quickspace-grant || { echo "make install-session: no build/quickspace-grant; run make build first, as yourself" >&2; exit 1; }
+	@for cmd in quickspace-grant quickspace-tz; do \
+		test -x build/$$cmd || { echo "make install-session: no build/$$cmd; run make build first, as yourself" >&2; exit 1; }; \
+	done
 	install -d "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(PREFIX)/share/wayland-sessions"
-	install -m 755 bin/quickspace bin/quickspace-doctor bin/quickspace-hyprland bin/quickspace-shell build/quickspace-grant "$(DESTDIR)$(PREFIX)/bin/"
+	install -m 755 bin/quickspace bin/quickspace-doctor bin/quickspace-hyprland bin/quickspace-shell build/quickspace-grant build/quickspace-tz "$(DESTDIR)$(PREFIX)/bin/"
 	install -m 644 session/quickspace.desktop "$(DESTDIR)$(PREFIX)/share/wayland-sessions/"
 
 # Needs Node and Playwright with Chromium. A global Playwright install is

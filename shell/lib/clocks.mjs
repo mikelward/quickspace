@@ -1,9 +1,9 @@
 // The bar's clocks (SPEC.md §7.3), as pure functions the QML binds to.
 //
 // QML's JavaScript engine has no Intl, and CLDR's abbreviations are wrong for
-// this anyway, so time zone facts come in from the caller: `canonical(zone)`
-// resolves tzdata links, `offsetOf(zone, ms)` is the zone's UTC offset in
-// minutes at that instant, and `abbrOf(zone, ms)` is tzdata's abbreviation.
+// this anyway, so time zone facts come in from the caller (quickspace-tz):
+// `offsetOf(zone, ms)` is the zone's UTC offset in minutes at that instant,
+// and `abbrOf(zone, ms)` is tzdata's abbreviation.
 
 export const DEFAULT_CLOCKS = Object.freeze([
     Object.freeze({ zone: "America/Los_Angeles", label: "SF" }),
@@ -185,13 +185,12 @@ export function loadClocks(sharedText, localText, lastGood = DEFAULT_CLOCKS, isZ
     return { clocks, errors };
 }
 
-// The listed clocks minus any in the local zone, compared by canonical
-// tzdata ID so a link (US/Pacific) matches its target (America/Los_Angeles).
-// A zone that only shares the current offset stays, so no clock comes and
-// goes at a DST change.
-export function visibleClocks(clocks, localZone, canonical) {
-    const local = canonical(localZone);
-    return clocks.filter((c) => canonical(c.zone) !== local);
+// The listed clocks minus any in the local zone, compared by zone ID; zones
+// are canonical IDs (SPEC.md §7.3). A local zone with no ID ("") hides
+// none. A zone that only shares the current offset stays, so no clock comes
+// and goes at a DST change.
+export function visibleClocks(clocks, localZone) {
+    return clocks.filter((c) => c.zone !== localZone);
 }
 
 function pad(n) {
@@ -232,9 +231,9 @@ export function formatLocal(ms, offset) {
 // What the bar shows, left to right: each visible clock as
 // {text, dayOffset}, then local as {text, dayOffset: 0, local: true}. A
 // label of "abbr" shows the zone's current tzdata abbreviation.
-export function barClocks({ clocks, localZone, instant, canonical, offsetOf, abbrOf }) {
+export function barClocks({ clocks, localZone, instant, offsetOf, abbrOf }) {
     const localOffset = offsetOf(localZone, instant);
-    const shown = visibleClocks(clocks, localZone, canonical).map((c) => {
+    const shown = visibleClocks(clocks, localZone).map((c) => {
         const offset = offsetOf(c.zone, instant);
         const label = c.label === "abbr" ? abbrOf(c.zone, instant) : c.label;
         const time = formatTime(instant, offset);
