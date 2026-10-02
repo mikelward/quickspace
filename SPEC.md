@@ -1272,7 +1272,8 @@ this spec.
   its own, and Lua can't see which process asked. So the guard applies the
   keyboard half of the §14.1 rule: a known agent's window takes focus when
   you pressed a key in the last 2 s, and otherwise waits for `Super+Tab`,
-  with its notification. The Quickshell agent (M3) applies the full rule.
+  marked on the bar (or, with no shell to mark it, with a Hyprland
+  notification). The Quickshell agent (M3) applies the full rule.
 - **Portal dialogs in M2.** A file chooser from `xdg-desktop-portal-gtk`
   (or `-kde`, `-gnome`) is the portal's window, not the app's, and Lua
   can't see its parent. So the guard treats any portal dialog as the active
