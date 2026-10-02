@@ -172,7 +172,10 @@ end)
 -- layout.lua against a stub hl ---------------------------------------------
 
 local function stub_hl()
-    local h = { registered = {}, dispatched = {}, active_ws = 1, active_window = nil }
+    local h = { registered = {}, dispatched = {}, handlers = {}, active_ws = 1, active_window = nil }
+    h.on = function(ev, fn)
+        h.handlers[ev] = fn
+    end
     h.layout = {
         register = function(name, t)
             h.registered[name] = t
@@ -408,6 +411,21 @@ test("helpers dispatch the layoutmsg, then announce the mode", function()
     eq(hl.dispatched[2].arg, "quickspace-layout>>1,twocol", "event text")
     qs.grow()
     eq(hl.dispatched[3].arg, "mfact +0.025", "grow step")
+end)
+
+test("a workspace becoming active announces its mode", function()
+    local _, layout = fresh()
+    relayout(layout, UW, 4, 2)
+    hl.handlers["workspace.active"]({ id = 4 })
+    eq(#hl.dispatched, 1, "one dispatch")
+    eq(hl.dispatched[1].kind, "event", "an event")
+    eq(hl.dispatched[1].arg, "quickspace-layout>>4,threecol", "workspace 4's own mode")
+end)
+
+test("a workspace not laid out yet announces nothing", function()
+    fresh()
+    hl.handlers["workspace.active"]({ id = 5 })
+    eq(#hl.dispatched, 0, "no mode to announce")
 end)
 
 test("swap_with_master swaps with the master, or zooms the master", function()
