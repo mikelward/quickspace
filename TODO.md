@@ -47,6 +47,20 @@ swww isn't packaged). It also runs
   Hyprland notification for each window it leaves waiting. Turn that off
   (`notify = false`) once the bar marks those windows.
 
+## Bar (M3)
+
+The Quickshell bar replaces waybar piece by piece (SPEC.md §7), each piece
+tested where it can be without a live session.
+
+- Clock logic is in `shell/lib/clocks.mjs`: the `.local` list rule, hiding
+  the local zone, day offsets and labels, tested with `node --test`.
+- Re-render `docs/mocks/bar.png` with `make mocks`: its caption now says
+  −2 / +2 across the date line, but the sandbox that changed it couldn't
+  load the mocks' web fonts, so the PNG still shows the old caption.
+- Next: the tzdata reader the clocks take their offsets and abbreviations
+  from (§7.3), then the bar itself in QML, then the clock popover's DST
+  finder.
+
 ## The rest of `quickspace doctor`
 
 M2's `quickspace doctor` (`bin/quickspace-doctor`) checks units, D-Bus
