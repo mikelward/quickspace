@@ -20,9 +20,10 @@ export function batteryView({ present, percentage, state }) {
     }
     const pct = Math.round(Math.min(1, Math.max(0, percentage)) * 100);
     const charging = state === CHARGING || state === PENDING_CHARGE;
-    // Adwaita has battery-level-0 to -100 in tens, and -100-charged.
+    // Adwaita has battery-level-0 to -100 in tens, -0 to -90 charging, and
+    // -100-charged, which stands in for a full battery still charging.
     const level = Math.round(pct / 10) * 10;
-    const icon = state === FULLY_CHARGED ? "battery-level-100-charged-symbolic"
+    const icon = state === FULLY_CHARGED || (charging && level === 100) ? "battery-level-100-charged-symbolic"
         : `battery-level-${level}${charging ? "-charging" : ""}-symbolic`;
     return {
         visible: true,

@@ -82,3 +82,9 @@ test("a degraded performance says why", () => {
     assert.match(degradedText(1), /on a lap/);
     assert.match(degradedText(2), /hot/);
 });
+
+test("a battery charging at 100% uses the charged icon, as Adwaita has no 100-charging", () => {
+    assert.equal(batteryView({ present: true, percentage: 0.97, state: 1 }).icon, "battery-level-100-charged-symbolic");
+    assert.equal(batteryView({ present: true, percentage: 1, state: 5 }).icon, "battery-level-100-charged-symbolic");
+    assert.equal(batteryView({ present: true, percentage: 0.94, state: 1 }).icon, "battery-level-90-charging-symbolic");
+});
