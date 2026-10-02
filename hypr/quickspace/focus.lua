@@ -359,6 +359,15 @@ function M.focus_attention()
     return true
 end
 
+-- Announces every waiting window again, oldest first, without the
+-- notification: the shell calls it when it starts, since a shell that
+-- restarted missed the first announcements.
+function M.announce_waiting()
+    for _, address in ipairs(state.waiting) do
+        hl.dispatch(hl.dsp.event("quickspace-attention>>" .. address))
+    end
+end
+
 function M.on_active(w, reason)
     reason = reason or 0
     -- Focus on nothing (an empty workspace, the last window closed) means no

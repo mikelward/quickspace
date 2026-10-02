@@ -112,9 +112,11 @@ swww isn't packaged). It also runs
 - A polkit prompt takes focus only after a key press (the keyboard half of
   SPEC.md §14.1); after a click it waits for `Super+U`, and there's no
   **Authenticate** notification yet. Both come with the Quickshell agent.
-- Nothing consumes `quickspace-attention` yet, so the focus guard shows a
-  Hyprland notification for each window it leaves waiting. Turn that off
-  (`notify = false`) once the bar marks those windows.
+- The Quickshell bar marks the windows the focus guard leaves waiting
+  (`quickspace-attention`, in `shell/MarkData.qml`), but waybar is still
+  the bar in daily use, so the guard keeps showing a Hyprland notification
+  for each. Turn that off (`notify = false`) when the Quickshell bar
+  replaces waybar.
 
 ## Bar (M3)
 
@@ -145,8 +147,11 @@ tested where it can be without a live session.
   monitor with the workspaces and clocks. It has only been parsed with
   `qmlformat`, not run, since Quickshell can't run in the sandbox. Next:
   - Try it on a real session, beside waybar.
-  - Feed `updateMarks` from the focus guard and, once the shell owns
-    notifications (M4), from them; today only Hyprland's urgent flag marks.
+  - `updateMarks` is fed the focus guard's events (`shell/MarkData.qml`,
+    via `markEvent`) and Hyprland's urgent flag. Feed it notifications'
+    events too, once the shell owns notifications (M4). On a live session,
+    check that the Lua side's addresses match Quickshell's
+    (`normalizeAddress` takes either form).
   - The layout symbol is `shell/LayoutSymbol.qml`, from
     `shell/lib/layouts.mjs`. On a live session, check that a Hyprland
     config reload resets `layout.lua`'s modes, as `LayoutData.qml` assumes

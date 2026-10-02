@@ -37,6 +37,9 @@ export const NO_MARKS = Object.freeze({ guard: Object.freeze([]), notes: Object.
 //       mark on it clears, and so does every notification's that covered it.
 //   {type: "dismissed", id}      the notification was dismissed.
 //   {type: "closed", address}    the window is gone.
+//   {type: "guardReset"}         the focus guard's state was rebuilt (a
+//       Hyprland config reload runs focus.lua afresh): its marks go, and
+//       the shell asks it to announce what still waits.
 export function updateMarks(marks, event) {
     let guard = marks.guard;
     const notes = {};
@@ -85,6 +88,10 @@ export function updateMarks(marks, event) {
         Object.assign(notes, marks.notes);
         delete notes[event.id];
         break;
+    case "guardReset":
+        Object.assign(notes, marks.notes);
+        guard = [];
+        break;
     case "closed":
         guard = without(guard, event.address);
         for (const [id, note] of Object.entries(marks.notes)) {
@@ -95,6 +102,40 @@ export function updateMarks(marks, event) {
         throw new Error(`unknown mark event ${event.type}`);
     }
     return { guard, notes };
+}
+
+// A window address as Quickshell spells it (lowercase hex, no 0x, no
+// leading zeros), from whatever form an event or the focus guard used.
+export function normalizeAddress(address) {
+    const hex = String(address ?? "").trim().toLowerCase().replace(/^0x/, "").replace(/^0+(?=.)/, "");
+    return /^[0-9a-f]+$/.test(hex) ? hex : null;
+}
+
+// The mark event a Hyprland socket event means, or null: the focus guard
+// keeping a window from focus (custom>>quickspace-attention>>ADDRESS,
+// SPEC.md §14.3), a window being focused, one closing, or a config reload
+// rebuilding the guard. Notifications' events come from the notification
+// server instead.
+export function markEvent(name, data) {
+    if (name === "configreloaded") {
+        return { type: "guardReset" };
+    }
+    let type;
+    let raw;
+    if (name === "custom" && String(data).startsWith("quickspace-attention>>")) {
+        type = "guarded";
+        raw = String(data).slice("quickspace-attention>>".length);
+    } else if (name === "activewindowv2") {
+        type = "focused";
+        raw = data;
+    } else if (name === "closewindow") {
+        type = "closed";
+        raw = data;
+    } else {
+        return null;
+    }
+    const address = normalizeAddress(raw);
+    return address === null ? null : { type, address };
 }
 
 // Which windows are marked: Hyprland's urgent flag, plus `marks`.
