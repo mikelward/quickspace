@@ -29,13 +29,26 @@ PanelWindow {
     }
 
     LayoutSymbol {
+        id: layoutSymbol
+
         anchors.left: workspaces.right
         anchors.leftMargin: 7
         anchors.verticalCenter: parent.verticalCenter
         monitor: bar.monitor
     }
 
+    // Centered on the bar, and no wider than the room between the left and
+    // right groups allows on both sides, so it stays centered.
+    WindowTitle {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.max(0, Math.min(implicitWidth, maxWidth, 2 * Math.min(bar.width / 2 - layoutSymbol.x - layoutSymbol.width, tray.x - bar.width / 2) - 32))
+        monitor: bar.monitor
+    }
+
     Tray {
+        id: tray
+
         anchors.right: statusIcons.left
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
