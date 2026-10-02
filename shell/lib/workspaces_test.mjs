@@ -186,12 +186,16 @@ test("updateMarks leaves its input alone and rejects unknown events", () => {
     assert.throws(() => updateMarks(marks, { type: "bogus" }), /unknown mark event bogus/);
 });
 
-test("scrolling steps one workspace and stops at 1 and 9", () => {
-    assert.equal(scrollTarget(4, 120), 5);
+test("scrolling steps one workspace per notch and stops at 1 and 9", () => {
+    assert.equal(scrollTarget(4, 1), 5);
     assert.equal(scrollTarget(4, -1), 3);
+    assert.equal(scrollTarget(4, 3), 7);
+    assert.equal(scrollTarget(7, 5), 9);
+    assert.equal(scrollTarget(2, -4), 1);
     assert.equal(scrollTarget(9, 1), null);
     assert.equal(scrollTarget(1, -1), null);
     assert.equal(scrollTarget(4, 0), null);
+    assert.equal(scrollTarget(4, 0.5), null);
     assert.equal(scrollTarget(-98, 1), null);
     assert.equal(scrollTarget(undefined, 1), null);
 });

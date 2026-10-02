@@ -4,7 +4,8 @@
 #   make build            build quickspace-grant and quickspace-tz (needs Go)
 #                         into build/
 #   make install          build, then install the per-user parts: the
-#                         Hyprland layout and focus guard,
+#                         Hyprland layout and focus guard, the Quickshell
+#                         config (run it with `qs -c quickspace`),
 #                         the session's systemd user units and the portal
 #                         config, under ~/.config
 #   make install-session  install the session entry, its compositor wrapper
@@ -18,6 +19,7 @@ LUA ?= $(shell command -v lua5.5 || command -v lua5.4 || command -v lua)
 HYPR_DIR ?= $(HOME)/.config/hypr/quickspace
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 PORTAL_DIR ?= $(HOME)/.config/xdg-desktop-portal
+SHELL_DIR ?= $(HOME)/.config/quickshell/quickspace
 PREFIX ?= /usr/local
 # The per-agent drop-ins earlier versions installed, which the allowlist
 # replaces, are found by how their first line starts, so ones installed
@@ -40,7 +42,7 @@ test:
 	sh bin/quickspace_test.sh
 	sh bin/quickspace-shell_test.sh
 	sh bin/quickspace-doctor_test.sh
-	$(NODE) --test shell/lib/clocks_test.mjs shell/lib/workspaces_test.mjs
+	$(NODE) --test shell/lib/clocks_test.mjs shell/lib/workspaces_test.mjs shell/lib/tzdata_test.mjs
 	$(GO) vet ./...
 	$(GO) test ./...
 
@@ -71,6 +73,9 @@ install: build
 	done
 	install -d "$(PORTAL_DIR)"
 	install -m 644 xdg-desktop-portal/quickspace-portals.conf "$(PORTAL_DIR)/"
+	install -d "$(SHELL_DIR)/lib"
+	install -m 644 shell/*.qml "$(SHELL_DIR)/"
+	install -m 644 $(filter-out %_test.mjs,$(wildcard shell/lib/*.mjs)) "$(SHELL_DIR)/lib/"
 
 # Display managers list sessions from wayland-sessions under the system data
 # dirs. Not every one searches /usr/local/share; if the session doesn't show

@@ -47,6 +47,12 @@ waybar and swaync), a polkit agent, and swww (or swaybg where swww isn't package
 conf's input setup once. It reports ready once swaync owns the notification
 name and waybar's tray owns the watcher (see `TODO.md`).
 
+The Quickshell bar is being built beside it (M3). So far it has the
+workspaces and the clocks. To try it next to waybar, run `qs -c quickspace`
+in a terminal after `make install` and `sudo make install-session`. The
+clocks need `quickspace-tz` on `PATH`. Ctrl+C stops it; waybar stays until
+the bar is complete.
+
 `quickspace doctor` checks the running session and prints one line per
 problem, with its fix: units that aren't running, D-Bus names owned by the
 wrong process, daemons running twice or rivals to an owner, the portal
