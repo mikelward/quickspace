@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Tests for the quickspace session: the wayland-sessions entry, its
+# Tests for the tide session: the wayland-sessions entry, its
 # compositor wrapper, the systemd user units and the portal config
 # (SPEC.md §5.2-§5.4). No compositor runs here, so these check the files'
 # contracts, verify the units with systemd-analyze where it can run, and
@@ -25,12 +25,12 @@ check() {
 has_line() { grep -qxF -- "$2" "$1"; }
 lacks_line_matching() { ! grep -qE -- "$2" "$1"; }
 
-unit=systemd/user/quickspace.service
-dropin=systemd/user/hypridle.service.d/quickspace.conf
-entry=session/quickspace.desktop
-wrapper=bin/quickspace-hyprland
-portals=xdg-desktop-portal/quickspace-portals.conf
-autostart=systemd/user/app-.service.d/quickspace-autostart.conf
+unit=systemd/user/tide.service
+dropin=systemd/user/hypridle.service.d/tide.conf
+entry=session/tide.desktop
+wrapper=bin/tide-hyprland
+portals=xdg-desktop-portal/tide-portals.conf
+autostart=systemd/user/app-.service.d/tide-autostart.conf
 
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
@@ -39,10 +39,10 @@ trap 'rm -rf "$tmp"' EXIT
 # uwsm names the session after the compositor command, so the wrapper's name
 # is the session's target; the unit must hang off that same target.
 session_id=$(basename "$wrapper")
-check "the entry starts the wrapper through uwsm with quickspace:Hyprland" \
-    has_line "$entry" "Exec=uwsm start -e -D quickspace:Hyprland -N quickspace -- $session_id"
-check "the entry lists quickspace first in DesktopNames" \
-    has_line "$entry" "DesktopNames=quickspace;Hyprland"
+check "the entry starts the wrapper through uwsm with tide:Hyprland" \
+    has_line "$entry" "Exec=uwsm start -e -D tide:Hyprland -N tide -- $session_id"
+check "the entry lists tide first in DesktopNames" \
+    has_line "$entry" "DesktopNames=tide;Hyprland"
 # The wrapper runs start-hyprland when there is one, and Hyprland otherwise,
 # passing its arguments through either way. PATH holds only the stubs, so a
 # host with a real start-hyprland never runs it here.
@@ -63,9 +63,9 @@ if command -v shellcheck >/dev/null 2>&1; then
         shellcheck -s sh "$wrapper" session/session_test.sh
 fi
 
-# --- quickspace.service ---------------------------------------------------------
+# --- tide.service ---------------------------------------------------------
 target="wayland-session@$session_id.target"
-check "the unit is wanted by the quickspace session's target" \
+check "the unit is wanted by the tide session's target" \
     has_line "$unit" "WantedBy=$target"
 # Plasma reaches graphical-session.target too; that's how swaync leaked in.
 check "the unit is never WantedBy= graphical-session.target" \
@@ -101,14 +101,14 @@ idle_condition=$(sed -n 's/^ExecCondition=\/bin\/sh -c //p' "$dropin" | sed "s/^
 idle_runs_in() { XDG_CURRENT_DESKTOP=$1 sh -c "$idle_condition"; }
 idle_skips_in() { ! idle_runs_in "$1"; }
 check "hypridle's condition is a sh -c script" test -n "$idle_condition"
-check "hypridle runs in the quickspace session" idle_runs_in "quickspace:Hyprland"
+check "hypridle runs in the tide session" idle_runs_in "tide:Hyprland"
 check "hypridle is skipped under Plasma, even when a package enabled it" idle_skips_in "KDE"
 check "hypridle's unit is skipped in a plain Hyprland login, which runs its own" idle_skips_in "Hyprland"
 check "hypridle is skipped where no desktop is set" idle_skips_in ""
 
 # --- The autostart allowlist -------------------------------------------------
 # The drop-in's condition, as systemd would run it for a unit ($$ is a
-# literal $, %n the unit's name), with this checkout's quickspace on PATH.
+# literal $, %n the unit's name), with this checkout's tide on PATH.
 condition=$(sed -n 's/^ExecCondition=\/bin\/sh -c //p' "$autostart" | sed "s/^'//; s/'\$//; s/\\$\\$/\\$/g")
 # condition_status DESKTOP UNIT: the condition's exit status; its stderr is
 # kept in $tmp/condition.err for a failing check to show.
@@ -123,13 +123,13 @@ runs_in() { s=$(condition_status "$@"); test "$s" -eq 0 || { cat "$tmp/condition
 skips_in() { s=$(condition_status "$@"); test "$s" -eq 1 || { echo "status $s: $(cat "$tmp/condition.err")" >&2; false; }; }
 agent='app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service'
 check "the autostart condition is a sh -c script" test -n "$condition"
-check "another desktop's agent is skipped in the quickspace session" skips_in "quickspace:Hyprland" "$agent"
-check "another desktop's daemon is skipped in the quickspace session" \
-    skips_in "quickspace:Hyprland" 'app-xfce4\x2dnotifyd@autostart.service'
-check "an allowlisted applet runs in the quickspace session" \
-    runs_in "quickspace:Hyprland" 'app-nm\x2dapplet@autostart.service'
-check "an app that isn't autostarted runs in the quickspace session" \
-    runs_in "quickspace:Hyprland" 'app-org.kde.dolphin@1234.service'
+check "another desktop's agent is skipped in the tide session" skips_in "tide:Hyprland" "$agent"
+check "another desktop's daemon is skipped in the tide session" \
+    skips_in "tide:Hyprland" 'app-xfce4\x2dnotifyd@autostart.service'
+check "an allowlisted applet runs in the tide session" \
+    runs_in "tide:Hyprland" 'app-nm\x2dapplet@autostart.service'
+check "an app that isn't autostarted runs in the tide session" \
+    runs_in "tide:Hyprland" 'app-org.kde.dolphin@1234.service'
 check "another desktop's agent still runs under Plasma" runs_in "KDE" "$agent"
 check "another desktop's agent still runs under MATE" runs_in "MATE" "$agent"
 check "another desktop's agent still runs in a plain Hyprland login" runs_in "Hyprland" "$agent"
@@ -137,20 +137,20 @@ check "another desktop's agent still runs where no desktop is set" runs_in "" "$
 
 # Suppressing the legacy agents must not leave the session with none: the
 # shell falls back to KDE's, always installed beside Plasma (SPEC.md §5.5).
-agents=$(sed -n '/^default_agents="/,/^"/p' bin/quickspace-shell)
+agents=$(sed -n '/^default_agents="/,/^"/p' bin/tide-shell)
 searches_for() { printf '%s\n' "$agents" | grep -q "/$1\$"; }
 check "the shell falls back to KDE's polkit agent" \
     searches_for polkit-kde-authentication-agent-1
 # Doctor finds the running agent by its process name, the first 15
 # characters of the file name, so it must know every one the shell can start.
-doctor_names=$(sed -n '/^agent_names="/,/"$/p' bin/quickspace-doctor | tr -d '"' | sed 's/^agent_names=//')
+doctor_names=$(sed -n '/^agent_names="/,/"$/p' bin/tide-doctor | tr -d '"' | sed 's/^agent_names=//')
 doctor_knows() { printf '%s\n' "$doctor_names" | grep -qxF -- "$(printf '%.15s' "$1")"; }
 for path in $(printf '%s\n' "$agents" | grep '^ */'); do
     check "doctor recognizes the shell's agent $path" doctor_knows "${path##*/}"
 done
 
 # --- systemd-analyze verify ---------------------------------------------------
-# Resolves the units as systemd would. quickspace-shell and hypridle aren't
+# Resolves the units as systemd would. tide-shell and hypridle aren't
 # installed here, so the copies point ExecStart at a stub; everything else is
 # as shipped.
 if command -v systemd-analyze >/dev/null 2>&1; then
@@ -158,7 +158,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
     chmod 700 "$tmp/run"
     printf '#!/bin/sh\n' > "$tmp/stub"
     chmod +x "$tmp/stub"
-    sed "s|^ExecStart=quickspace-shell\$|ExecStart=$tmp/stub|" "$unit" > "$tmp/units/quickspace.service"
+    sed "s|^ExecStart=tide-shell\$|ExecStart=$tmp/stub|" "$unit" > "$tmp/units/tide.service"
     # A stand-in for the packaged hypridle.service, with the drop-in on top.
     printf '[Unit]\nDescription=hypridle\n[Service]\nExecStart=%s\n' "$tmp/stub" \
         > "$tmp/units/hypridle.service"
@@ -169,7 +169,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
     printf '[Unit]\nDescription=agent\n[Service]\nExecStart=%s\n' "$tmp/stub" \
         > "$tmp/units/$agent_unit"
     cp "$autostart" "$tmp/units/app-.service.d/"
-    for u in quickspace.service hypridle.service "$agent_unit"; do
+    for u in tide.service hypridle.service "$agent_unit"; do
         out=$(cd "$tmp/units" && XDG_RUNTIME_DIR="$tmp/run" \
             systemd-analyze verify --user --man=no "$u" 2>&1)
         status=$?
@@ -206,13 +206,13 @@ printf '[Service]\nEnvironment=MINE=1\n' > "$not_ours/quickspace.conf"
 # The fake HOME would send Go to an empty module cache, and so the network.
 if make -s install HOME="$home" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" \
     >"$tmp/install.log" 2>&1; then
-    for f in .config/hypr/quickspace/layout.lua \
-             .config/hypr/quickspace/geometry.lua \
-             .config/hypr/quickspace/focus.lua \
-             .config/systemd/user/quickspace.service \
-             .config/systemd/user/hypridle.service.d/quickspace.conf \
-             .config/xdg-desktop-portal/quickspace-portals.conf \
-             .config/systemd/user/app-.service.d/quickspace-autostart.conf; do
+    for f in .config/hypr/tide/layout.lua \
+             .config/hypr/tide/geometry.lua \
+             .config/hypr/tide/focus.lua \
+             .config/systemd/user/tide.service \
+             .config/systemd/user/hypridle.service.d/tide.conf \
+             .config/xdg-desktop-portal/tide-portals.conf \
+             .config/systemd/user/app-.service.d/tide-autostart.conf; do
         check "make install puts $f in place" test -f "$home/$f"
     done
     check "make install removes an old per-agent drop-in and its directory" test ! -e "$old_dropin"
@@ -225,15 +225,15 @@ else
 fi
 if make -s install-session DESTDIR="$tmp/root" PREFIX=/usr >"$tmp/session.log" 2>&1; then
     check "make install-session installs the wrapper" \
-        test -x "$tmp/root/usr/bin/quickspace-hyprland"
-    check "make install-session installs the quickspace command" \
-        test -x "$tmp/root/usr/bin/quickspace"
-    check "make install-session installs quickspace-grant" \
-        test -x "$tmp/root/usr/bin/quickspace-grant"
+        test -x "$tmp/root/usr/bin/tide-hyprland"
+    check "make install-session installs the tide command" \
+        test -x "$tmp/root/usr/bin/tide"
+    check "make install-session installs tide-grant" \
+        test -x "$tmp/root/usr/bin/tide-grant"
     check "make install-session installs the unit's shell" \
-        test -x "$tmp/root/usr/bin/quickspace-shell"
+        test -x "$tmp/root/usr/bin/tide-shell"
     check "make install-session installs the session entry" \
-        test -f "$tmp/root/usr/share/wayland-sessions/quickspace.desktop"
+        test -f "$tmp/root/usr/share/wayland-sessions/tide.desktop"
 else
     fail "make install-session: $(cat "$tmp/session.log")"
 fi

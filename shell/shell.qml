@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 
-// quickspace's shell (SPEC.md §3.2): for now, the bar, the OSD and the
+// tide's shell (SPEC.md §3.2): for now, the bar, the OSD and the
 // notification popups (opt-in; see NotificationData.qml) on every monitor.
 ShellRoot {
     Variants {

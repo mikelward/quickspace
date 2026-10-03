@@ -19,7 +19,7 @@ import "lib/workspaces.mjs" as Ws
 //     updated, and each that closes, while the shell is the notification
 //     server.
 //   - The focus guard hears every marked window in the order they were
-//     marked (quickspace_focus.set_order), since only the shell sees both
+//     marked (tide_focus.set_order), since only the shell sees both
 //     kinds together, so Super+Tab goes to them newest first.
 //   - While Super+Tab steps through the marks, focusing one clears nothing;
 //     releasing Super clears the one it landed on (updateMarks' cycle).
@@ -68,11 +68,11 @@ Singleton {
     // (a reload while the startup replay still runs) can't finish the
     // other's; two replays only announce the same windows twice.
     function resync() {
-        // quickspace_focus.announce_waiting() (hypr/quickspace/focus.lua)
-        // re-sends quickspace-attention for each waiting window, which the
+        // tide_focus.announce_waiting() (hypr/tide/focus.lua)
+        // re-sends tide-attention for each waiting window, which the
         // Connections below turn into marks like any other.
         guardCall.createObject(root, {
-            command: ["hyprctl", "eval", "quickspace_focus.announce_waiting()"],
+            command: ["hyprctl", "eval", "tide_focus.announce_waiting()"],
             what: "replay the focus guard's waiting windows"
         }).running = true;
         // A reloaded guard starts with no notification marks, and a call
@@ -104,12 +104,12 @@ Singleton {
         const generation = root.guardGeneration;
         const list = JSON.parse(sending).map(a => `"0x${a}"`).join(",");
         const run = guardCall.createObject(root, {
-            command: ["hyprctl", "eval", `quickspace_focus.set_order({${list}})`],
+            command: ["hyprctl", "eval", `tide_focus.set_order({${list}})`],
             what: "tell the focus guard which windows are marked"
         });
         run.finished.connect(() => {
             // A failure isn't retried until the list changes: outside a
-            // quickspace session the guard isn't loaded, and every change
+            // tide session the guard isn't loaded, and every change
             // would fail the same way. It's reported (guardCall).
             if (generation === root.guardGeneration) {
                 root.pushed = sending;
@@ -156,8 +156,8 @@ Singleton {
                 if (!state.started) {
                     console.warn(state.report.message);
                 } else if (state.code !== 0 || reply.trim() !== "ok") {
-                    // Outside a quickspace session the guard isn't loaded.
-                    console.warn(`quickspace: couldn't ${what}: ${(reply + state.errors).trim()}`);
+                    // Outside a tide session the guard isn't loaded.
+                    console.warn(`tide: couldn't ${what}: ${(reply + state.errors).trim()}`);
                 } else if (state.report?.level === "log") {
                     // It worked, but said something on the way.
                     console.log(state.report.message);

@@ -8,7 +8,7 @@ import "lib/launch.mjs" as Run
 import "lib/tzdata.mjs" as Tz
 
 // The bar's clocks (SPEC.md §7.3). It reads clocks.json and
-// clocks.local.json (§16.1) and runs quickspace-tz for their zones' offsets
+// clocks.local.json (§16.1) and runs tide-tz for their zones' offsets
 // and abbreviations: at startup, when either file changes, and when a
 // period ends. A minute's tick only redraws from what it already has.
 Singleton {
@@ -39,7 +39,7 @@ Singleton {
         }
     }
 
-    readonly property string dir: (Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`) + "/quickspace"
+    readonly property string dir: (Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`) + "/tide"
 
     function textOf(file) {
         // A missing file is the defaults' cue, not an error.
@@ -49,7 +49,7 @@ Singleton {
     // A file that exists but can't be read: say so, and keep the last good
     // list rather than taking it for missing.
     function unreadable(file, error) {
-        console.warn(`quickspace: ${file.path}: ${FileViewError.toString(error)}`);
+        console.warn(`tide: ${file.path}: ${FileViewError.toString(error)}`);
         file.broken = true;
         root.load();
     }
@@ -66,7 +66,7 @@ Singleton {
         // TODO: a bad file should be a notification naming it (SPEC.md §16.1)
         // once the shell owns notifications (M4).
         for (const error of result.errors) {
-            console.warn(`quickspace: ${error}`);
+            console.warn(`tide: ${error}`);
         }
         root.lookUp(result.clocks);
     }
@@ -75,7 +75,7 @@ Singleton {
         root.trying = clocks;
         tz.running = false;
         tz.runState = Run.initial();
-        tz.command = ["quickspace-tz"].concat(clocks.map(c => c.zone));
+        tz.command = ["tide-tz"].concat(clocks.map(c => c.zone));
         tz.running = true;
     }
 
@@ -84,16 +84,16 @@ Singleton {
         try {
             table = Tz.zoneTable(JSON.parse(text));
         } catch (e) {
-            console.warn(`quickspace: quickspace-tz: ${e}`);
+            console.warn(`tide: tide-tz: ${e}`);
             root.retry();
             return;
         }
         if (table.localError) {
             // Local's clock may show twice (SPEC.md §7.3), but the bar works.
-            console.warn(`quickspace: clocks: local zone: ${table.localError}`);
+            console.warn(`tide: clocks: local zone: ${table.localError}`);
         }
         for (const e of table.errors) {
-            console.warn(`quickspace: clocks: ${e.error}`);
+            console.warn(`tide: clocks: ${e.error}`);
         }
         if (table.errors.length > 0 && root.trying !== root.good) {
             // A zone that doesn't load is an error at load: keep the last
@@ -188,7 +188,7 @@ Singleton {
         id: tz
 
         // Through shell/lib/launch.mjs only to catch a failed start
-        // (quickspace-tz not on PATH): Quickshell 0.3 then sends no exit
+        // (tide-tz not on PATH): Quickshell 0.3 then sends no exit
         // code and no output, so `looked` and onExited never run.
         property var runState: Run.initial()
 
@@ -214,7 +214,7 @@ Singleton {
         }
         onExited: (code, status) => {
             if (code !== 0) {
-                console.warn(`quickspace: quickspace-tz exited ${code}`);
+                console.warn(`tide: tide-tz exited ${code}`);
                 root.retry();
             }
         }

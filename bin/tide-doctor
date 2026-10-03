@@ -1,19 +1,19 @@
 #!/bin/sh
 #
-# quickspace-doctor: what `quickspace doctor` runs. Checks the running
+# tide-doctor: what `tide doctor` runs. Checks the running
 # session for the problems SPEC.md §5.4 lists, and prints one line per
 # problem with its fix. Exits 1 if it found any, 0 if none, and 2 outside a
-# quickspace session, where there's nothing to check.
+# tide session, where there's nothing to check.
 #
-# This is the M2 subset, for the transitional shell (TODO.md "quickspace
+# This is the M2 subset, for the transitional shell (TODO.md "tide
 # doctor"):
 #   - the session's units are running;
 #   - each D-Bus name in §5.2 is owned by the unit that should own it;
 #   - no daemon runs twice, and no rival to an owner runs at all;
-#   - quickspace-portals.conf is installed and XDG_CURRENT_DESKTOP selects it;
+#   - tide-portals.conf is installed and XDG_CURRENT_DESKTOP selects it;
 #   - Hyprland reports no config errors;
 #   - no monitor has more than one bar;
-#   - no XDG autostart unit off the allowlist ran in quickspace.
+#   - no XDG autostart unit off the allowlist ran in tide.
 
 prog=${0##*/}
 problems=0
@@ -24,15 +24,15 @@ problem() {
 }
 
 case ":${XDG_CURRENT_DESKTOP:-}:" in
-    *:quickspace:*) ;;
+    *:tide:*) ;;
     *)
-        echo "$prog: not in a quickspace session (XDG_CURRENT_DESKTOP is '${XDG_CURRENT_DESKTOP:-}'); run it from inside one" >&2
+        echo "$prog: not in a tide session (XDG_CURRENT_DESKTOP is '${XDG_CURRENT_DESKTOP:-}'); run it from inside one" >&2
         exit 2
         ;;
 esac
 
 # Units.
-for unit in quickspace.service hypridle.service; do
+for unit in tide.service hypridle.service; do
     state=$(systemctl --user is-active "$unit" 2>&1)
     if test "$state" != active; then
         problem "$unit is ${state:-not active}: see \`systemctl --user status $unit\` and \`journalctl --user -u $unit\`"
@@ -41,10 +41,10 @@ done
 
 # D-Bus names and the unit that should own each (§5.2). In M2 the
 # transitional shell's swaync and waybar own the first two, in
-# quickspace.service's cgroup.
+# tide.service's cgroup.
 for pair in \
-    org.freedesktop.Notifications=quickspace.service \
-    org.kde.StatusNotifierWatcher=quickspace.service \
+    org.freedesktop.Notifications=tide.service \
+    org.kde.StatusNotifierWatcher=tide.service \
     org.freedesktop.ScreenSaver=hypridle.service; do
     name=${pair%%=*}
     want=${pair#*=}
@@ -55,7 +55,7 @@ for pair in \
     unit=$(printf '%s\n' "$out" | sed -n 's/^UserUnit=//p')
     if test "$unit" != "$want"; then
         comm=$(printf '%s\n' "$out" | sed -n 's/^Comm=//p')
-        problem "$name is owned by ${comm:-an unknown process} in ${unit:-no user unit}, not $want: stop that process and keep it from starting in quickspace"
+        problem "$name is owned by ${comm:-an unknown process} in ${unit:-no user unit}, not $want: stop that process and keep it from starting in tide"
     fi
 done
 
@@ -82,10 +82,10 @@ count() {
 }
 # The unit a process runs in, from its cgroup: the scope it ends in (an
 # app-*.scope, not the user@.service above it), or else the last path part
-# ending in .service. $QUICKSPACE_PROC stands in for /proc in the tests.
+# ending in .service. $TIDE_PROC stands in for /proc in the tests.
 unit_of() {
     sed -n -e 's|^0::.*/\([^/]*\.scope\)$|\1|p' -e t \
-        -e 's|^0::.*/\([^/]*\.service\)\(/.*\)\{0,1\}$|\1|p' "${QUICKSPACE_PROC:-/proc}/$1/cgroup" 2>/dev/null |
+        -e 's|^0::.*/\([^/]*\.service\)\(/.*\)\{0,1\}$|\1|p' "${TIDE_PROC:-/proc}/$1/cgroup" 2>/dev/null |
         tail -n 1 # a process that has exited has no cgroup file; that's reported as no unit
 }
 pgrep_err=$(mktemp) || {
@@ -95,9 +95,9 @@ pgrep_err=$(mktemp) || {
 trap 'rm -f "$pgrep_err"' EXIT
 # Each daemon runs once, in the unit that owns it: one started by hand or
 # left from another session isn't supervised or stopped with this one.
-for pair in hypridle=hypridle.service swaync=quickspace.service \
-    waybar=quickspace.service swww-daemon=quickspace.service \
-    swaybg=quickspace.service; do
+for pair in hypridle=hypridle.service swaync=tide.service \
+    waybar=tide.service swww-daemon=tide.service \
+    swaybg=tide.service; do
     daemon=${pair%%=*}
     want=${pair#*=}
     pids=$(pids_of "$daemon")
@@ -111,8 +111,8 @@ for pair in hypridle=hypridle.service swaync=quickspace.service \
         fi
     fi
 done
-# The agents quickspace-shell looks for, plus any set with
-# QUICKSPACE_POLKIT_AGENT or QUICKSPACE_POLKIT_AGENTS (a space-separated
+# The agents tide-shell looks for, plus any set with
+# TIDE_POLKIT_AGENT or TIDE_POLKIT_AGENTS (a space-separated
 # list), read from the running shell's own environment. pgrep sees at most
 # 15 characters of a name. If that environment can't be read, a configured
 # agent could be missed, so "no polkit agent" isn't concluded.
@@ -133,26 +133,26 @@ $name" ;;
     esac
 }
 agents_unknown=
-if ! main=$(systemctl --user show -p MainPID --value quickspace.service 2>&1); then
-    problem "couldn't read quickspace.service's MainPID ($main), so an agent set with QUICKSPACE_POLKIT_AGENT may be missed"
+if ! main=$(systemctl --user show -p MainPID --value tide.service 2>&1); then
+    problem "couldn't read tide.service's MainPID ($main), so an agent set with TIDE_POLKIT_AGENT may be missed"
     agents_unknown=1
     main=
 fi
 case "$main" in
     '' | 0) ;; # the shell isn't running; the unit check above reports it
     *[!0-9]*)
-        problem "quickspace.service's MainPID is '$main', not a pid, so an agent set with QUICKSPACE_POLKIT_AGENT may be missed"
+        problem "tide.service's MainPID is '$main', not a pid, so an agent set with TIDE_POLKIT_AGENT may be missed"
         agents_unknown=1
         ;;
     *)
-        if env=$({ tr '\0' '\n' < "${QUICKSPACE_PROC:-/proc}/$main/environ"; } 2>&1); then
-            # QUICKSPACE_POLKIT_AGENT is one path, spaces and all;
-            # QUICKSPACE_POLKIT_AGENTS is a space-separated list, as
-            # quickspace-shell reads them.
+        if env=$({ tr '\0' '\n' < "${TIDE_PROC:-/proc}/$main/environ"; } 2>&1); then
+            # TIDE_POLKIT_AGENT is one path, spaces and all;
+            # TIDE_POLKIT_AGENTS is a space-separated list, as
+            # tide-shell reads them.
             while IFS= read -r line; do
                 case "$line" in
-                    QUICKSPACE_POLKIT_AGENT=?*) add_agent "${line#*=}" ;;
-                    QUICKSPACE_POLKIT_AGENTS=*)
+                    TIDE_POLKIT_AGENT=?*) add_agent "${line#*=}" ;;
+                    TIDE_POLKIT_AGENTS=*)
                         for path in ${line#*=}; do add_agent "$path"; done
                         ;;
                 esac
@@ -160,7 +160,7 @@ case "$main" in
 $env
 EOF
         else
-            problem "couldn't read quickspace.service's environment (pid $main: $env), so an agent set with QUICKSPACE_POLKIT_AGENT may be missed; if the shell just restarted, run doctor again"
+            problem "couldn't read tide.service's environment (pid $main: $env), so an agent set with TIDE_POLKIT_AGENT may be missed; if the shell just restarted, run doctor again"
             agents_unknown=1
         fi
         ;;
@@ -176,28 +176,28 @@ agents=$(printf '%s\n' $agent_pids | grep -c .)
 # Zero is only known when pgrep could look and the configured agents are
 # known; a failure of either is reported on its own.
 if test "$agents" -eq 0 && ! test -s "$pgrep_err" && test -z "$agents_unknown"; then
-    problem "no polkit agent is running, so apps can't ask for a password: install hyprpolkitagent or polkit-gnome, then \`systemctl --user restart quickspace.service\`"
+    problem "no polkit agent is running, so apps can't ask for a password: install hyprpolkitagent or polkit-gnome, then \`systemctl --user restart tide.service\`"
 elif test "$agents" -gt 1; then
-    problem "$agents polkit agents are running: only quickspace.service's should; stop the others and remove them from autostart"
+    problem "$agents polkit agents are running: only tide.service's should; stop the others and remove them from autostart"
 elif test "$agents" -eq 1; then
     # One agent, but it must be the shell's, not one started by hand or by
     # another session's autostart.
     # shellcheck disable=SC2086  # one pid per word
     agent_pid=$(printf '%s\n' $agent_pids | head -n 1)
     agent_unit=$(unit_of "$agent_pid")
-    if test "$agent_unit" != quickspace.service; then
-        problem "the polkit agent (pid $agent_pid) runs in ${agent_unit:-no user unit}, not quickspace.service: stop it and \`systemctl --user restart quickspace.service\`, whose shell starts its own"
+    if test "$agent_unit" != tide.service; then
+        problem "the polkit agent (pid $agent_pid) runs in ${agent_unit:-no user unit}, not tide.service: stop it and \`systemctl --user restart tide.service\`, whose shell starts its own"
     fi
 fi
 # The shell runs one wallpaper daemon or the other, never both.
 if test "$(count swww-daemon)" -gt 0 && test "$(count swaybg)" -gt 0; then
-    problem "swww-daemon and swaybg are both running: only one should draw the wallpaper; \`systemctl --user restart quickspace.service\` starts just one"
+    problem "swww-daemon and swaybg are both running: only one should draw the wallpaper; \`systemctl --user restart tide.service\` starts just one"
 fi
 # swaybg isn't a rival: the shell runs it where swww isn't packaged, and the
 # loop above checks it runs only there.
 for rival in dunst mako swaybar swayidle hyprpaper; do
     if test "$(count "$rival")" -gt 0; then
-        problem "$rival is running, but quickspace owns its job (SPEC.md §5.2): stop it and remove it from autostart"
+        problem "$rival is running, but tide owns its job (SPEC.md §5.2): stop it and remove it from autostart"
     fi
 done
 # count runs in a subshell, so its failure comes back through the file.
@@ -205,31 +205,31 @@ if test -s "$pgrep_err"; then
     problem "$(cat "$pgrep_err"), so the process checks are incomplete: is procps installed?"
 fi
 
-# Portals: xdg-desktop-portal reads quickspace-portals.conf for the first
+# Portals: xdg-desktop-portal reads tide-portals.conf for the first
 # desktop in XDG_CURRENT_DESKTOP, from these directories.
 case "${XDG_CURRENT_DESKTOP}" in
-    quickspace:* | quickspace) ;;
-    *) problem "XDG_CURRENT_DESKTOP is '$XDG_CURRENT_DESKTOP': quickspace must come first, or portals ignore quickspace-portals.conf; start the session from its quickspace.desktop entry" ;;
+    tide:* | tide) ;;
+    *) problem "XDG_CURRENT_DESKTOP is '$XDG_CURRENT_DESKTOP': tide must come first, or portals ignore tide-portals.conf; start the session from its tide.desktop entry" ;;
 esac
 found=
 IFS_save=$IFS
 IFS=:
 for dir in "${XDG_CONFIG_HOME:-$HOME/.config}" ${XDG_CONFIG_DIRS:-/etc/xdg} \
     "${XDG_DATA_HOME:-$HOME/.local/share}" ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do
-    if test -f "$dir/xdg-desktop-portal/quickspace-portals.conf"; then
-        found=$dir/xdg-desktop-portal/quickspace-portals.conf
+    if test -f "$dir/xdg-desktop-portal/tide-portals.conf"; then
+        found=$dir/xdg-desktop-portal/tide-portals.conf
         break
     fi
 done
 IFS=$IFS_save
 # xdg-desktop-portal reads only the first one it finds, so that's the one
-# that must select quickspace's backends. quickspace owns the file, so
+# that must select tide's backends. tide owns the file, so
 # rather than parse it the way GKeyFile would, the doctor checks it is the
 # one `make install` installs: this copy, which the tests keep in step with
-# xdg-desktop-portal/quickspace-portals.conf.
+# xdg-desktop-portal/tide-portals.conf.
 shipped_portals_conf() {
     cat <<'EOF'
-# Portal backends for XDG_CURRENT_DESKTOP=quickspace:Hyprland. xdg-desktop-portal
+# Portal backends for XDG_CURRENT_DESKTOP=tide:Hyprland. xdg-desktop-portal
 # reads this before hyprland-portals.conf, so the choice is explicit: never
 # -kde, -gnome or -wlr, even when they're installed for other sessions.
 [preferred]
@@ -237,11 +237,11 @@ default=hyprland;gtk
 EOF
 }
 if test -z "$found"; then
-    problem "quickspace-portals.conf isn't installed, so portals may pick the KDE or GNOME backend: run \`make install\` in the quickspace checkout"
+    problem "tide-portals.conf isn't installed, so portals may pick the KDE or GNOME backend: run \`make install\` in the tide checkout"
 elif ! installed=$(cat "$found" 2>&1); then
-    problem "couldn't read $found ($installed): check its permissions, or reinstall it with \`make install\` in the quickspace checkout"
+    problem "couldn't read $found ($installed): check its permissions, or reinstall it with \`make install\` in the tide checkout"
 elif test "$installed" != "$(shipped_portals_conf)"; then
-    problem "$found isn't the one quickspace ships (default=hyprland;gtk under [preferred]), so portals may pick the wrong backend: reinstall it with \`make install\` in the quickspace checkout"
+    problem "$found isn't the one tide ships (default=hyprland;gtk under [preferred]), so portals may pick the wrong backend: reinstall it with \`make install\` in the tide checkout"
 fi
 
 # One bar per monitor (§5.2): a second one stacks above or below the first.
@@ -280,7 +280,7 @@ elif ! bars=$(bars_on_monitors); then
 else
     while IFS='	' read -r monitor n namespaces; do
         test -n "$monitor" || continue
-        problem "$n bars on $monitor ($namespaces): only quickspace's should be there; stop the others and remove them from autostart"
+        problem "$n bars on $monitor ($namespaces): only tide's should be there; stop the others and remove them from autostart"
     done <<EOF
 $bars
 EOF
@@ -331,15 +331,15 @@ autostart_ran() {
 if ! ran=$(autostart_ran); then
     problem "systemctl couldn't read the autostart units ($ran), so the autostart check is incomplete"
 else
-    # Installed beside this script; $QUICKSPACE_CMD is for tests.
-    qs=${QUICKSPACE_CMD:-$(dirname "$0")/quickspace}
+    # Installed beside this script; $TIDE_CMD is for tests.
+    qs=${TIDE_CMD:-$(dirname "$0")/tide}
     for unit in $ran; do
         # Exit 1 is "not allowed", whose message is meant for the unit's
         # journal; anything else means the check itself failed.
         err=$(sh "$qs" autostart-allowed "$unit" 2>&1 >/dev/null)
         case $? in
             0) ;;
-            1) problem "autostart unit $unit ran in quickspace but isn't on the autostart allowlist: run quickspace's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload, then systemctl --user stop '$unit' (or add its desktop ID to ~/.config/quickspace/autostart to allow it)" ;;
+            1) problem "autostart unit $unit ran in tide but isn't on the autostart allowlist: run tide's make install, whose app-.service.d drop-in skips it, then systemctl --user daemon-reload, then systemctl --user stop '$unit' (or add its desktop ID to ~/.config/tide/autostart to allow it)" ;;
             *) problem "couldn't check autostart unit $unit against the allowlist (${err:-$qs failed}), so the autostart check is incomplete" ;;
         esac
     done

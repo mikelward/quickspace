@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# quickspace: the session's command-line helpers.
+# tide: the session's command-line helpers.
 #
-#   quickspace launch [--app ID] [--] COMMAND [ARG...]
+#   tide launch [--app ID] [--] COMMAND [ARG...]
 #
 #     Starts an app the way the key bindings and the launcher do
 #     (SPEC.md §5.4, §14.3):
@@ -16,46 +16,46 @@
 #          launched it;
 #       2. waits for the shell, so no app starts before the notification,
 #          tray and polkit owners exist. The wait is bounded (15 s, or
-#          $QUICKSPACE_LAUNCH_WAIT), and the app starts anyway after it,
+#          $TIDE_LAUNCH_WAIT), and the app starts anyway after it,
 #          because a terminal is how you'd fix a stuck start;
 #       3. runs it with `uwsm app`, in app-graphical.slice, so the app
 #          outlives a shell restart.
-#     Outside a quickspace session it just runs COMMAND.
+#     Outside a tide session it just runs COMMAND.
 #
-#   quickspace grant ID
+#   tide grant ID
 #
 #     Records only the focus grant, for an app that something other than
 #     a launch is about to bring up: the shell grants the app a clicked
 #     notification came from (SPEC.md §9). Exits 1 if the grant couldn't
-#     be recorded. Outside a quickspace session there's no guard, and it
+#     be recorded. Outside a tide session there's no guard, and it
 #     does nothing.
 #
-#   quickspace autostart-allowed UNIT
+#   tide autostart-allowed UNIT
 #
-#     The condition on every XDG autostart unit in the quickspace session
-#     (systemd/user/app-.service.d/quickspace-autostart.conf, SPEC.md §5.4):
+#     The condition on every XDG autostart unit in the tide session
+#     (systemd/user/app-.service.d/tide-autostart.conf, SPEC.md §5.4):
 #     exits 0 if UNIT's desktop entry is on the autostart allowlist, 1,
 #     which skips the unit, if it isn't, and 3 if it can't tell (an
 #     unreadable list), which the drop-in turns into a failed unit. The
 #     file holds one desktop ID per line; lines starting with # are comments,
 #     so an ID that itself starts with # is written escaped, as \x23ID. The allowlist is the tray applets the
 #     bar still relies on, plus the desktop IDs, one per line, in
-#     ${XDG_CONFIG_HOME:-~/.config}/quickspace/autostart.
+#     ${XDG_CONFIG_HOME:-~/.config}/tide/autostart.
 #
-#   quickspace brightness STEP
+#   tide brightness STEP
 #
 #     Changes the backlight with `brightnessctl set STEP` (5%+, 5%-, 40%)
 #     and shows the new level on the shell's OSD (SPEC.md §9). The
 #     brightness keys run it; hypridle dims with brightnessctl itself, so
 #     dimming never flashes the OSD. Exits 1 if brightnessctl fails. The
 #     OSD is extra: with no shell to show it (waybar's fallback, or
-#     outside quickspace), the level changes and nothing else happens; a
+#     outside tide), the level changes and nothing else happens; a
 #     shell that fails to show it is reported, and still exits 0.
 #
-#   quickspace doctor
+#   tide doctor
 #
 #     Checks the running session and prints one line per problem, with
-#     its fix (SPEC.md §5.4); see quickspace-doctor.
+#     its fix (SPEC.md §5.4); see tide-doctor.
 
 prog=${0##*/}
 
@@ -68,9 +68,9 @@ usage() {
     exit 2
 }
 
-in_quickspace() {
+in_tide() {
     case ":${XDG_CURRENT_DESKTOP:-}:" in
-        *:quickspace:*) return 0 ;;
+        *:tide:*) return 0 ;;
     esac
     return 1
 }
@@ -79,22 +79,22 @@ in_quickspace() {
 # when it already has. The bound is our own: the units' timeouts chain (the
 # shell's starts only after hypridle's), so they don't bound this.
 wait_for_shell() {
-    bound=${QUICKSPACE_LAUNCH_WAIT:-15}
+    bound=${TIDE_LAUNCH_WAIT:-15}
     # A whole number of seconds from 1 to 3600: `timeout 0` never times out.
     case "$bound" in
         '' | *[!0-9]* | 0* | ?????*) bound_ok=no ;;
         *) test "$bound" -le 3600 && bound_ok=yes || bound_ok=no ;;
     esac
     if test "$bound_ok" = no; then
-        echo "$prog launch: QUICKSPACE_LAUNCH_WAIT must be a whole number of seconds from 1 to 3600, not '$bound'; waiting 15 s" >&2
+        echo "$prog launch: TIDE_LAUNCH_WAIT must be a whole number of seconds from 1 to 3600, not '$bound'; waiting 15 s" >&2
         bound=15
     fi
-    if ! err=$(timeout "$bound" systemctl --user start quickspace.service 2>&1); then
+    if ! err=$(timeout "$bound" systemctl --user start tide.service 2>&1); then
         echo "$prog launch: the shell isn't ready (${err:-no answer in $bound s}); starting $1 anyway" >&2
     fi
 }
 
-# The guard lives in Hyprland's Lua config (hypr/quickspace/focus.lua), so the
+# The guard lives in Hyprland's Lua config (hypr/tide/focus.lua), so the
 # grant goes in through `hyprctl eval`, with the ID escaped for a Lua string.
 # Returns 1, having said why, when the grant isn't recorded; $2 names the
 # subcommand for the message.
@@ -104,7 +104,7 @@ grant() {
         return 1
     fi
     lua_id=$(printf '%s' "$1" | sed 's/[\\"]/\\&/g')
-    reply=$(hyprctl eval "quickspace_focus.grant(\"$lua_id\")" 2>&1)
+    reply=$(hyprctl eval "tide_focus.grant(\"$lua_id\")" 2>&1)
     if test "$reply" != ok; then
         echo "$prog $2: couldn't record a focus grant for $1: $reply" >&2
         return 1
@@ -115,7 +115,7 @@ grant_only() {
     if test $# -ne 1 || test -z "$1"; then
         usage
     fi
-    if ! in_quickspace; then
+    if ! in_tide; then
         exit 0
     fi
     grant "$1" grant || exit 1
@@ -133,7 +133,7 @@ launch() {
         esac
     done
     test $# -gt 0 || usage
-    if ! in_quickspace; then
+    if ! in_tide; then
         exec "$@"
     fi
     if test -z "$app"; then
@@ -181,7 +181,7 @@ autostart_allowed() {
     # how an ID that starts with # is written. A broken file,
     # a dangling symlink included, fails the check whatever the unit, so
     # the setting is never silently ignored.
-    file=${XDG_CONFIG_HOME:-$HOME/.config}/quickspace/autostart
+    file=${XDG_CONFIG_HOME:-$HOME/.config}/tide/autostart
     if test -e "$file" || test -L "$file"; then
         if ! lines=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$file" 2>&1); then
             echo "$prog autostart-allowed: couldn't read $file ($lines)" >&2
@@ -196,7 +196,7 @@ autostart_allowed() {
             exit 0
         fi
     done
-    echo "$prog: not starting $id in quickspace; add $id to $file to allow it" >&2
+    echo "$prog: not starting $id in tide; add $id to $file to allow it" >&2
     exit 1
 }
 
@@ -217,14 +217,14 @@ brightness() {
             exit 0
             ;;
     esac
-    if ! in_quickspace || ! command -v qs >/dev/null 2>&1; then
+    if ! in_tide || ! command -v qs >/dev/null 2>&1; then
         exit 0
     fi
-    # No shell running (QUICKSPACE_BAR=waybar) is expected, and qs says so
+    # No shell running (TIDE_BAR=waybar) is expected, and qs says so
     # with "No running instances" or "No instances". Anything else is the
     # OSD broken, which is reported; the backlight has changed either way,
     # so it exits 0, and the keys' brightnessctl fallback doesn't run too.
-    if ! err=$(qs -c quickspace ipc call osd brightness "$percent" 2>&1); then
+    if ! err=$(qs -c tide ipc call osd brightness "$percent" 2>&1); then
         case "$err" in
             "No running instances"* | "No instances"*) ;;
             *) echo "$prog brightness: set $1, but the shell's OSD didn't take it: $err" >&2 ;;
@@ -238,6 +238,6 @@ case "${1:-}" in
     autostart-allowed) shift; autostart_allowed "$@" ;;
     brightness) shift; brightness "$@" ;;
     # Installed beside this script.
-    doctor) shift; exec sh "$(dirname "$0")/quickspace-doctor" "$@" ;;
+    doctor) shift; exec sh "$(dirname "$0")/tide-doctor" "$@" ;;
     *) usage ;;
 esac

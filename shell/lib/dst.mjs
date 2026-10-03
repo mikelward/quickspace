@@ -1,5 +1,5 @@
 // The clocks popover's next DST change (SPEC.md §7.3), as pure functions
-// the QML binds to. The input is quickspace-tz's periods of constant offset
+// the QML binds to. The input is tide-tz's periods of constant offset
 // per zone (see tzdata.mjs), so no time zone rules live here.
 
 const MINUTE = 60 * 1000;

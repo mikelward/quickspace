@@ -1,12 +1,12 @@
 #!/bin/sh
 #
-# Tests for bin/quickspace-shell, with a fake theme daemon, polkit agent,
+# Tests for bin/tide-shell, with a fake theme daemon, polkit agent,
 # busctl and systemd-notify. A name's owner is described by a file of that
 # name in $FAKE_OWNED, which the fake theme daemon fills with the owner's
-# unit ($FAKE_UNIT, quickspace.service by default).
+# unit ($FAKE_UNIT, tide.service by default).
 
 cd "$(dirname "$0")/.." || exit 1
-shell=$PWD/bin/quickspace-shell
+shell=$PWD/bin/tide-shell
 
 passes=0
 failures=0
@@ -60,8 +60,8 @@ FAKE
 # with $FAKE_DAEMON_STAYS it stays up until the test kills it.
 cat > "$tmp/theme-daemon" <<'FAKE'
 #!/bin/sh
-printf 'theme-daemon bar=%s\n' "$QUICKSPACE_BAR" >> "$FAKE_LOG"
-for n in $FAKE_NAMES; do echo "${FAKE_UNIT:-quickspace.service}" > "$FAKE_OWNED/$n"; done
+printf 'theme-daemon bar=%s\n' "$TIDE_BAR" >> "$FAKE_LOG"
+for n in $FAKE_NAMES; do echo "${FAKE_UNIT:-tide.service}" > "$FAKE_OWNED/$n"; done
 if test -n "$FAKE_DAEMON_STAYS"; then
     echo $$ >> "$FAKE_PIDS"
     exec sleep 600 >/dev/null 2>&1
@@ -144,12 +144,12 @@ if test -n "$FAKE_QS_EXIT"; then
     fi
     exit "$FAKE_QS_EXIT"
 fi
-echo "${FAKE_UNIT:-quickspace.service}" > "$FAKE_OWNED/org.kde.StatusNotifierWatcher"
+echo "${FAKE_UNIT:-tide.service}" > "$FAKE_OWNED/org.kde.StatusNotifierWatcher"
 echo $$ >> "$FAKE_PIDS"
 exec sleep 600 >/dev/null 2>&1
 FAKE
-mkdir -p "$tmp/config/quickshell/quickspace"
-: > "$tmp/config/quickshell/quickspace/shell.qml"
+mkdir -p "$tmp/config/quickshell/tide"
+: > "$tmp/config/quickshell/tide/shell.qml"
 cat > "$tmp/input-setup" <<'FAKE'
 #!/bin/sh
 printf 'input-setup\n' >> "$FAKE_LOG"
@@ -172,10 +172,10 @@ run() {
     # has: the shell, and the agent's watcher once cleanup stops the agent.
     # The long-lived fakes drop the pipe, so they can't hold it open.
     {
-        env PATH="$fake:$swww:$PATH" QUICKSPACE_BAR=waybar XDG_CONFIG_HOME="$tmp/config" FAKE_OWNED="$tmp/owned" FAKE_LOG="$tmp/log" FAKE_PIDS="$tmp/pids" \
-            QUICKSPACE_THEME_DAEMON="$tmp/theme-daemon" QUICKSPACE_POLKIT_AGENT="$tmp/agent" \
-            QUICKSPACE_WALLPAPER="$tmp/wallpaper.jpg" QUICKSPACE_INPUT_SETUP="$tmp/input-setup" \
-            QUICKSPACE_SHELL_WAIT=1 "$@" sh "$shell" 2>&1 >/dev/null
+        env PATH="$fake:$swww:$PATH" TIDE_BAR=waybar XDG_CONFIG_HOME="$tmp/config" FAKE_OWNED="$tmp/owned" FAKE_LOG="$tmp/log" FAKE_PIDS="$tmp/pids" \
+            TIDE_THEME_DAEMON="$tmp/theme-daemon" TIDE_POLKIT_AGENT="$tmp/agent" \
+            TIDE_WALLPAPER="$tmp/wallpaper.jpg" TIDE_INPUT_SETUP="$tmp/input-setup" \
+            TIDE_SHELL_WAIT=1 "$@" sh "$shell" 2>&1 >/dev/null
         echo $? > "$tmp/status"
         cleanup
     } | while IFS= read -r line; do
@@ -203,16 +203,16 @@ check "a failed wallpaper doesn't hold up ready" contains "$(cat "$tmp/log")" "s
 check "a failed wallpaper is reported" contains "$(cat "$tmp/err")" "swww img $tmp/wallpaper.jpg failed"
 check "a failed input setup is reported" contains "$(cat "$tmp/err")" "input-setup failed (4)"
 
-run FAKE_NAMES="$both" QUICKSPACE_WALLPAPER="$tmp/missing.jpg"
-check "a missing QUICKSPACE_WALLPAPER fails, not to be retried" test "$status" -eq 78
-check "a missing QUICKSPACE_WALLPAPER is reported by name" \
-    contains "$(cat "$tmp/err")" "QUICKSPACE_WALLPAPER is '$tmp/missing.jpg'"
-check "a missing QUICKSPACE_WALLPAPER starts nothing" test ! -s "$tmp/log"
+run FAKE_NAMES="$both" TIDE_WALLPAPER="$tmp/missing.jpg"
+check "a missing TIDE_WALLPAPER fails, not to be retried" test "$status" -eq 78
+check "a missing TIDE_WALLPAPER is reported by name" \
+    contains "$(cat "$tmp/err")" "TIDE_WALLPAPER is '$tmp/missing.jpg'"
+check "a missing TIDE_WALLPAPER starts nothing" test ! -s "$tmp/log"
 
-run FAKE_NAMES="$both" QUICKSPACE_INPUT_SETUP="$tmp/no-such-setup"
-check "a missing QUICKSPACE_INPUT_SETUP fails, not to be retried" test "$status" -eq 78
-check "a missing QUICKSPACE_INPUT_SETUP is reported by name" \
-    contains "$(cat "$tmp/err")" "QUICKSPACE_INPUT_SETUP is '$tmp/no-such-setup'"
+run FAKE_NAMES="$both" TIDE_INPUT_SETUP="$tmp/no-such-setup"
+check "a missing TIDE_INPUT_SETUP fails, not to be retried" test "$status" -eq 78
+check "a missing TIDE_INPUT_SETUP is reported by name" \
+    contains "$(cat "$tmp/err")" "TIDE_INPUT_SETUP is '$tmp/no-such-setup'"
 
 # swww-daemon never answers: once ready, the shell reports it with swww's
 # last error, then runs for the session as usual.
@@ -225,7 +225,7 @@ check "a daemon that never answers is reported with swww's error" \
 
 # The theme daemon exiting while the wallpaper waits ends the shell at once,
 # rather than after the wallpaper's wait (30 s here).
-run FAKE_NAMES="$both" FAKE_QUERY_ERR="not up" QUICKSPACE_SHELL_WAIT=30
+run FAKE_NAMES="$both" FAKE_QUERY_ERR="not up" TIDE_SHELL_WAIT=30
 check "the theme daemon exiting during the wallpaper wait ends the shell" \
     contains "$(cat "$tmp/err")" "the theme daemon exited"
 check "it doesn't wait out the wallpaper first" \
@@ -256,7 +256,7 @@ if ! command -v swww-daemon >/dev/null 2>&1; then
     check "without swww, swaybg shows the wallpaper" contains "$(cat "$tmp/log")" "swaybg -m fill -i $tmp/wallpaper.jpg"
     check "swaybg doesn't hold up ready" contains "$(cat "$tmp/log")" "systemd-notify --ready"
     # The default wallpaper, under a HOME that has none.
-    run FAKE_NAMES="$both" PATH="$fake:$swaybg:$PATH" QUICKSPACE_WALLPAPER= HOME="$tmp/no-home"
+    run FAKE_NAMES="$both" PATH="$fake:$swaybg:$PATH" TIDE_WALLPAPER= HOME="$tmp/no-home"
     check "swaybg isn't started without a wallpaper" test -z "$(grep '^swaybg' "$tmp/log")"
     check "a missing wallpaper is reported" contains "$(cat "$tmp/err")" "no wallpaper at $tmp/no-home/.config/hypr/wallpaper.jpg"
 fi
@@ -268,7 +268,7 @@ check "a missing owner fails the start" test "$status" -eq 1
 check "a missing owner never reports ready" \
     test -z "$(grep systemd-notify "$tmp/log")"
 check "the failure names the missing owner" \
-    contains "$(cat "$tmp/err")" "no owner in quickspace.service for: org.kde.StatusNotifierWatcher"
+    contains "$(cat "$tmp/err")" "no owner in tide.service for: org.kde.StatusNotifierWatcher"
 check "the failure doesn't name an owner that is there" \
     test -z "$(grep 'org.freedesktop.Notifications' "$tmp/err")"
 
@@ -295,14 +295,14 @@ check "the shell ends with the theme daemon, not the agent" contains "$(cat "$tm
 
 # Once the other agent goes, or after a crash, the agent is started again.
 stop_on="fake agent started again"
-run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_EXIT=3 FAKE_AGENT_EXIT_ONCE=1 QUICKSPACE_AGENT_RETRY=1
+run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_EXIT=3 FAKE_AGENT_EXIT_ONCE=1 TIDE_AGENT_RETRY=1
 stop_on=
 check "an agent that exited is started again" test "$(grep -c '^agent$' "$tmp/log")" -eq 2
 check "its restart delay is reported" contains "$(cat "$tmp/err")" "starts it again in 1 s"
 
 # Without a working sleep there's no backoff, so the agent isn't respawned.
 stop_on="not starting the polkit agent again"
-run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_EXIT=3 QUICKSPACE_AGENT_RETRY=1 FAKE_SLEEP_FAILS=1
+run FAKE_NAMES="$both" FAKE_DAEMON_STAYS=1 FAKE_AGENT_EXIT=3 TIDE_AGENT_RETRY=1 FAKE_SLEEP_FAILS=1
 stop_on=
 check "a failed backoff sleep is reported" contains "$(cat "$tmp/err")" "sleep 1 failed; not starting the polkit agent again"
 check "with sleep's own error" contains "$(cat "$tmp/err")" "sleep: broken"
@@ -325,12 +325,12 @@ if test -s "$tmp/agent.pid"; then
     fi
 fi
 
-run FAKE_NAMES="$both" QUICKSPACE_AGENT_RETRY=61
-check "a QUICKSPACE_AGENT_RETRY over a minute fails the start, not to be retried" test "$status" -eq 78
-check "a bad QUICKSPACE_AGENT_RETRY is reported" contains "$(cat "$tmp/err")" "QUICKSPACE_AGENT_RETRY must be a whole number of seconds from 1 to 60, not '61'"
+run FAKE_NAMES="$both" TIDE_AGENT_RETRY=61
+check "a TIDE_AGENT_RETRY over a minute fails the start, not to be retried" test "$status" -eq 78
+check "a bad TIDE_AGENT_RETRY is reported" contains "$(cat "$tmp/err")" "TIDE_AGENT_RETRY must be a whole number of seconds from 1 to 60, not '61'"
 for bad in x 0 08; do
-    run FAKE_NAMES="$both" QUICKSPACE_AGENT_RETRY=$bad
-    check "QUICKSPACE_AGENT_RETRY=$bad fails the start" test "$status" -eq 78
+    run FAKE_NAMES="$both" TIDE_AGENT_RETRY=$bad
+    check "TIDE_AGENT_RETRY=$bad fails the start" test "$status" -eq 78
 done
 
 run FAKE_NAMES="$both" FAKE_NOTIFY_STATUS=1
@@ -341,50 +341,50 @@ check "a failed ready notification is reported" \
 run FAKE_NAMES="$both"
 check "the default wait fits the unit's timeout, so it isn't extended" \
     test -z "$(grep EXTEND_TIMEOUT "$tmp/log")"
-run FAKE_NAMES="$both" QUICKSPACE_SHELL_WAIT=30
+run FAKE_NAMES="$both" TIDE_SHELL_WAIT=30
 check "a longer wait extends the unit's start timeout past it" \
     contains "$(cat "$tmp/log")" "systemd-notify EXTEND_TIMEOUT_USEC=33000000"
-run FAKE_NAMES="$both" QUICKSPACE_SHELL_WAIT=30 FAKE_NOTIFY_STATUS=1
+run FAKE_NAMES="$both" TIDE_SHELL_WAIT=30 FAKE_NOTIFY_STATUS=1
 check "a refused extension is reported" \
-    contains "$(cat "$tmp/err")" "couldn't extend the start timeout for QUICKSPACE_SHELL_WAIT=30"
+    contains "$(cat "$tmp/err")" "couldn't extend the start timeout for TIDE_SHELL_WAIT=30"
 
 for bad in 0 abc 1.5 -1 3601 999999999999999999999; do
-    run FAKE_NAMES="$both" QUICKSPACE_SHELL_WAIT="$bad"
-    check "QUICKSPACE_SHELL_WAIT=$bad fails the start, not to be retried" test "$status" -eq 78
-    check "QUICKSPACE_SHELL_WAIT=$bad is reported by name" \
-        contains "$(cat "$tmp/err")" "QUICKSPACE_SHELL_WAIT must be a whole number of seconds from 1 to 3600, not '$bad'"
-    check "QUICKSPACE_SHELL_WAIT=$bad starts nothing" test ! -s "$tmp/log"
+    run FAKE_NAMES="$both" TIDE_SHELL_WAIT="$bad"
+    check "TIDE_SHELL_WAIT=$bad fails the start, not to be retried" test "$status" -eq 78
+    check "TIDE_SHELL_WAIT=$bad is reported by name" \
+        contains "$(cat "$tmp/err")" "TIDE_SHELL_WAIT must be a whole number of seconds from 1 to 3600, not '$bad'"
+    check "TIDE_SHELL_WAIT=$bad starts nothing" test ! -s "$tmp/log"
 done
 
-run FAKE_NAMES="$both" QUICKSPACE_POLKIT_AGENT="$tmp/no-such-agent"
-check "a missing QUICKSPACE_POLKIT_AGENT fails the start, not to be retried" test "$status" -eq 78
-check "a missing QUICKSPACE_POLKIT_AGENT is reported by name" \
-    contains "$(cat "$tmp/err")" "QUICKSPACE_POLKIT_AGENT is '$tmp/no-such-agent'"
-check "a missing QUICKSPACE_POLKIT_AGENT starts nothing" test ! -s "$tmp/log"
+run FAKE_NAMES="$both" TIDE_POLKIT_AGENT="$tmp/no-such-agent"
+check "a missing TIDE_POLKIT_AGENT fails the start, not to be retried" test "$status" -eq 78
+check "a missing TIDE_POLKIT_AGENT is reported by name" \
+    contains "$(cat "$tmp/err")" "TIDE_POLKIT_AGENT is '$tmp/no-such-agent'"
+check "a missing TIDE_POLKIT_AGENT starts nothing" test ! -s "$tmp/log"
 
 mkdir "$tmp/agent-dir"
-run FAKE_NAMES="$both" QUICKSPACE_POLKIT_AGENT="$tmp/agent-dir"
-check "a directory as QUICKSPACE_POLKIT_AGENT is rejected" test "$status" -eq 78
-check "a directory as QUICKSPACE_POLKIT_AGENT starts nothing" test ! -s "$tmp/log"
+run FAKE_NAMES="$both" TIDE_POLKIT_AGENT="$tmp/agent-dir"
+check "a directory as TIDE_POLKIT_AGENT is rejected" test "$status" -eq 78
+check "a directory as TIDE_POLKIT_AGENT starts nothing" test ! -s "$tmp/log"
 
-run FAKE_NAMES="$both" QUICKSPACE_THEME_DAEMON="$tmp/nonexistent"
+run FAKE_NAMES="$both" TIDE_THEME_DAEMON="$tmp/nonexistent"
 check "a missing theme daemon fails at once, not to be retried" test "$status" -eq 78
-check "a missing QUICKSPACE_THEME_DAEMON is reported by name" \
-    contains "$(cat "$tmp/err")" "QUICKSPACE_THEME_DAEMON is '$tmp/nonexistent'"
+check "a missing TIDE_THEME_DAEMON is reported by name" \
+    contains "$(cat "$tmp/err")" "TIDE_THEME_DAEMON is '$tmp/nonexistent'"
 
-run FAKE_NAMES="$both" QUICKSPACE_THEME_DAEMON= HOME="$tmp/empty-home"
+run FAKE_NAMES="$both" TIDE_THEME_DAEMON= HOME="$tmp/empty-home"
 check "a missing default theme daemon fails, not to be retried" test "$status" -eq 78
 check "a missing default theme daemon is reported" \
     contains "$(cat "$tmp/err")" "no theme daemon at $tmp/empty-home/.config/hypr/scripts/theme-daemon.sh"
 
 # An empty search list, so no agent installed on this host is found.
-run FAKE_NAMES="$both" QUICKSPACE_POLKIT_AGENT= QUICKSPACE_POLKIT_AGENTS=
+run FAKE_NAMES="$both" TIDE_POLKIT_AGENT= TIDE_POLKIT_AGENTS=
 check "the shell still gets ready without an agent" contains "$(cat "$tmp/log")" "systemd-notify --ready"
 check "a missing agent is reported" contains "$(cat "$tmp/err")" "no polkit agent found"
 
 mkdir "$tmp/agents"
 cp "$tmp/agent" "$tmp/agents/found-agent"
-run FAKE_NAMES="$both" QUICKSPACE_POLKIT_AGENT= QUICKSPACE_POLKIT_AGENTS="$tmp/agents/missing $tmp/agents/found-agent"
+run FAKE_NAMES="$both" TIDE_POLKIT_AGENT= TIDE_POLKIT_AGENTS="$tmp/agents/missing $tmp/agents/found-agent"
 check "the first installed agent on the search list starts" contains "$(cat "$tmp/log")" "agent"
 
 # Debian puts KDE's agent under a multiarch directory, which the search
@@ -396,7 +396,7 @@ check "the shell searches KDE's multiarch directories by pattern" test -n "$kde_
 for triplet in x86_64-linux-gnu aarch64-linux-gnu arm-linux-gnueabihf; do
     mkdir -p "$tmp/multi/$triplet/libexec"
     cp "$tmp/agent" "$tmp/multi/$triplet/libexec/polkit-kde-authentication-agent-1"
-    run FAKE_NAMES="$both" QUICKSPACE_POLKIT_AGENT= QUICKSPACE_POLKIT_AGENTS="$tmp/multi${kde_pattern#/usr/lib}"
+    run FAKE_NAMES="$both" TIDE_POLKIT_AGENT= TIDE_POLKIT_AGENTS="$tmp/multi${kde_pattern#/usr/lib}"
     check "KDE's agent under $triplet is found" contains "$(cat "$tmp/log")" "agent"
     check "KDE's agent under $triplet leaves no agent missing" test -z "$(grep "no polkit agent found" "$tmp/err")"
     rm -rf "$tmp/multi/$triplet"
@@ -405,17 +405,17 @@ done
 # The Quickshell bar: qs runs the shell and owns the tray watcher, and the
 # theme daemon is told so it starts no waybar.
 notifications=org.freedesktop.Notifications
-run FAKE_NAMES="$notifications" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=quickshell
+run FAKE_NAMES="$notifications" PATH="$fake:$swww:$qs:$PATH" TIDE_BAR=quickshell
 log=$(cat "$tmp/log")
-check "the Quickshell bar runs the shell" contains "$log" "qs -c quickspace"
+check "the Quickshell bar runs the shell" contains "$log" "qs -c tide"
 check "the theme daemon is told the bar is Quickshell's" contains "$log" "theme-daemon bar=quickshell"
 check "the Quickshell bar's tray counts toward ready" contains "$log" "systemd-notify --ready"
 
 # Unset, the bar is Quickshell's where qs and the shell are installed...
-run FAKE_NAMES="$notifications" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=
-check "the bar defaults to Quickshell's when it's installed" contains "$(cat "$tmp/log")" "qs -c quickspace"
+run FAKE_NAMES="$notifications" PATH="$fake:$swww:$qs:$PATH" TIDE_BAR=
+check "the bar defaults to Quickshell's when it's installed" contains "$(cat "$tmp/log")" "qs -c tide"
 # ...and waybar where the shell isn't.
-run FAKE_NAMES="$both" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR= XDG_CONFIG_HOME="$tmp/no-config"
+run FAKE_NAMES="$both" PATH="$fake:$swww:$qs:$PATH" TIDE_BAR= XDG_CONFIG_HOME="$tmp/no-config"
 log=$(cat "$tmp/log")
 check "the bar falls back to waybar without the shell" contains "$log" "theme-daemon bar=waybar"
 check "waybar's bar runs no qs" test -z "$(grep '^qs ' "$tmp/log")"
@@ -424,26 +424,26 @@ check "waybar's bar runs no qs" test -z "$(grep '^qs ' "$tmp/log")"
 # The theme daemon waits on the FIFO until qs exits, then exits too: the
 # shell ends either way, and no fake is left holding the test's pipe.
 mkfifo "$tmp/daemon-until"
-run FAKE_NAMES="$notifications" FAKE_DAEMON_UNTIL="$tmp/daemon-until" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=quickshell FAKE_QS_EXIT=3
+run FAKE_NAMES="$notifications" FAKE_DAEMON_UNTIL="$tmp/daemon-until" PATH="$fake:$swww:$qs:$PATH" TIDE_BAR=quickshell FAKE_QS_EXIT=3
 check "the Quickshell shell exiting ends the shell with a failure" test "$status" -ne 0
-check "the Quickshell shell exiting is reported" contains "$(cat "$tmp/err")" "the Quickshell shell (qs -c quickspace) exited (3)"
+check "the Quickshell shell exiting is reported" contains "$(cat "$tmp/err")" "the Quickshell shell (qs -c tide) exited (3)"
 
-run FAKE_NAMES="$both" QUICKSPACE_BAR=quickshell
-check "QUICKSPACE_BAR=quickshell without qs fails, not to be retried" test "$status" -eq 78
-check "QUICKSPACE_BAR=quickshell without qs is reported" contains "$(cat "$tmp/err")" "qs (Quickshell) isn't installed"
-check "QUICKSPACE_BAR=quickshell without qs starts nothing" test ! -s "$tmp/log"
+run FAKE_NAMES="$both" TIDE_BAR=quickshell
+check "TIDE_BAR=quickshell without qs fails, not to be retried" test "$status" -eq 78
+check "TIDE_BAR=quickshell without qs is reported" contains "$(cat "$tmp/err")" "qs (Quickshell) isn't installed"
+check "TIDE_BAR=quickshell without qs starts nothing" test ! -s "$tmp/log"
 
-run FAKE_NAMES="$both" PATH="$fake:$swww:$qs:$PATH" QUICKSPACE_BAR=quickshell XDG_CONFIG_HOME="$tmp/no-config"
-check "QUICKSPACE_BAR=quickshell without the shell fails, not to be retried" test "$status" -eq 78
-check "QUICKSPACE_BAR=quickshell without the shell is reported" contains "$(cat "$tmp/err")" "no shell at $tmp/no-config/quickshell/quickspace/shell.qml"
+run FAKE_NAMES="$both" PATH="$fake:$swww:$qs:$PATH" TIDE_BAR=quickshell XDG_CONFIG_HOME="$tmp/no-config"
+check "TIDE_BAR=quickshell without the shell fails, not to be retried" test "$status" -eq 78
+check "TIDE_BAR=quickshell without the shell is reported" contains "$(cat "$tmp/err")" "no shell at $tmp/no-config/quickshell/tide/shell.qml"
 
-run FAKE_NAMES="$both" QUICKSPACE_BAR=polybar
-check "a bad QUICKSPACE_BAR fails, not to be retried" test "$status" -eq 78
-check "a bad QUICKSPACE_BAR is reported by name" contains "$(cat "$tmp/err")" "QUICKSPACE_BAR must be quickshell or waybar, not 'polybar'"
+run FAKE_NAMES="$both" TIDE_BAR=polybar
+check "a bad TIDE_BAR fails, not to be retried" test "$status" -eq 78
+check "a bad TIDE_BAR is reported by name" contains "$(cat "$tmp/err")" "TIDE_BAR must be quickshell or waybar, not 'polybar'"
 
 if command -v shellcheck >/dev/null 2>&1; then
-    check "shellcheck passes" shellcheck -s sh "$shell" bin/quickspace-shell_test.sh
+    check "shellcheck passes" shellcheck -s sh "$shell" bin/tide-shell_test.sh
 fi
 
-printf 'quickspace-shell_test.sh: %d passed, %d failed\n' "$passes" "$failures"
+printf 'tide-shell_test.sh: %d passed, %d failed\n' "$passes" "$failures"
 test "$failures" -eq 0

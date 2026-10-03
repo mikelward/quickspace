@@ -1,16 +1,16 @@
 #!/bin/sh
 #
-# quickspace-shell: what quickspace.service runs until the Quickshell shell
+# tide-shell: what tide.service runs until the Quickshell shell
 # exists (SPEC.md §5.2, §5.4; TODO.md "Transitional shell").
 #
 # For M2 the owners are the ones already in daily use, with the bar moving
 # to Quickshell (M3):
 #   - the bar, and with it the tray's org.kde.StatusNotifierWatcher: the
-#     Quickshell shell (`qs -c quickspace`) when it's installed, else waybar;
+#     Quickshell shell (`qs -c tide`) when it's installed, else waybar;
 #   - swaync owns org.freedesktop.Notifications. conf's theme daemon starts
 #     it, and waybar when that's the bar, with the light/dark style and
 #     restarts them at each theme boundary, so it runs here rather than from
-#     Hyprland's autostart. It's told which bar it is in $QUICKSPACE_BAR, so
+#     Hyprland's autostart. It's told which bar it is in $TIDE_BAR, so
 #     it doesn't start waybar beside the Quickshell bar;
 #   - the first polkit agent found on this system.
 #
@@ -18,30 +18,30 @@
 # unit is Type=notify: this reports ready once both D-Bus names are owned, so
 # no app starts before them, and only by processes in this unit, so a stale
 # daemon from outside the session doesn't count. It waits
-# $QUICKSPACE_SHELL_WAIT seconds at most (12, inside the unit's 15 s timeout)
+# $TIDE_SHELL_WAIT seconds at most (12, inside the unit's 15 s timeout)
 # and fails, naming the missing owner, if they never appear. The polkit
 # agent's registration can't be observed from here, so it isn't waited for,
 # and its exit doesn't end the unit: an agent exits at once when another
 # already holds the session, and restarting the shell for that only looped
 # the bar at login. The agent alone is started again instead, backing off to
 # once a minute while it keeps exiting, so it takes over once the other
-# agent goes, and comes back after a crash. `quickspace doctor` names a
+# agent goes, and comes back after a crash. `tide doctor` names a
 # missing agent or the other one.
 #
-#   $QUICKSPACE_BAR           quickshell or waybar (default: quickshell when
+#   $TIDE_BAR           quickshell or waybar (default: quickshell when
 #                             `qs` and the shell's config are installed)
-#   $QUICKSPACE_THEME_DAEMON  the theme daemon (default: conf's)
-#   $QUICKSPACE_POLKIT_AGENT  a polkit agent to use instead of searching
-#   $QUICKSPACE_POLKIT_AGENTS the paths searched, in order (default below)
-#   $QUICKSPACE_AGENT_RETRY   seconds (1-60) before the agent's first restart (5),
+#   $TIDE_THEME_DAEMON  the theme daemon (default: conf's)
+#   $TIDE_POLKIT_AGENT  a polkit agent to use instead of searching
+#   $TIDE_POLKIT_AGENTS the paths searched, in order (default below)
+#   $TIDE_AGENT_RETRY   seconds (1-60) before the agent's first restart (5),
 #                             doubling to at most 60
-#   $QUICKSPACE_WALLPAPER     the wallpaper swww or swaybg shows (default:
+#   $TIDE_WALLPAPER     the wallpaper swww or swaybg shows (default:
 #                             conf's)
-#   $QUICKSPACE_INPUT_SETUP   a one-shot input setup (default: conf's
+#   $TIDE_INPUT_SETUP   a one-shot input setup (default: conf's
 #                             apply-input.sh), run once Hyprland is up
 
 prog=${0##*/}
-# KDE's agent is always installed, since quickspace runs beside Plasma
+# KDE's agent is always installed, since tide runs beside Plasma
 # (SPEC.md §5.5), so the legacy desktops' agents that `make install` keeps out
 # of the session (the autostart allowlist) aren't needed as fallbacks.
 default_agents="
@@ -54,23 +54,23 @@ default_agents="
     /usr/lib/*-linux-*/libexec/polkit-kde-authentication-agent-1
     /usr/libexec/kf6/polkit-kde-authentication-agent-1
 "
-theme_daemon=${QUICKSPACE_THEME_DAEMON:-$HOME/.config/hypr/scripts/theme-daemon.sh}
-# Where `make install` puts the shell, and where `qs -c quickspace` finds it.
-shell_config=${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/quickspace/shell.qml
-wallpaper=${QUICKSPACE_WALLPAPER:-$HOME/.config/hypr/wallpaper.jpg}
-input_setup=${QUICKSPACE_INPUT_SETUP:-$HOME/.config/hypr/scripts/apply-input.sh}
+theme_daemon=${TIDE_THEME_DAEMON:-$HOME/.config/hypr/scripts/theme-daemon.sh}
+# Where `make install` puts the shell, and where `qs -c tide` finds it.
+shell_config=${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/tide/shell.qml
+wallpaper=${TIDE_WALLPAPER:-$HOME/.config/hypr/wallpaper.jpg}
+input_setup=${TIDE_INPUT_SETUP:-$HOME/.config/hypr/scripts/apply-input.sh}
 
 log() {
     echo "$prog: $*" >&2
 }
 
 polkit_agent() {
-    if test -n "${QUICKSPACE_POLKIT_AGENT:-}"; then
-        echo "$QUICKSPACE_POLKIT_AGENT"
+    if test -n "${TIDE_POLKIT_AGENT:-}"; then
+        echo "$TIDE_POLKIT_AGENT"
         return
     fi
     # Unquoted, so a pattern such as Debian's multiarch directory expands.
-    for a in ${QUICKSPACE_POLKIT_AGENTS-$default_agents}; do
+    for a in ${TIDE_POLKIT_AGENTS-$default_agents}; do
         if is_program "$a"; then
             echo "$a"
             return
@@ -78,7 +78,7 @@ polkit_agent() {
     done
 }
 
-unit=quickspace.service
+unit=tide.service
 
 # True when a process in this unit owns the name. busctl failing is the
 # normal answer while nobody owns it yet, so its message isn't shown then,
@@ -105,13 +105,13 @@ is_program() {
 }
 
 # At most 3600, which also keeps the arithmetic below in range.
-wait=${QUICKSPACE_SHELL_WAIT:-12}
+wait=${TIDE_SHELL_WAIT:-12}
 case "$wait" in
     '' | *[!0-9]* | 0* | ?????*) wait_ok=no ;;
     *) test "$wait" -le 3600 && wait_ok=yes || wait_ok=no ;;
 esac
 if test "$wait_ok" = no; then
-    log "QUICKSPACE_SHELL_WAIT must be a whole number of seconds from 1 to 3600, not '$wait'"
+    log "TIDE_SHELL_WAIT must be a whole number of seconds from 1 to 3600, not '$wait'"
     exit $EX_CONFIG
 fi
 
@@ -119,36 +119,36 @@ fi
 # systemd for the extra time, or the unit's timeout would cut it short and
 # lose the report below. If systemd refuses, the unit's timeout stands.
 if test "$wait" -gt 12 && ! systemd-notify "EXTEND_TIMEOUT_USEC=$(((wait + 3) * 1000000))"; then
-    log "couldn't extend the start timeout for QUICKSPACE_SHELL_WAIT=$wait; the unit's own timeout applies"
+    log "couldn't extend the start timeout for TIDE_SHELL_WAIT=$wait; the unit's own timeout applies"
 fi
 
 # At least 1, so a failing agent can't respawn in a tight loop, and no
 # leading zero, which the doubling below would read as octal.
-agent_retry=${QUICKSPACE_AGENT_RETRY:-5}
+agent_retry=${TIDE_AGENT_RETRY:-5}
 case "$agent_retry" in
     '' | *[!0-9]* | 0* | ???*) agent_retry_ok=no ;;
     *) test "$agent_retry" -le 60 && agent_retry_ok=yes || agent_retry_ok=no ;;
 esac
 if test "$agent_retry_ok" = no; then
-    log "QUICKSPACE_AGENT_RETRY must be a whole number of seconds from 1 to 60, not '$agent_retry'"
+    log "TIDE_AGENT_RETRY must be a whole number of seconds from 1 to 60, not '$agent_retry'"
     exit $EX_CONFIG
 fi
 
-if test -n "${QUICKSPACE_POLKIT_AGENT:-}" && ! is_program "$QUICKSPACE_POLKIT_AGENT"; then
-    log "QUICKSPACE_POLKIT_AGENT is '$QUICKSPACE_POLKIT_AGENT', which isn't an executable file"
+if test -n "${TIDE_POLKIT_AGENT:-}" && ! is_program "$TIDE_POLKIT_AGENT"; then
+    log "TIDE_POLKIT_AGENT is '$TIDE_POLKIT_AGENT', which isn't an executable file"
     exit $EX_CONFIG
 fi
 
-if test -n "${QUICKSPACE_INPUT_SETUP:-}" && ! is_program "$QUICKSPACE_INPUT_SETUP"; then
-    log "QUICKSPACE_INPUT_SETUP is '$QUICKSPACE_INPUT_SETUP', which isn't an executable file"
+if test -n "${TIDE_INPUT_SETUP:-}" && ! is_program "$TIDE_INPUT_SETUP"; then
+    log "TIDE_INPUT_SETUP is '$TIDE_INPUT_SETUP', which isn't an executable file"
     exit $EX_CONFIG
 fi
-if test -n "${QUICKSPACE_WALLPAPER:-}" && ! test -f "$QUICKSPACE_WALLPAPER"; then
-    log "QUICKSPACE_WALLPAPER is '$QUICKSPACE_WALLPAPER', which isn't a file"
+if test -n "${TIDE_WALLPAPER:-}" && ! test -f "$TIDE_WALLPAPER"; then
+    log "TIDE_WALLPAPER is '$TIDE_WALLPAPER', which isn't a file"
     exit $EX_CONFIG
 fi
 
-case "${QUICKSPACE_BAR:-}" in
+case "${TIDE_BAR:-}" in
     '')
         if command -v qs >/dev/null 2>&1 && test -f "$shell_config"; then
             bar=quickshell
@@ -156,25 +156,25 @@ case "${QUICKSPACE_BAR:-}" in
             bar=waybar
         fi
         ;;
-    quickshell | waybar) bar=$QUICKSPACE_BAR ;;
+    quickshell | waybar) bar=$TIDE_BAR ;;
     *)
-        log "QUICKSPACE_BAR must be quickshell or waybar, not '$QUICKSPACE_BAR'"
+        log "TIDE_BAR must be quickshell or waybar, not '$TIDE_BAR'"
         exit $EX_CONFIG
         ;;
 esac
 if test "$bar" = quickshell && ! command -v qs >/dev/null 2>&1; then
-    log "QUICKSPACE_BAR is quickshell, but qs (Quickshell) isn't installed"
+    log "TIDE_BAR is quickshell, but qs (Quickshell) isn't installed"
     exit $EX_CONFIG
 fi
 if test "$bar" = quickshell && ! test -f "$shell_config"; then
-    log "QUICKSPACE_BAR is quickshell, but there's no shell at $shell_config; run \`make install\` in quickspace"
+    log "TIDE_BAR is quickshell, but there's no shell at $shell_config; run \`make install\` in tide"
     exit $EX_CONFIG
 fi
-export QUICKSPACE_BAR="$bar"
+export TIDE_BAR="$bar"
 
 if ! is_program "$theme_daemon"; then
-    if test -n "${QUICKSPACE_THEME_DAEMON:-}"; then
-        log "QUICKSPACE_THEME_DAEMON is '$theme_daemon', which isn't an executable file"
+    if test -n "${TIDE_THEME_DAEMON:-}"; then
+        log "TIDE_THEME_DAEMON is '$theme_daemon', which isn't an executable file"
     else
         log "no theme daemon at $theme_daemon, so no bar or notifications"
     fi
@@ -239,7 +239,7 @@ if test -n "$agent"; then
             if test "$(($(date +%s) - started))" -ge 60; then
                 delay=$agent_retry
             fi
-            log "the polkit agent exited ($agent_status); the shell keeps running and starts it again in $delay s (\`quickspace doctor\` names any other agent registered for this session)"
+            log "the polkit agent exited ($agent_status); the shell keeps running and starts it again in $delay s (\`tide doctor\` names any other agent registered for this session)"
             sleep "$delay" &
             child=$!
             # Without a working sleep there's no backoff, so stop rather
@@ -264,7 +264,7 @@ fi
 # after the agent's restart loop is recorded, so if it exits at once, the
 # exit trap still finds the loop to stop.
 if test "$bar" = quickshell; then
-    supervise "the Quickshell shell (qs -c quickspace)" qs -c quickspace
+    supervise "the Quickshell shell (qs -c tide)" qs -c tide
     tray_owner="the Quickshell shell's tray"
 else
     tray_owner="waybar's tray"

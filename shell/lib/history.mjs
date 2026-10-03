@@ -1,6 +1,6 @@
 // The notification center's history (SPEC.md §9), as pure functions the
 // QML binds to. Entries are plain objects, newest first, so they store as
-// JSON in $XDG_STATE_HOME/quickspace/notifications.json and survive a
+// JSON in $XDG_STATE_HOME/tide/notifications.json and survive a
 // shell restart.
 
 // The most entries kept; past it, the oldest go.

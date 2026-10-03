@@ -1,5 +1,5 @@
 // Tests for dst.mjs, against 2026's US and EU changes written out as
-// quickspace-tz would give them.
+// tide-tz would give them.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { offsetChanges, nextDstChange, dstMessage, formatDay, clockName } from "./dst.mjs";

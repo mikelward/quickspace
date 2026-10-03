@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { initial, step, track } from "./launch.mjs";
 
-const COMMAND = ["quickspace", "launch", "--", "blueman-manager"];
+const COMMAND = ["tide", "launch", "--", "blueman-manager"];
 
 // Feeds `events` through step, returning every run along the way.
 function play(events) {
@@ -34,20 +34,20 @@ test("a quiet success finishes silently, once both exit and stderr are in", () =
 
 test("a nonzero exit warns with the code and the whole of stderr", () => {
     assert.deepEqual(reports([STARTED, exited(127), STOPPED, stderr("blueman-manager: not found\n")]), [
-        { level: "warn", message: "quickspace: quickspace launch -- blueman-manager exited 127: blueman-manager: not found" },
+        { level: "warn", message: "tide: tide launch -- blueman-manager exited 127: blueman-manager: not found" },
     ]);
 });
 
 test("stderr from a successful run is logged, not warned", () => {
-    assert.deepEqual(reports([STARTED, exited(0), stderr("quickspace: no focus grant\n")]), [
-        { level: "log", message: "quickspace: quickspace launch -- blueman-manager: quickspace: no focus grant" },
+    assert.deepEqual(reports([STARTED, exited(0), stderr("tide: no focus grant\n")]), [
+        { level: "log", message: "tide: tide launch -- blueman-manager: tide: no focus grant" },
     ]);
 });
 
 test("stderr ending before the exit code waits for the code", () => {
     const runs = play([STARTED, stderr("oops"), exited(1)]);
     assert.deepEqual(runs.map(r => r.done), [false, false, true]);
-    assert.equal(runs[2].report.message, "quickspace: quickspace launch -- blueman-manager exited 1: oops");
+    assert.equal(runs[2].report.message, "tide: tide launch -- blueman-manager exited 1: oops");
 });
 
 test("an exit code alone isn't the end: stderr may still be coming", () => {
@@ -58,7 +58,7 @@ test("an exit code alone isn't the end: stderr may still be coming", () => {
 test("stopping without starting is a failed start", () => {
     const runs = play([STOPPED]);
     assert.equal(runs[0].done, true);
-    assert.deepEqual(runs[0].report, { level: "warn", message: "quickspace: couldn't start quickspace launch -- blueman-manager" });
+    assert.deepEqual(runs[0].report, { level: "warn", message: "tide: couldn't start tide launch -- blueman-manager" });
 });
 
 test("a finished run reports once, whatever arrives after", () => {
@@ -83,7 +83,7 @@ test("a finished run keeps its code and stderr for a caller that reads them", ()
 });
 
 test("a run whose stderr isn't read finishes only by failing to start", () => {
-    // ClockData reads quickspace-tz's stdout, not its stderr.
+    // ClockData reads tide-tz's stdout, not its stderr.
     assert.equal(play([STARTED, exited(0), STOPPED]).at(-1).done, false);
     assert.equal(play([STOPPED]).at(-1).done, true);
 });
@@ -117,11 +117,11 @@ test("a tracked run calls back once when it's done, whatever the outcome", () =>
 test("a tracked run logs its report at its level", () => {
     const failed = recorder();
     track(COMMAND, null, failed).on(STOPPED);
-    assert.deepEqual(failed.lines, [["warn", "quickspace: couldn't start quickspace launch -- blueman-manager"]]);
+    assert.deepEqual(failed.lines, [["warn", "tide: couldn't start tide launch -- blueman-manager"]]);
     const chatty = recorder();
     const t = track(COMMAND, null, chatty);
     [STARTED, exited(0), stderr("slow shell\n")].forEach(e => t.on(e));
-    assert.deepEqual(chatty.lines, [["log", "quickspace: quickspace launch -- blueman-manager: slow shell"]]);
+    assert.deepEqual(chatty.lines, [["log", "tide: tide launch -- blueman-manager: slow shell"]]);
     const quiet = recorder();
     const q = track(COMMAND, null, quiet);
     [STARTED, exited(0), stderr("")].forEach(e => q.on(e));

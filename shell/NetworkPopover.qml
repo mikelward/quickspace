@@ -56,7 +56,7 @@ PopupWindow {
             const noSecrets = reason === ConnectionFailReason.NoSecrets;
             root.prompt({ type: "failed", network: network, noSecrets: noSecrets });
             if (!noSecrets) {
-                console.warn(`quickspace: couldn't connect to ${network.name}: ${ConnectionFailReason.toString(reason)}`);
+                console.warn(`tide: couldn't connect to ${network.name}: ${ConnectionFailReason.toString(reason)}`);
             }
         }
     }

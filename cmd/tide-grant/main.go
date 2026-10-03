@@ -1,11 +1,11 @@
-// Command quickspace-grant records a quickspace focus grant for a shell
+// Command tide-grant records a tide focus grant for a shell
 // command line (SPEC.md §14.3), so the first window the command opens may
 // take focus.
 //
 // Every interactive shell calls it before running a command, in a
-// quickspace session only:
+// tide session only:
 //
-//	quickspace-grant --pid SHELL-PID -- COMMAND-LINE
+//	tide-grant --pid SHELL-PID -- COMMAND-LINE
 //
 // The grant names the shell's pid, so a window from any process the command
 // starts can use it: the focus guard walks the window's parents in /proc.
@@ -37,30 +37,30 @@ func main() {
 }
 
 func run(args []string, env []string, stderr io.Writer) int {
-	flags := flag.NewFlagSet("quickspace-grant", flag.ContinueOnError)
+	flags := flag.NewFlagSet("tide-grant", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	pid := flags.Int("pid", os.Getppid(), "the `pid` of the shell running the command")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
 	if flags.NArg() != 1 {
-		fmt.Fprintln(stderr, "usage: quickspace-grant [--pid PID] [--] COMMAND-LINE")
+		fmt.Fprintln(stderr, "usage: tide-grant [--pid PID] [--] COMMAND-LINE")
 		return 2
 	}
-	if !inQuickspace(lookup(env, "XDG_CURRENT_DESKTOP")) {
+	if !inTide(lookup(env, "XDG_CURRENT_DESKTOP")) {
 		return 0
 	}
 	app := program(flags.Arg(0), env)
 	if err := grant(app, *pid); err != nil {
-		fmt.Fprintf(stderr, "quickspace: couldn't record a focus grant for %s: %v\n", flags.Arg(0), err)
+		fmt.Fprintf(stderr, "tide: couldn't record a focus grant for %s: %v\n", flags.Arg(0), err)
 		return 1
 	}
 	return 0
 }
 
-func inQuickspace(desktops string) bool {
+func inTide(desktops string) bool {
 	for _, d := range strings.Split(desktops, ":") {
-		if d == "quickspace" {
+		if d == "tide" {
 			return true
 		}
 	}
@@ -289,7 +289,7 @@ func grant(app string, pid int) error {
 		lua = luaString(app)
 	}
 	out, err := exec.Command("hyprctl", "eval",
-		"quickspace_focus.grant("+lua+", "+strconv.Itoa(pid)+")").CombinedOutput()
+		"tide_focus.grant("+lua+", "+strconv.Itoa(pid)+")").CombinedOutput()
 	reply := strings.TrimSpace(string(out))
 	if err != nil {
 		var exitErr *exec.ExitError

@@ -1,6 +1,6 @@
--- quickspace tiling for Hyprland 0.55+ (SPEC.md §6).
+-- tide tiling for Hyprland 0.55+ (SPEC.md §6).
 --
--- Registers one Lua layout, `lua:quickspace`, that keeps a mode per
+-- Registers one Lua layout, `lua:tide`, that keeps a mode per
 -- workspace (tile, threecol, twocol, monocle) and applies the single-window
 -- rule in every mode. Hyprland's own window order is the truth, so its swap
 -- and move dispatchers keep working; the layout records that order so the
@@ -8,13 +8,13 @@
 --
 -- Usage, from hyprland.lua:
 --
---   local qs = dofile(os.getenv("HOME") .. "/.config/hypr/quickspace/layout.lua")
+--   local qs = dofile(os.getenv("HOME") .. "/.config/hypr/tide/layout.lua")
 --   qs.setup({})   -- or override M.defaults' keys
---   hl.config({ general = { layout = "lua:quickspace" } })
+--   hl.config({ general = { layout = "lua:tide" } })
 --   hl.bind("SUPER + period", qs.cycle_next)
 --
 -- The helpers dispatch `layoutmsg`s and then announce the new mode on the
--- IPC socket as `custom>>quickspace-layout>>WORKSPACE,MODE`, which the bar
+-- IPC socket as `custom>>tide-layout>>WORKSPACE,MODE`, which the bar
 -- follows. A workspace becoming active announces its mode too, so a bar
 -- that started after a mode changed learns it. They announce from a keybind
 -- or an event rather than from inside the layout callback, so no dispatch
@@ -23,7 +23,7 @@
 -- geometry.lua sits beside this file. If the debug library isn't loaded,
 -- fall back to where `make install` puts both.
 local here = debug and debug.getinfo(1, "S").source:match("^@(.*/)")
-    or (os.getenv("HOME") or "") .. "/.config/hypr/quickspace/"
+    or (os.getenv("HOME") or "") .. "/.config/hypr/tide/"
 local geometry = dofile(here .. "geometry.lua")
 
 local M = { geometry = geometry }
@@ -204,7 +204,7 @@ end
 local function layout_msg(ctx, msg)
     local id = workspace_id(ctx, true)
     if id == nil then
-        return "quickspace: no workspace"
+        return "tide: no workspace"
     end
     local st = state_for(id, ctx.area)
     local cmd, arg = msg:match("^%s*(%S+)%s*(.-)%s*$")
@@ -212,7 +212,7 @@ local function layout_msg(ctx, msg)
 
     if cmd == "mode" then
         if not index_of(geometry.modes, arg) then
-            return "quickspace: unknown mode '" .. tostring(arg) .. "'"
+            return "tide: unknown mode '" .. tostring(arg) .. "'"
         end
         set_mode(st, arg)
     elseif cmd == "next" or cmd == "prev" then
@@ -226,7 +226,7 @@ local function layout_msg(ctx, msg)
         local sign, num = arg:match("^([+-]?)([%d.]+)$")
         num = tonumber(num)
         if not num then
-            return "quickspace: mfact expects +d, -d or a value"
+            return "tide: mfact expects +d, -d or a value"
         end
         local v = sign == "+" and o.mfact + num or sign == "-" and o.mfact - num or num
         o.mfact = geometry.clamp(v, 0.1, 0.9)
@@ -239,7 +239,7 @@ local function layout_msg(ctx, msg)
     elseif cmd == "reset" then
         st.opts[st.mode] = copy(config.modes[st.mode])
     else
-        return "quickspace: expected mode, next, prev, monocle, mfact, addmaster, removemaster or reset"
+        return "tide: expected mode, next, prev, monocle, mfact, addmaster, removemaster or reset"
     end
     return true
 end
@@ -262,7 +262,7 @@ local function announce(id)
     id = id or active_workspace_id()
     local mode = M.mode(id)
     if id ~= nil and mode then
-        hl.dispatch(hl.dsp.event("quickspace-layout>>" .. tostring(id) .. "," .. mode))
+        hl.dispatch(hl.dsp.event("tide-layout>>" .. tostring(id) .. "," .. mode))
     end
 end
 
@@ -466,11 +466,11 @@ function M.setup(opts)
     local c = merge(M.defaults, opts)
     local err = validate(c)
     if err then
-        error("quickspace.setup: " .. err, 2)
+        error("tide.setup: " .. err, 2)
     end
     config = c
     workspaces = {}
-    hl.layout.register("quickspace", {
+    hl.layout.register("tide", {
         recalculate = recalculate,
         layout_msg = layout_msg,
     })

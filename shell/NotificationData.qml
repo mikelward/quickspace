@@ -34,7 +34,7 @@ Singleton {
     PersistentProperties {
         id: dndState
 
-        reloadableId: "quickspace-dnd"
+        reloadableId: "tide-dnd"
 
         property bool on: false
     }
@@ -68,12 +68,12 @@ Singleton {
             CloseRequested: NotificationCloseReason.CloseRequested
         })
 
-    // While M2's quickspace-shell runs swaync, the shell mustn't take
+    // While M2's tide-shell runs swaync, the shell mustn't take
     // org.freedesktop.Notifications from it: Quickshell claims the name
     // whenever it's free, as it is for a moment each time the theme daemon
     // restarts swaync. So the server is opt-in until M4 retires swaync
     // (TODO.md).
-    readonly property bool enabled: Quickshell.env("QUICKSPACE_NOTIFICATIONS") === "1"
+    readonly property bool enabled: Quickshell.env("TIDE_NOTIFICATIONS") === "1"
 
     // A popup's time starts when it shows, not when it's queued; one that
     // has gone loses its countdown.

@@ -1,16 +1,16 @@
-# The quickspace shell: bar, launcher, notifications, tray watcher and polkit
-# agent (SPEC.md §5.2-§5.4). Until the Quickshell shell exists, quickspace-shell
+# The tide shell: bar, launcher, notifications, tray watcher and polkit
+# agent (SPEC.md §5.2-§5.4). Until the Quickshell shell exists, tide-shell
 # runs the transitional owners (the bar, swaync, a polkit agent); see TODO.md.
 [Unit]
-Description=quickspace shell
+Description=tide shell
 Documentation=https://github.com/mikelward/quickspace
-# Scoped to the quickspace session. Plasma reaches graphical-session.target
+# Scoped to the tide session. Plasma reaches graphical-session.target
 # too, so this is never WantedBy= that.
 PartOf=graphical-session.target
-After=wayland-session@quickspace-hyprland.target graphical-session.target
+After=wayland-session@tide-hyprland.target graphical-session.target
 # hypridle owns org.freedesktop.ScreenSaver, which apps must find already
 # owned. Wants=, not Requires=: without hypridle the shell still starts, and
-# `quickspace doctor` reports it.
+# `tide doctor` reports it.
 Wants=hypridle.service
 After=hypridle.service
 # The owners the shell hosts exist before any autostarted app.
@@ -23,14 +23,14 @@ Before=xdg-desktop-autostart.target
 # alone (SPEC.md §5.2, §5.4).
 Type=notify
 NotifyAccess=all
-ExecStart=quickspace-shell
+ExecStart=tide-shell
 TimeoutStartSec=15
 Restart=on-failure
 RestartSec=1
-# quickspace-shell exits 78 (EX_CONFIG) for a bad setting or a missing piece,
+# tide-shell exits 78 (EX_CONFIG) for a bad setting or a missing piece,
 # which a restart can't fix.
 RestartPreventExitStatus=78
 Slice=session-graphical.slice
 
 [Install]
-WantedBy=wayland-session@quickspace-hyprland.target
+WantedBy=wayland-session@tide-hyprland.target

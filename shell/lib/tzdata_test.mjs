@@ -1,4 +1,4 @@
-// Tests for tzdata.mjs, against quickspace-tz output written out by hand.
+// Tests for tzdata.mjs, against tide-tz output written out by hand.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zoneTable, periodAt, offsetOf, abbrOf, refreshAt } from "./tzdata.mjs";

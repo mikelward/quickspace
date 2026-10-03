@@ -29,7 +29,7 @@ PanelWindow {
     }
     exclusionMode: ExclusionMode.Normal
     exclusiveZone: 0
-    WlrLayershell.namespace: "quickspace-notifications"
+    WlrLayershell.namespace: "tide-notifications"
     WlrLayershell.layer: WlrLayer.Overlay
     // The keyboard is its while it's open, so Escape always reaches it
     // (the bar in its focus grab takes no keyboard focus).
