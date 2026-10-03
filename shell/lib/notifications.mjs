@@ -212,7 +212,7 @@ export function nextDeadline(countdowns) {
 
 // Whether a notification shows while Do not disturb is on (§9): only a
 // critical one from a system sender gets through. The system senders are
-// the shell and the quickspace tools, which send as "quickspace" (the
+// the shell and the tide tools, which send as "tide" (the
 // battery warning among them), and polkit agents. Chrome marks every
 // requireInteraction web notification critical, so a critical one from
 // anyone else is held like the rest.
@@ -222,7 +222,7 @@ export function passesDnd(notification, URGENCY) {
     }
     return [notification.appName, notification.desktopEntry].some(name => {
         const id = (name ?? "").trim().toLowerCase();
-        return id === "quickspace" || id.includes("polkit");
+        return id === "tide" || id.includes("polkit");
     });
 }
 

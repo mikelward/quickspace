@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=quickspace
-Comment=Hyprland with the quickspace shell, managed by uwsm
-Exec=uwsm start -e -D quickspace:Hyprland -N quickspace -- quickspace-hyprland
-TryExec=uwsm
-Type=Application
-DesktopNames=quickspace;Hyprland

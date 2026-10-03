@@ -11,7 +11,7 @@ once you have agreed with it or reversed it.
       spec says it starts empty, but the bar's network and Bluetooth icons
       come from those applets' autostart entries until the shell draws them
       (M3). Emptying it is a one-line change to `autostart_default` in
-      `bin/quickspace`.
+      `bin/tide`.
 - [ ] **A marked window's icon stays in view past five windows.** SPEC.md
       §7.2 shows five icons then `+n`; when a ringed (urgent) window would
       be past the fifth, it takes a place ahead of unmarked windows, so the
@@ -96,7 +96,7 @@ once you have agreed with it or reversed it.
       D-Bus API). Quickshell 0.3's `PowerProfiles` has no "available" flag,
       so without the daemon the rows still show and choosing one only logs
       a warning. The alternatives are hiding the rows when the D-Bus name
-      has no owner, or having `setup --quickspace` install the daemon. It's
+      has no owner, or having `setup --tide` install the daemon. It's
       `shell/BatteryPopover.qml`.
 - [ ] **The DST sentence names clocks by their bar labels.** SPEC.md §7.3's
       example says "London moves to GMT"; `dst.mjs` says "LON moves to GMT",
@@ -118,10 +118,10 @@ once you have agreed with it or reversed it.
 
 ## Transitional shell (M2)
 
-`quickspace.service` runs `bin/quickspace-shell`, not `qs -c quickspace`,
+`tide.service` runs `bin/tide-shell`, not `qs -c tide`,
 because the Quickshell shell can't be built or tested in the sandbox and the
 MVP comes first. The bar and tray watcher are the Quickshell shell's
-(`qs -c quickspace`) when it's installed, else waybar's; swaync (notifications)
+(`qs -c tide`) when it's installed, else waybar's; swaync (notifications)
 is run by `conf`'s theme daemon, as waybar is when that's the bar; plus the
 first polkit agent found and swww for the wallpaper (swaybg where swww isn't
 packaged). It also runs
@@ -130,7 +130,7 @@ packaged). It also runs
 
 - Replace it piece by piece as M3 (bar, launcher) and M4 (notifications)
   land: each Quickshell owner joins the shell's ready check, and its old
-  owner leaves `quickspace-shell`.
+  owner leaves `tide-shell`.
 - Until then the polkit agent isn't part of the ready check, and the tray
   and notifications look like today's, not the mocks.
 - The polkit agent is restarted on its own, with backoff, rather than
@@ -148,10 +148,10 @@ packaged). It also runs
   SPEC.md §14.1); after a click it waits for `Super+Tab`, and there's no
   **Authenticate** notification yet. Both come with the Quickshell agent.
 - The Quickshell bar marks the windows the focus guard leaves waiting
-  (`quickspace-attention`, in `shell/MarkData.qml`), and it's now the bar
+  (`tide-attention`, in `shell/MarkData.qml`), and it's now the bar
   wherever Quickshell is installed. The guard shows a Hyprland notification
   for each only until the bar first calls `set_order`, so under
-  `QUICKSPACE_BAR=waybar`, which can't mark them, it still does. Drop
+  `TIDE_BAR=waybar`, which can't mark them, it still does. Drop
   `notify` once waybar goes.
 - The theme daemon restarts swaync at each light/dark boundary (and waybar,
   when it's the bar); the Quickshell bar changes theme in place.
@@ -179,9 +179,9 @@ tested where it can be without a live session.
   is news. If that turns out noisy, keep a focused notification cleared
   until it's dismissed. Agreed with the maintainer; it's the `notified`
   and `focused` cases of `updateMarks` in `shell/lib/workspaces.mjs`.
-- The tzdata reader is `cmd/quickspace-tz`, and `shell/lib/tzdata.mjs` turns
+- The tzdata reader is `cmd/tide-tz`, and `shell/lib/tzdata.mjs` turns
   its output into the clocks' lookups and the time of the next re-run.
-- The bar itself is `shell/*.qml` (`qs -c quickspace`): one panel per
+- The bar itself is `shell/*.qml` (`qs -c tide`): one panel per
   monitor with the workspaces and clocks. It has only been parsed with
   `qmlformat`, not run, since Quickshell can't run in the sandbox. Next:
   - Try it on a real session, beside waybar.
@@ -195,7 +195,7 @@ tested where it can be without a live session.
   - `updateMarks` is fed the focus guard's events (`shell/MarkData.qml`,
     via `markEvent`), Hyprland's urgent flag and `urgent` events, and
     notifications' events while the shell is the notification server
-    (`QUICKSPACE_NOTIFICATIONS=1`). On a live session, check:
+    (`TIDE_NOTIFICATIONS=1`). On a live session, check:
     - that the Lua side's addresses match Quickshell's
       (`normalizeAddress` takes either form);
     - which window classes the apps in use give, against the desktop
@@ -236,7 +236,7 @@ tested where it can be without a live session.
   - The tray (`shell/Tray.qml`, from `shell/lib/tray.mjs`) shows apps'
     StatusNotifierItems, hiding passive ones as waybar did: a left or
     right click opens the menu (§7.4), and a middle click activates.
-    With it the Quickshell bar replaced waybar in `quickspace-shell`.
+    With it the Quickshell bar replaced waybar in `tide-shell`.
     Try it live: an app's menu, and an app that registers before the bar.
   - The clocks popover (§7.3) is `shell/ClocksPopover.qml`, from
     `shell/lib/popover.mjs` and `shell/lib/dst.mjs`. Scrolling over the
@@ -245,30 +245,30 @@ tested where it can be without a live session.
 ## Notifications (M4)
 
 SPEC.md §9. So far the shell has the server and the popups. They're
-opt-in, with `QUICKSPACE_NOTIFICATIONS=1`, until swaync retires: Quickshell
+opt-in, with `TIDE_NOTIFICATIONS=1`, until swaync retires: Quickshell
 claims `org.freedesktop.Notifications` whenever the name is free, and it's
 free for a moment each time the theme daemon restarts swaync, so an
 always-on server would take it over by accident. `shell/NotificationData.qml`
 holds the queue, and
 `shell/NotificationPopups.qml` draws it on the focused monitor, from
 `shell/lib/notifications.mjs`. A click grants focus to the sender's app
-(`quickspace grant`) before invoking the action. Only parsed with
+(`tide grant`) before invoking the action. Only parsed with
 `qmlformat`; nothing has run in a live session. Still to do:
 
 - Try it on a real session: stop swaync, run the shell with
-  `QUICKSPACE_NOTIFICATIONS=1`, and check Chrome's notifications, a reply,
+  `TIDE_NOTIFICATIONS=1`, and check Chrome's notifications, a reply,
   and that a click brings up the right window.
 - When a click's app sends no activation within 10 s and already has
   windows, focus its most recently focused one (§9).
 - History: the center (`shell/NotificationCenter.qml`), the bell, and
   `notifications.json` (`shell/HistoryData.qml`, `shell/lib/history.mjs`)
   are in, behind the same opt-in; only parsed with `qmlformat`. Still to
-  do: `Super+Shift+N` in `conf` (`qs -c quickspace ipc call notifications
+  do: `Super+Shift+N` in `conf` (`qs -c tide ipc call notifications
   toggle`, falling back to swaync's panel while the call fails); a click on
   an entry, which could run a live notification's default action; then
   advertise `persistence` (`persistenceSupported`), which §9 lists.
 - Do not disturb: manual DND is in (the center's tile, the bell's
-  middle-click, and `qs -c quickspace ipc call notifications dnd`), with
+  middle-click, and `qs -c tide ipc call notifications dnd`), with
   only system senders' criticals getting through (`passesDnd` in
   `shell/lib/notifications.mjs`); only parsed with `qmlformat`. Popups
   are also held while a share is live (`shell/ShareData.qml`,
@@ -281,9 +281,9 @@ holds the queue, and
   the same. The pill itself is `shell/SharingPill.qml`. On a live
   session, check that Chrome's consumer link reads as active.
 - Keep popups out of screen shares: a `no_screen_share` layer rule for the
-  `quickspace-notifications` namespace in `conf`.
+  `tide-notifications` namespace in `conf`.
 - Retire swaync: the shell owns the name, joins the ready check, and
-  `quickspace-shell` stops starting it; drop the opt-in.
+  `tide-shell` stops starting it; drop the opt-in.
 
 ## OSD (M4)
 
@@ -292,15 +292,15 @@ SPEC.md §9's OSD is `shell/Osd.qml`, from `shell/OsdData.qml` and
 default input's mute, from any source. Only parsed with `qmlformat`. Still
 to do:
 
-- Brightness shows through `quickspace brightness STEP`, which the keys in
+- Brightness shows through `tide brightness STEP`, which the keys in
   `conf` run, and the shell's `osd` `IpcHandler`.
 - Try it on a real session: the volume and brightness keys, the bar's
   scroll and the volume popover should each show it, and switching
   outputs or hypridle dimming shouldn't.
 
-## The rest of `quickspace doctor`
+## The rest of `tide doctor`
 
-M2's `quickspace doctor` (`bin/quickspace-doctor`) checks units, D-Bus
+M2's `tide doctor` (`bin/tide-doctor`) checks units, D-Bus
 owners, duplicate and rival daemons, the portal config, Hyprland's config
 errors, autostart entries, and a second bar on any monitor. SPEC.md §5.4
 also wants:
@@ -308,7 +308,7 @@ also wants:
 - **Bars by a better signal than geometry.** `hyprctl layers` has no
   anchors or exclusive zones, so the bar check guesses from position and
   size, and misses a second bar narrower than half the monitor rather than
-  report every notification as a bar. Once quickspace's own bar exists
+  report every notification as a bar. Once tide's own bar exists
   (M3), count bars by the exclusive zones Hyprland reserves, or have the
   shell report its own.
 - **Activatable services that could steal a name.** In M2 swaync's own
@@ -318,14 +318,14 @@ also wants:
 
 ## Grants for terminal commands
 
-Every shell in `conf` runs `quickspace-grant` (SPEC.md §14.3) before a
+Every shell in `conf` runs `tide-grant` (SPEC.md §14.3) before a
 command except mesh, which waits until `conf` tests it (tracked in `conf`'s
 TODO.md). Nothing has run it in a live session yet.
 
 ## Grants through desktop entries
 
 The focus guard matches a grant against the window class alone (SPEC.md
-§14.3). `quickspace launch xdg-open URL` or `gio open FILE` would grant
+§14.3). `tide launch xdg-open URL` or `gio open FILE` would grant
 `xdg-open` or `gio`, which no window has, leaving the opened app unfocused.
 Until the launcher's desktop-entry index exists (M3), such a launch grants
 `*` (the first window of any app) unless `--app` names the app. Then resolve
@@ -355,7 +355,7 @@ Deferred: it needs a Hyprland patch, and the MVP comes first.
 
 - Floating windows already resize with `Super`+right-drag or by dragging an
   edge. Under the master fallback, dragging a tiled window changes `mfact`.
-- Under `lua:quickspace` a drag does nothing. Hyprland 0.56 drops it before it
+- Under `lua:tide` a drag does nothing. Hyprland 0.56 drops it before it
   reaches a Lua layout: `CLuaTiledAlgorithm::resizeTarget`
   (`src/config/lua/layout/LuaLayoutProvider.cpp`) ignores the delta and only
   recalculates.
@@ -384,12 +384,12 @@ Deferred: it needs a Hyprland patch, and the MVP comes first.
 ## Compositor: explore a dwl fork (SPEC.md §21.1)
 
 Hyprland stays the baseline, but building it on Debian and Ubuntu is heavy,
-so §21.1 records a quickspace fork of dwl on a pinned wlroots as the
+so §21.1 records a tide fork of dwl on a pinned wlroots as the
 alternative. The fork's code goes in
 [mikelward/dwl](https://github.com/mikelward/dwl), which holds upstream's
-history; quickspace's changes go on top of v0.9 there. Before rewriting §3.1 around it, work through §21.1's next steps:
+history; tide's changes go on top of v0.9 there. Before rewriting §3.1 around it, work through §21.1's next steps:
 
-- Screen sharing through `quickspace-share-picker` on xdg-desktop-portal-wlr,
+- Screen sharing through `tide-share-picker` on xdg-desktop-portal-wlr,
   with an adapter, including a way to share the 16:9 slice.
 - `grim -T` on a dwl build that exposes the toplevel-capture protocols.
 - Re-check Debian 13's toolchain.
@@ -398,20 +398,20 @@ history; quickspace's changes go on top of v0.9 there. Before rewriting §3.1 ar
 
 If the fork is adopted, machines build a pinned release tag, never a branch:
 
-- **Tags.** `quickspace-<upstream base>-<n>`, cut from the fork's `main`
-  once it is in a state to run (`quickspace-0.9-1` is dwl 0.9 plus our
+- **Tags.** `tide-<upstream base>-<n>`, cut from the fork's `main`
+  once it is in a state to run (`tide-0.9-1` is dwl 0.9 plus our
   changes, release 1). Upstream's own `v*` tags stay as they are, so a tag
   says at a glance whether it carries our code and which base it sits on.
   Moving to a new upstream release rebases our changes onto it and starts
-  the count again (`quickspace-0.10-1`).
-- **`setup-quickspace` pins one.** A line in the same shape as the Hyprland
-  pins, `dwl https://github.com/mikelward/dwl.git quickspace-0.9-1 make`,
+  the count again (`tide-0.10-1`).
+- **`setup-tide` pins one.** A line in the same shape as the Hyprland
+  pins, `dwl https://github.com/mikelward/dwl.git tide-0.9-1 make`,
   so every machine builds the same reviewed code, and moving them all is a
   one-line scripts pull request that CI checks first. Not `main`, which
   moves under a later run; not `v0.9`, which is upstream's code without
   ours.
 - **Protection.** `main` gets the fleet ruleset from `repo setup`, like
-  every other repository. A tag ruleset makes `quickspace-*` and `v*`
+  every other repository. A tag ruleset makes `tide-*` and `v*`
   immutable, since a moved tag would silently change what machines build.
   The repository is public, so nothing secret ever goes in it, on any
   branch: per-machine settings stay in an untracked local file.

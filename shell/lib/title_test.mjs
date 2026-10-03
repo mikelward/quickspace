@@ -3,12 +3,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MAX_TITLE, barTitle, barWindow, focusReached, shownWorkspace, hasFocus, titleWidth } from "./title.mjs";
 
-const editor = { address: "abc", workspace: 2, monitor: "DP-1", title: "SPEC.md - quickspace" };
+const editor = { address: "abc", workspace: 2, monitor: "DP-1", title: "SPEC.md - tide" };
 const chat = { address: "def", workspace: 5, monitor: "DP-2", title: "Chat" };
 const windows = [editor, chat];
 
 test("the focused monitor shows the focused window's title", () => {
-    assert.equal(barTitle({ monitor: "DP-1", workspace: 2, active: editor, lastWindow: "0xdef", windows }), "SPEC.md - quickspace");
+    assert.equal(barTitle({ monitor: "DP-1", workspace: 2, active: editor, lastWindow: "0xdef", windows }), "SPEC.md - tide");
 });
 
 test("another monitor shows its own workspace's last focused window", () => {
@@ -34,7 +34,7 @@ test("a special workspace's title is its own, focused or not", () => {
 test("any focused window on this monitor shows: under a special workspace, or pinned", () => {
     const scratch = { address: "123", workspace: -98, monitor: "DP-1", title: "Scratchpad" };
     const all = [...windows, scratch];
-    assert.equal(barTitle({ monitor: "DP-1", workspace: -98, active: editor, lastWindow: "0x123", windows: all }), "SPEC.md - quickspace", "under the special workspace");
+    assert.equal(barTitle({ monitor: "DP-1", workspace: -98, active: editor, lastWindow: "0x123", windows: all }), "SPEC.md - tide", "under the special workspace");
     // A pinned window still reports the workspace it came from.
     const pip = { address: "777", workspace: 3, monitor: "DP-1", title: "Picture in picture" };
     assert.equal(barTitle({ monitor: "DP-1", workspace: 2, active: pip, lastWindow: "0xabc", windows: [...all, pip] }), "Picture in picture", "pinned");
@@ -86,12 +86,12 @@ test("the title keeps clear of the nearer side, the Sharing pill included", () =
 
 test("the bar's title stands for a window a double-click can maximize", () => {
     const windows = [
-        { address: "0xabc", workspace: 2, title: "SPEC.md - quickspace" },
+        { address: "0xabc", workspace: 2, title: "SPEC.md - tide" },
         { address: "0xdef", workspace: 5, title: "Chat" },
     ];
-    const editor = { monitor: "DP-1", address: "0xABC", title: "SPEC.md - quickspace" };
+    const editor = { monitor: "DP-1", address: "0xABC", title: "SPEC.md - tide" };
     // The focused window, on its own monitor.
-    assert.deepEqual(barWindow({ monitor: "DP-1", workspace: 2, active: editor, lastWindow: "0xabc", windows }), { address: "abc", title: "SPEC.md - quickspace" });
+    assert.deepEqual(barWindow({ monitor: "DP-1", workspace: 2, active: editor, lastWindow: "0xabc", windows }), { address: "abc", title: "SPEC.md - tide" });
     // Another monitor's last focused window.
     assert.deepEqual(barWindow({ monitor: "DP-2", workspace: 5, active: editor, lastWindow: "0xdef", windows }), { address: "def", title: "Chat" });
     // Nothing to maximize on an empty workspace.

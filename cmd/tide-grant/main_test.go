@@ -119,17 +119,17 @@ func TestLuaString(t *testing.T) {
 	}
 }
 
-func TestInQuickspace(t *testing.T) {
+func TestInTide(t *testing.T) {
 	for desktops, want := range map[string]bool{
-		"quickspace:Hyprland": true,
-		"Hyprland:quickspace": true,
-		"quickspace":          true,
+		"tide:Hyprland": true,
+		"Hyprland:tide": true,
+		"tide":          true,
 		"KDE":                 false,
-		"quickspace2":         false,
+		"tide2":         false,
 		"":                    false,
 	} {
-		if got := inQuickspace(desktops); got != want {
-			t.Errorf("inQuickspace(%q) = %v, want %v", desktops, got, want)
+		if got := inTide(desktops); got != want {
+			t.Errorf("inTide(%q) = %v, want %v", desktops, got, want)
 		}
 	}
 }
@@ -163,12 +163,12 @@ func readLog(t *testing.T, log string) string {
 func TestRun(t *testing.T) {
 	log, path := fakeHyprctl(t, "ok")
 	t.Setenv("PATH", path) // exec.Command finds hyprctl through the real PATH
-	env := []string{"PATH=" + path, "XDG_CURRENT_DESKTOP=quickspace:Hyprland"}
+	env := []string{"PATH=" + path, "XDG_CURRENT_DESKTOP=tide:Hyprland"}
 	var stderr bytes.Buffer
 	if status := run([]string{"--pid", "4242", "--", "nautilus ."}, env, &stderr); status != 0 {
 		t.Fatalf("run = %d, stderr %q", status, stderr.String())
 	}
-	if got, want := readLog(t, log), `eval quickspace_focus.grant("nautilus", 4242)`; got != want {
+	if got, want := readLog(t, log), `eval tide_focus.grant("nautilus", 4242)`; got != want {
 		t.Errorf("hyprctl got %q, want %q", got, want)
 	}
 	if status := run([]string{"--pid=7", "nautilus ."}, env, &stderr); status != 0 {
@@ -184,23 +184,23 @@ func TestRun(t *testing.T) {
 func TestRunGrantsThePidAlone(t *testing.T) {
 	log, path := fakeHyprctl(t, "ok")
 	t.Setenv("PATH", path)
-	env := []string{"PATH=" + path, "XDG_CURRENT_DESKTOP=quickspace"}
+	env := []string{"PATH=" + path, "XDG_CURRENT_DESKTOP=tide"}
 	var stderr bytes.Buffer
 	if status := run([]string{"--pid", "4242", "cd /tmp && nautilus ."}, env, &stderr); status != 0 {
 		t.Fatalf("run = %d, stderr %q", status, stderr.String())
 	}
-	if got, want := readLog(t, log), "eval quickspace_focus.grant(nil, 4242)"; got != want {
+	if got, want := readLog(t, log), "eval tide_focus.grant(nil, 4242)"; got != want {
 		t.Errorf("hyprctl got %q, want %q", got, want)
 	}
 }
 
-func TestRunOutsideQuickspace(t *testing.T) {
+func TestRunOutsideTide(t *testing.T) {
 	log, path := fakeHyprctl(t, "ok")
 	t.Setenv("PATH", path)
 	var stderr bytes.Buffer
 	status := run([]string{"nautilus ."}, []string{"PATH=" + path, "XDG_CURRENT_DESKTOP=KDE"}, &stderr)
 	if status != 0 || readLog(t, log) != "" {
-		t.Errorf("run outside quickspace = %d, hyprctl log %q", status, readLog(t, log))
+		t.Errorf("run outside tide = %d, hyprctl log %q", status, readLog(t, log))
 	}
 }
 
@@ -208,7 +208,7 @@ func TestRunReportsARejectedGrant(t *testing.T) {
 	_, path := fakeHyprctl(t, "error: attempt to index a nil value")
 	t.Setenv("PATH", path)
 	var stderr bytes.Buffer
-	status := run([]string{"nautilus ."}, []string{"PATH=" + path, "XDG_CURRENT_DESKTOP=quickspace"}, &stderr)
+	status := run([]string{"nautilus ."}, []string{"PATH=" + path, "XDG_CURRENT_DESKTOP=tide"}, &stderr)
 	if status != 1 {
 		t.Errorf("run = %d, want 1", status)
 	}
@@ -224,7 +224,7 @@ func TestRunReportsNoHyprctl(t *testing.T) {
 	}
 	t.Setenv("PATH", dir)
 	var stderr bytes.Buffer
-	status := run([]string{"nautilus"}, []string{"PATH=" + dir, "XDG_CURRENT_DESKTOP=quickspace"}, &stderr)
+	status := run([]string{"nautilus"}, []string{"PATH=" + dir, "XDG_CURRENT_DESKTOP=tide"}, &stderr)
 	if status != 1 || !strings.Contains(stderr.String(), "hyprctl") {
 		t.Errorf("run without hyprctl = %d, stderr %q", status, stderr.String())
 	}

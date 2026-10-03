@@ -6,7 +6,7 @@ import "lib/tray.mjs" as Tray
 
 // Third-party tray icons (SPEC.md §7.4): apps' StatusNotifierItems. Using
 // SystemTray makes the shell the org.kde.StatusNotifierWatcher, which
-// quickspace-shell waits for before the session's apps start. A left or
+// tide-shell waits for before the session's apps start. A left or
 // right click opens the app's menu (§7.4), a middle click activates the
 // app, and scrolling goes to the app.
 Row {

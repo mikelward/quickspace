@@ -1,6 +1,6 @@
-// Command quickspace-tz reads tzdata for the bar's clocks (SPEC.md §7.3).
+// Command tide-tz reads tzdata for the bar's clocks (SPEC.md §7.3).
 //
-//	quickspace-tz [--from RFC3339] [--days N] ZONE...
+//	tide-tz [--from RFC3339] [--days N] ZONE...
 //
 // It prints JSON on stdout: for the local zone and each ZONE, the periods of
 // constant offset from --from (default now) for --days days (default 400),
@@ -78,7 +78,7 @@ type output struct {
 }
 
 func run(args []string, stdout, stderr io.Writer, now time.Time, local *time.Location, n names) int {
-	flags := flag.NewFlagSet("quickspace-tz", flag.ContinueOnError)
+	flags := flag.NewFlagSet("tide-tz", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	from := flags.String("from", "", "the `RFC3339` time to start at (default now)")
 	days := flags.Int("days", 400, "how many `days` of periods to list")
@@ -89,13 +89,13 @@ func run(args []string, stdout, stderr io.Writer, now time.Time, local *time.Loc
 	if *from != "" {
 		t, err := time.Parse(time.RFC3339, *from)
 		if err != nil {
-			fmt.Fprintf(stderr, "quickspace-tz: --from: %v\n", err)
+			fmt.Fprintf(stderr, "tide-tz: --from: %v\n", err)
 			return 2
 		}
 		start = t
 	}
 	if *days < 1 || *days > 3660 {
-		fmt.Fprintln(stderr, "quickspace-tz: --days must be from 1 to 3660")
+		fmt.Fprintln(stderr, "tide-tz: --days must be from 1 to 3660")
 		return 2
 	}
 	end := start.Add(time.Duration(*days) * 24 * time.Hour)
@@ -117,7 +117,7 @@ func run(args []string, stdout, stderr io.Writer, now time.Time, local *time.Loc
 		out.Zones = append(out.Zones, describe(name, start, end))
 	}
 	if err := json.NewEncoder(stdout).Encode(out); err != nil {
-		fmt.Fprintf(stderr, "quickspace-tz: %v\n", err)
+		fmt.Fprintf(stderr, "tide-tz: %v\n", err)
 		return 1
 	}
 	return 0

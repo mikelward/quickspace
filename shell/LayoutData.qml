@@ -5,7 +5,7 @@ import Quickshell
 import Quickshell.Hyprland
 import "lib/layouts.mjs" as Layouts
 
-// Each workspace's layout mode as hypr/quickspace/layout.lua announces it
+// Each workspace's layout mode as hypr/tide/layout.lua announces it
 // (SPEC.md §6.1). A workspace not heard from yet isn't in `modes`; the bar
 // shows the layout's default for it.
 Singleton {

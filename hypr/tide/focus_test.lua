@@ -1,5 +1,5 @@
 -- Tests for focus.lua (SPEC.md §14.1). Plain Lua (5.4 or 5.5):
--- `lua hypr/quickspace/focus_test.lua` from the repo root. focus.lua runs
+-- `lua hypr/tide/focus_test.lua` from the repo root. focus.lua runs
 -- against a stub of the Hyprland `hl` API that records its rules, handlers
 -- and dispatches, with a clock the tests drive.
 
@@ -33,7 +33,7 @@ local now
 local function load(opts)
     S = { rules = {}, handlers = {}, dispatched = {}, notified = {}, active = nil }
     now = 1000
-    _G.quickspace_focus = nil
+    _G.tide_focus = nil
     _G.hl = {
         window_rule = function(r) table.insert(S.rules, r) end,
         on = function(ev, fn) S.handlers[ev] = fn end,
@@ -75,7 +75,7 @@ local function is_focus(d, w)
 end
 
 local function is_attention(d, w)
-    return d and d.dsp == "event" and d.args == "quickspace-attention>>" .. w.address
+    return d and d.dsp == "event" and d.args == "tide-attention>>" .. w.address
 end
 
 test("every window opens unfocused, so a failing guard never steals", function()
@@ -85,9 +85,9 @@ test("every window opens unfocused, so a failing guard never steals", function()
     eq(S.rules[1].match.class, ".*", "matches every window")
 end)
 
-test("setup publishes the module for quickspace launch", function()
+test("setup publishes the module for tide launch", function()
     local m = load()
-    eq(_G.quickspace_focus, m, "quickspace_focus")
+    eq(_G.tide_focus, m, "tide_focus")
 end)
 
 test("setup rejects an unknown or bad option", function()
@@ -544,8 +544,8 @@ end
 local function events(dispatched)
     local out = {}
     for _, d in ipairs(dispatched) do
-        if d.dsp == "event" and d.args:find("^quickspace%-cycle>>") then
-            table.insert(out, (d.args:gsub("^quickspace%-cycle>>", "")))
+        if d.dsp == "event" and d.args:find("^tide%-cycle>>") then
+            table.insert(out, (d.args:gsub("^tide%-cycle>>", "")))
         end
     end
     return table.concat(out, " ")

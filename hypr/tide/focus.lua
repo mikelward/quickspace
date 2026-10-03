@@ -1,4 +1,4 @@
--- quickspace focus guard for Hyprland 0.56+ (SPEC.md §14).
+-- tide focus guard for Hyprland 0.56+ (SPEC.md §14).
 --
 -- Nothing steals the keyboard. A catch-all `no_initial_focus` rule opens
 -- every window unfocused, and the guard then focuses the ones you asked for:
@@ -8,13 +8,13 @@
 --     a window it already had, while its one-shot launch grant holds.
 --
 -- Anything else stays where it opened, dimmed, and is announced on the event
--- socket as `custom>>quickspace-attention>>ADDRESS` for the shell to mark.
+-- socket as `custom>>tide-attention>>ADDRESS` for the shell to mark.
 -- Lua can't set Hyprland's urgent flag, so the guard also keeps these
 -- windows itself. Until a shell has marked them (it calls `set_order`, as
--- quickspace's Quickshell bar does at startup; waybar never does), each
+-- tide's Quickshell bar does at startup; waybar never does), each
 -- also shows a Hyprland notification (`notify`).
 --
--- `quickspace_focus.focus_attention()` (Super+Tab) goes to the latest
+-- `tide_focus.focus_attention()` (Super+Tab) goes to the latest
 -- marked window: one the guard kept waiting, an activation without a grant,
 -- or one the shell marks for a notification. The shell sees every kind, so
 -- its order rules (`set_order`); without a shell, the guard's own does.
@@ -22,19 +22,19 @@
 -- while Super is held, it steps to the next one, Alt+Tab style, without
 -- clearing anything; `end_cycle()`, bound to Super's release, clears only
 -- the window it landed on. The shell hears the cycle as
--- `custom>>quickspace-cycle>>start` and `custom>>quickspace-cycle>>end>>ADDRESS`,
+-- `custom>>tide-cycle>>start` and `custom>>tide-cycle>>end>>ADDRESS`,
 -- and keeps its marks while the cycle steps through them.
 -- If the guard itself fails, windows still open unfocused: the failure mode
 -- is "never steals", not "always steals".
 --
 -- Usage, from hyprland.lua:
 --
---   local focus = dofile(os.getenv("HOME") .. "/.config/hypr/quickspace/focus.lua")
+--   local focus = dofile(os.getenv("HOME") .. "/.config/hypr/tide/focus.lua")
 --   focus.setup({})
 --
--- setup() also publishes the module as the global `quickspace_focus`, so
--- `quickspace launch` can record a grant with
--- `hyprctl eval 'quickspace_focus.grant("APP")'`.
+-- setup() also publishes the module as the global `tide_focus`, so
+-- `tide launch` can record a grant with
+-- `hyprctl eval 'tide_focus.grant("APP")'`.
 --
 -- Known gaps, from SPEC.md §14.3: Lua sees key presses but not pointer
 -- buttons, so a click inside the window you're already in doesn't cancel a
@@ -299,7 +299,7 @@ local function announce(w)
     if not address then
         return
     end
-    hl.dispatch(hl.dsp.event("quickspace-attention>>" .. address))
+    hl.dispatch(hl.dsp.event("tide-attention>>" .. address))
     -- A shell that marks waiting windows has said so by giving its order;
     -- one that stops after that leaves the guard quiet until a reload.
     if state.opts.notify and not state.shell_order then
@@ -351,7 +351,7 @@ local function unlist(address)
 end
 
 local function cycle_event(text)
-    hl.dispatch(hl.dsp.event("quickspace-cycle>>" .. text))
+    hl.dispatch(hl.dsp.event("tide-cycle>>" .. text))
 end
 
 -- The cycle is over, on the window at `address` (nil for none): that one
@@ -421,7 +421,7 @@ function M.on_urgent(w)
     -- window, and the bar should keep the mark until the cycle ends there.
     local address = wait(w)
     if address then
-        hl.dispatch(hl.dsp.event("quickspace-attention>>" .. address))
+        hl.dispatch(hl.dsp.event("tide-attention>>" .. address))
     end
 end
 
@@ -496,12 +496,12 @@ end
 -- from then on, replacing the last list.
 function M.set_order(addresses)
     if type(addresses) ~= "table" then
-        error("quickspace_focus.set_order: expected a list of addresses, got " .. tostring(addresses), 2)
+        error("tide_focus.set_order: expected a list of addresses, got " .. tostring(addresses), 2)
     end
     local order = {}
     for _, address in ipairs(addresses) do
         if type(address) ~= "string" or key(address) == "" then
-            error("quickspace_focus.set_order: expected window addresses, got " .. tostring(address), 2)
+            error("tide_focus.set_order: expected window addresses, got " .. tostring(address), 2)
         end
         table.insert(order, "0x" .. key(address))
     end
@@ -513,7 +513,7 @@ end
 -- restarted missed the first announcements.
 function M.announce_waiting()
     for _, address in ipairs(state.waiting) do
-        hl.dispatch(hl.dsp.event("quickspace-attention>>" .. address))
+        hl.dispatch(hl.dsp.event("tide-attention>>" .. address))
     end
 end
 
@@ -555,25 +555,25 @@ function M.on_key(_, _, key_state)
     end
 end
 
--- Records a one-shot grant for app, from `quickspace launch`, a
--- notification click, or quickspace-grant before each shell command.
--- pid, if given, is the process that asked (quickspace-grant passes its
+-- Records a one-shot grant for app, from `tide launch`, a
+-- notification click, or tide-grant before each shell command.
+-- pid, if given, is the process that asked (tide-grant passes its
 -- shell's), which lets a window from it or one of its descendants use the
 -- grant. With a pid, app may be nil: a command whose app the shell can't
 -- name still gets its windows focused, through ancestry alone.
 function M.grant(app, pid)
     if pid ~= nil and (math.type(pid) ~= "integer" or pid <= 1) then
-        error("quickspace_focus.grant: expected a process id, got " .. tostring(pid), 2)
+        error("tide_focus.grant: expected a process id, got " .. tostring(pid), 2)
     end
     local id = normalize(app)
     if not id and not (app == nil and pid) then
-        error("quickspace_focus.grant: expected an app id, got " .. tostring(app), 2)
+        error("tide_focus.grant: expected an app id, got " .. tostring(app), 2)
     end
     expire()
     table.insert(state.grants, { app = id, at = M.clock(), pid = pid })
 end
 
--- For the tests and `quickspace doctor`.
+-- For the tests and `tide doctor`.
 function M.grants()
     expire()
     local out = {}
@@ -591,12 +591,12 @@ function M.setup(opts)
     end
     for k, v in pairs(opts) do
         if M.defaults[k] == nil then
-            error("quickspace focus.setup: " .. tostring(k) .. " is not an option", 2)
+            error("tide focus.setup: " .. tostring(k) .. " is not an option", 2)
         end
         -- NaN fails `v > 0`, and infinity would never expire.
         if type(v) ~= type(M.defaults[k]) or (type(v) == "number" and not (v > 0 and v < math.huge)) then
             local want = type(M.defaults[k]) == "number" and "a positive number" or "a " .. type(M.defaults[k])
-            error("quickspace focus.setup: " .. tostring(k) .. " must be " .. want, 2)
+            error("tide focus.setup: " .. tostring(k) .. " must be " .. want, 2)
         end
         if type(v) == "table" then
             -- n keys, each of 1..n present, means exactly 1..n; `#` alone
@@ -607,13 +607,13 @@ function M.setup(opts)
             end
             for i = 1, count do
                 if v[i] == nil then
-                    error("quickspace focus.setup: " .. tostring(k) .. " must be a list, with no keys or gaps", 2)
+                    error("tide focus.setup: " .. tostring(k) .. " must be a list, with no keys or gaps", 2)
                 end
             end
             for i = 1, count do
                 local item = v[i]
                 if type(item) ~= "string" or item == "" then
-                    error("quickspace focus.setup: " .. tostring(k) .. " must list window classes", 2)
+                    error("tide focus.setup: " .. tostring(k) .. " must list window classes", 2)
                 end
             end
         end
@@ -631,13 +631,13 @@ function M.setup(opts)
         state.active = active_record(w)
     end
 
-    hl.window_rule({ name = "quickspace-focus-guard", match = { class = ".*" }, no_initial_focus = true })
+    hl.window_rule({ name = "tide-focus-guard", match = { class = ".*" }, no_initial_focus = true })
     hl.on("window.open", M.on_open)
     hl.on("window.urgent", M.on_urgent)
     hl.on("window.active", M.on_active)
     hl.on("window.close", M.on_close)
     hl.on("input.keyboard.key", M.on_key)
-    _G.quickspace_focus = M
+    _G.tide_focus = M
     return M
 end
 

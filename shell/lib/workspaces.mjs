@@ -141,7 +141,7 @@ export function updateMarks(marks, event) {
 }
 
 // Whether a window class and a notification's app name the same app, as
-// the focus guard matches them (hypr/quickspace/focus.lua's same_id):
+// the focus guard matches them (hypr/tide/focus.lua's same_id):
 // case-insensitively, without a `.desktop` suffix, and with a bare name
 // matching the last part of a qualified one, so `nautilus` matches
 // `org.gnome.Nautilus`, while `org.example.chat` and `com.example.chat`
@@ -187,28 +187,28 @@ export function normalizeAddress(address) {
 }
 
 // The mark event a Hyprland socket event means, or null: the focus guard
-// keeping a window from focus (custom>>quickspace-attention>>ADDRESS,
+// keeping a window from focus (custom>>tide-attention>>ADDRESS,
 // SPEC.md §14.3), a window being focused, one closing, a window asking for
 // focus (`urgent`, which the QML turns into activatedEvent once it knows
 // the window's app), Super+Tab's cycle starting or ending
-// (custom>>quickspace-cycle>>start, custom>>quickspace-cycle>>end>>ADDRESS),
+// (custom>>tide-cycle>>start, custom>>tide-cycle>>end>>ADDRESS),
 // or a config reload rebuilding the guard.
 // Notifications' events come from the notification server instead.
 export function markEvent(name, data) {
     if (name === "configreloaded") {
         return { type: "guardReset" };
     }
-    if (name === "custom" && String(data) === "quickspace-cycle>>start") {
+    if (name === "custom" && String(data) === "tide-cycle>>start") {
         return { type: "cycleStart" };
     }
-    if (name === "custom" && String(data).startsWith("quickspace-cycle>>end>>")) {
-        return { type: "cycleEnd", address: normalizeAddress(String(data).slice("quickspace-cycle>>end>>".length)) };
+    if (name === "custom" && String(data).startsWith("tide-cycle>>end>>")) {
+        return { type: "cycleEnd", address: normalizeAddress(String(data).slice("tide-cycle>>end>>".length)) };
     }
     let type;
     let raw;
-    if (name === "custom" && String(data).startsWith("quickspace-attention>>")) {
+    if (name === "custom" && String(data).startsWith("tide-attention>>")) {
         type = "guarded";
-        raw = String(data).slice("quickspace-attention>>".length);
+        raw = String(data).slice("tide-attention>>".length);
     } else if (name === "activewindowv2") {
         type = "focused";
         raw = data;
@@ -226,7 +226,7 @@ export function markEvent(name, data) {
 }
 
 // Every window marked for attention, oldest mark first, for the focus
-// guard's Super+Tab (quickspace_focus.set_order): the guard's own and
+// guard's Super+Tab (tide_focus.set_order): the guard's own and
 // notifications', each placed by its latest mark still standing. So
 // dismissing a newer notification puts a window back where an older mark
 // had it, and a guard hearing the whole list at once, after a reload,

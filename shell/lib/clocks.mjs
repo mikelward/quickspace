@@ -1,7 +1,7 @@
 // The bar's clocks (SPEC.md §7.3), as pure functions the QML binds to.
 //
 // QML's JavaScript engine has no Intl, and CLDR's abbreviations are wrong for
-// this anyway, so time zone facts come in from the caller (quickspace-tz):
+// this anyway, so time zone facts come in from the caller (tide-tz):
 // `offsetOf(zone, ms)` is the zone's UTC offset in minutes at that instant,
 // and `abbrOf(zone, ms)` is tzdata's abbreviation.
 

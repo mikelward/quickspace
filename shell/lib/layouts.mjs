@@ -1,7 +1,7 @@
 // The layout symbol after the workspaces (SPEC.md §6.1, §7.1), as pure
-// functions the QML binds to. hypr/quickspace/layout.lua keeps each
+// functions the QML binds to. hypr/tide/layout.lua keeps each
 // workspace's mode and announces it on Hyprland's event socket as
-// `custom>>quickspace-layout>>WORKSPACE,MODE`, on each change and whenever
+// `custom>>tide-layout>>WORKSPACE,MODE`, on each change and whenever
 // the workspace becomes active. The bar can't ask for a mode, so until a
 // workspace's first announcement (a shell that just started) it assumes the
 // layout's default.
@@ -17,7 +17,7 @@ export const SYMBOLS = Object.freeze({
 // and above this work-area aspect, and in tile below it.
 export const ULTRAWIDE = 2.1;
 
-const PREFIX = "quickspace-layout>>";
+const PREFIX = "tide-layout>>";
 
 // The mode layout.lua gives a new workspace on a monitor `width` x `height`
 // pixels at `scale`, rotated by Hyprland's `transform` (odd values turn it

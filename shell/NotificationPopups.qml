@@ -35,7 +35,7 @@ PanelWindow {
     exclusiveZone: 0
     // A layer rule can find the popups by this name, to keep them out of a
     // screen share (§9's no_screen_share; TODO.md).
-    WlrLayershell.namespace: "quickspace-notifications"
+    WlrLayershell.namespace: "tide-notifications"
     WlrLayershell.layer: WlrLayer.Overlay
     // Keyboard focus only for a reply field you click into.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand

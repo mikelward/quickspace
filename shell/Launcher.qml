@@ -6,20 +6,20 @@ import Quickshell.Io
 import "lib/launch.mjs" as Run
 
 // Starts apps from the bar's menus the way keys and the launcher do,
-// through `quickspace launch` (SPEC.md §5.4), and says so in the log when
+// through `tide launch` (SPEC.md §5.4), and says so in the log when
 // one fails rather than leaving a click that seemed to do nothing.
 Singleton {
     id: root
 
     function launch(command) {
-        run(["quickspace", "launch", "--"].concat(command), null);
+        run(["tide", "launch", "--"].concat(command), null);
     }
 
     // Grants app focus for what comes next (§14.3), then calls `then`,
     // whether or not the grant was recorded: a failed grant is logged,
     // and what the click asked for still happens.
     function grant(app, then) {
-        run(["quickspace", "grant", app], then);
+        run(["tide", "grant", app], then);
     }
 
     function run(command, then) {

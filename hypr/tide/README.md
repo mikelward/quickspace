@@ -1,6 +1,6 @@
-# quickspace layout for Hyprland
+# tide layout for Hyprland
 
-One Lua layout, `lua:quickspace`, for Hyprland 0.55 and later (the Lua
+One Lua layout, `lua:tide`, for Hyprland 0.55 and later (the Lua
 config). It keeps a mode per workspace:
 
 | Mode | Symbol | Shape |
@@ -21,14 +21,14 @@ and full width below that. See SPEC.md §6 for the design.
 
 ## Using it
 
-`make install` copies the two modules to `~/.config/hypr/quickspace/`. Then,
+`make install` copies the two modules to `~/.config/hypr/tide/`. Then,
 in `hyprland.lua`:
 
 ```lua
-local qs = dofile(os.getenv("HOME") .. "/.config/hypr/quickspace/layout.lua")
+local qs = dofile(os.getenv("HOME") .. "/.config/hypr/tide/layout.lua")
 qs.setup({})  -- override any key of qs.defaults, e.g. { single = {...} }
 
-hl.config({ general = { layout = "lua:quickspace" } })
+hl.config({ general = { layout = "lua:tide" } })
 
 hl.bind("SUPER + period", qs.cycle_next)
 hl.bind("SUPER + comma", qs.cycle_prev)
@@ -46,11 +46,11 @@ hl.bind("SUPER + SHIFT + K", function() qs.move(-1) end)
 
 `setup()` checks the merged options against a schema: every key, type and
 range, with no unknown keys and no holes in lists. It raises an error
-naming the path (`quickspace.setup: modes.tile.mfat is not an option`), so
+naming the path (`tide.setup: modes.tile.mfat is not an option`), so
 a typo shows up once, as a config error at load, not later on a keypress.
 
 The mode-changing helpers announce the new mode on Hyprland's event socket
-as `custom>>quickspace-layout>>WORKSPACE,MODE`, which the bar follows, and
+as `custom>>tide-layout>>WORKSPACE,MODE`, which the bar follows, and
 `setup()` adds a `workspace.active` handler that announces each workspace's
 mode as it becomes active, so a bar that started later catches up. The
 same commands also work as plain `layoutmsg`s (`mode <name>`, `next`, `prev`,

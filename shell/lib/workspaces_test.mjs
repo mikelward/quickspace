@@ -212,7 +212,7 @@ test("addresses are compared the way Quickshell spells them", () => {
 });
 
 test("Hyprland events become mark events", () => {
-    assert.deepEqual(markEvent("custom", "quickspace-attention>>0x55d3a1b2c0"), { type: "guarded", address: "55d3a1b2c0" });
+    assert.deepEqual(markEvent("custom", "tide-attention>>0x55d3a1b2c0"), { type: "guarded", address: "55d3a1b2c0" });
     assert.deepEqual(markEvent("activewindowv2", "55d3a1b2c0"), { type: "focused", address: "55d3a1b2c0" });
     assert.deepEqual(markEvent("closewindow", "55d3a1b2c0"), { type: "closed", address: "55d3a1b2c0" });
 });
@@ -225,7 +225,7 @@ test("other events, and ones with no window, mark nothing", () => {
 
 test("a guarded window marks its workspace until it's focused", () => {
     const windows = [win("abc", 4, "chat")];
-    let marks = updateMarks(NO_MARKS, markEvent("custom", "quickspace-attention>>0xabc"));
+    let marks = updateMarks(NO_MARKS, markEvent("custom", "tide-attention>>0xabc"));
     assert.deepEqual([...markedWindows({ windows, marks })], ["abc"]);
     marks = updateMarks(marks, markEvent("activewindowv2", "abc"));
     assert.deepEqual([...markedWindows({ windows, marks })], []);
@@ -295,11 +295,11 @@ test("an update that names the app differently is matched by its new name", () =
 });
 
 test("Super+Tab's cycle keeps every mark until Super is released, then clears only where it landed", () => {
-    assert.deepEqual(markEvent("custom", "quickspace-cycle>>start"), { type: "cycleStart" });
-    assert.deepEqual(markEvent("custom", "quickspace-cycle>>end>>0x00A2"), { type: "cycleEnd", address: "a2" });
-    assert.deepEqual(markEvent("custom", "quickspace-cycle>>end>>"), { type: "cycleEnd", address: null });
+    assert.deepEqual(markEvent("custom", "tide-cycle>>start"), { type: "cycleStart" });
+    assert.deepEqual(markEvent("custom", "tide-cycle>>end>>0x00A2"), { type: "cycleEnd", address: "a2" });
+    assert.deepEqual(markEvent("custom", "tide-cycle>>end>>"), { type: "cycleEnd", address: null });
     let marks = updateMarks(notified(), { type: "guarded", address: "k" });
-    marks = updateMarks(marks, markEvent("custom", "quickspace-cycle>>start"));
+    marks = updateMarks(marks, markEvent("custom", "tide-cycle>>start"));
     // Stepping focuses each marked window in turn.
     for (const address of ["k", "n3", "n2"]) {
         marks = updateMarks(marks, { type: "focused", address });

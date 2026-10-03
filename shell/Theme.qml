@@ -63,7 +63,7 @@ Singleton {
             onRead: data => root.heard(data, true)
         }
         onExited: (code, status) => {
-            console.warn(`quickspace: gsettings monitor exited ${code}; the bar no longer follows light and dark`);
+            console.warn(`tide: gsettings monitor exited ${code}; the bar no longer follows light and dark`);
         }
     }
 
@@ -75,7 +75,7 @@ Singleton {
         }
         onExited: (code, status) => {
             if (code !== 0) {
-                console.warn(`quickspace: gsettings get color-scheme exited ${code}; the bar stays ${root.dark ? "dark" : "light"}`);
+                console.warn(`tide: gsettings get color-scheme exited ${code}; the bar stays ${root.dark ? "dark" : "light"}`);
             }
         }
     }

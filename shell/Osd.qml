@@ -16,7 +16,7 @@ PanelWindow {
     anchors.bottom: true
     margins.bottom: 60
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "quickspace-osd"
+    WlrLayershell.namespace: "tide-osd"
     WlrLayershell.layer: WlrLayer.Overlay
     color: "transparent"
     implicitWidth: 300

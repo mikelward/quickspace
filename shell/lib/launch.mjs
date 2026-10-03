@@ -4,7 +4,7 @@
 //
 // A run's signals arrive separately and in no fixed order: `started`, the
 // exit code, the end of stderr, and `running` going false. Quickshell 0.3
-// reports a command that can't start (no quickspace on PATH) only by
+// reports a command that can't start (no tide on PATH) only by
 // `running` going false without `started`: no exit code and no end of
 // stderr. So a run is done either then, or once both the exit code and the
 // whole of stderr are in, and it reports exactly once.
@@ -14,23 +14,23 @@ export function initial() {
 }
 
 // What a finished run has to say: a warning for a failed start or a nonzero
-// exit, or a log line for stderr on success (quickspace launch carries on
+// exit, or a log line for stderr on success (tide launch carries on
 // past a missed focus grant or a slow shell, and says so; so may the app).
 // Null when there's nothing to say, undefined while it isn't finished.
 function outcome(run, command) {
     const shown = command.join(" ");
     if (run.stopped && !run.started) {
-        return { level: "warn", message: `quickspace: couldn't start ${shown}` };
+        return { level: "warn", message: `tide: couldn't start ${shown}` };
     }
     if (run.code === null || run.errors === null) {
         return undefined;
     }
     const errors = run.errors.trim();
     if (run.code !== 0) {
-        return { level: "warn", message: `quickspace: ${shown} exited ${run.code}: ${errors}` };
+        return { level: "warn", message: `tide: ${shown} exited ${run.code}: ${errors}` };
     }
     if (errors !== "") {
-        return { level: "log", message: `quickspace: ${shown}: ${errors}` };
+        return { level: "log", message: `tide: ${shown}: ${errors}` };
     }
     return null;
 }

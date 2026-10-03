@@ -9,7 +9,7 @@ import "lib/osd.mjs" as Osd
 // What the OSD shows (SPEC.md §9): the default output's volume and mute,
 // and the default input's mute, each as it changes, from whatever changed
 // it (keys, the bar, another app). One for every monitor's OSD. The
-// backlight's level shows only when `quickspace brightness` reports it,
+// backlight's level shows only when `tide brightness` reports it,
 // so hypridle dimming the screen doesn't flash it.
 Singleton {
     id: root
@@ -43,7 +43,7 @@ Singleton {
         hide.restart();
     }
 
-    // `qs -c quickspace ipc call osd brightness PERCENT`, from `quickspace
+    // `qs -c tide ipc call osd brightness PERCENT`, from `tide
     // brightness` after it changed the backlight.
     IpcHandler {
         target: "osd"

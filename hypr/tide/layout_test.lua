@@ -1,5 +1,5 @@
 -- Tests for geometry.lua and layout.lua. Plain Lua (5.4 or 5.5), no
--- dependencies: `lua hypr/quickspace/layout_test.lua` from the repo root.
+-- dependencies: `lua hypr/tide/layout_test.lua` from the repo root.
 -- layout.lua runs against a stub of the Hyprland `hl` API that records what
 -- it registers and dispatches.
 
@@ -207,7 +207,7 @@ local function stub_hl()
     h.dispatch = function(d)
         table.insert(h.dispatched, d)
         if d.kind == "layout" then
-            local r = h.registered.quickspace.layout_msg({ area = h.area, targets = {} }, d.arg)
+            local r = h.registered.tide.layout_msg({ area = h.area, targets = {} }, d.arg)
             assert(r == true, "layout_msg rejected " .. d.arg .. ": " .. tostring(r))
         end
     end
@@ -231,7 +231,7 @@ local function fresh()
     hl = stub_hl()
     local qs = dofile(dir .. "layout.lua")
     qs.setup({})
-    return qs, hl.registered.quickspace
+    return qs, hl.registered.tide
 end
 
 local function relayout(layout, area, ws, n)
@@ -240,7 +240,7 @@ local function relayout(layout, area, ws, n)
     return t
 end
 
-test("setup registers lua:quickspace", function()
+test("setup registers lua:tide", function()
     local _, layout = fresh()
     eq(type(layout.recalculate), "function", "recalculate")
     eq(type(layout.layout_msg), "function", "layout_msg")
@@ -408,7 +408,7 @@ test("helpers dispatch the layoutmsg, then announce the mode", function()
     eq(hl.dispatched[1].kind, "layout", "first a layoutmsg")
     eq(hl.dispatched[1].arg, "next", "next")
     eq(hl.dispatched[2].kind, "event", "then an event")
-    eq(hl.dispatched[2].arg, "quickspace-layout>>1,twocol", "event text")
+    eq(hl.dispatched[2].arg, "tide-layout>>1,twocol", "event text")
     qs.grow()
     eq(hl.dispatched[3].arg, "mfact +0.025", "grow step")
 end)
@@ -419,7 +419,7 @@ test("a workspace becoming active announces its mode", function()
     hl.handlers["workspace.active"]({ id = 4 })
     eq(#hl.dispatched, 1, "one dispatch")
     eq(hl.dispatched[1].kind, "event", "an event")
-    eq(hl.dispatched[1].arg, "quickspace-layout>>4,threecol", "workspace 4's own mode")
+    eq(hl.dispatched[1].arg, "tide-layout>>4,threecol", "workspace 4's own mode")
 end)
 
 test("a workspace not laid out yet announces nothing", function()
@@ -463,7 +463,7 @@ test("setup options merge objects and replace lists", function()
     hl = stub_hl()
     local qs = dofile(dir .. "layout.lua")
     qs.setup({ modes = { tile = { mfact = 0.6 } }, single = { { min_aspect = 2.0, width = 0.5 } } })
-    local layout = hl.registered.quickspace
+    local layout = hl.registered.tide
     local t = relayout(layout, HD, 1, 2)
     eq(t[1].placed.w, 1152, "tile mfact overridden")
     t = relayout(layout, UW, 2, 1)
@@ -476,7 +476,7 @@ test("an empty list override replaces the default list", function()
     hl = stub_hl()
     local qs = dofile(dir .. "layout.lua")
     qs.setup({ single = {} })
-    local t = relayout(hl.registered.quickspace, UW, 1, 1)
+    local t = relayout(hl.registered.tide, UW, 1, 1)
     box_eq(t[1].placed, UW, "no single-window rule means full width")
 end)
 
@@ -496,8 +496,8 @@ test("setup rejects bad options with a message instead of failing later", functi
         local qs = dofile(dir .. "layout.lua")
         local ok, err = pcall(qs.setup, opts)
         eq(ok, false, "bad option set " .. i .. " accepted")
-        eq(tostring(err):find("quickspace.setup: ", 1, true) ~= nil, true, "message for set " .. i .. ": " .. tostring(err))
-        eq(hl.registered.quickspace, nil, "nothing registered for set " .. i)
+        eq(tostring(err):find("tide.setup: ", 1, true) ~= nil, true, "message for set " .. i .. ": " .. tostring(err))
+        eq(hl.registered.tide, nil, "nothing registered for set " .. i)
     end
 end)
 
@@ -529,7 +529,7 @@ test("next and prev enter a cycle that omits the current mode at its ends", func
     hl = stub_hl()
     local qs = dofile(dir .. "layout.lua")
     qs.setup({ cycle = { "tile", "twocol" } })
-    local layout = hl.registered.quickspace
+    local layout = hl.registered.tide
     relayout(layout, UW, 1, 3)
     relayout(layout, UW, 2, 3)
     eq(qs.mode(1), "threecol", "an ultrawide still starts in threecol")
@@ -561,14 +561,14 @@ test("setup rejects NaN and a zero master count where a mode needs one", functio
     hl = stub_hl()
     local qs = dofile(dir .. "layout.lua")
     qs.setup({ modes = { tile = { nmaster = 0 } } })
-    eq(hl.registered.quickspace ~= nil, true, "tile still accepts no master")
+    eq(hl.registered.tide ~= nil, true, "tile still accepts no master")
 end)
 
 test("setup accepts a one-mode cycle and an empty single list", function()
     hl = stub_hl()
     local qs = dofile(dir .. "layout.lua")
     qs.setup({ cycle = { "tile" }, single = {} })
-    local layout = hl.registered.quickspace
+    local layout = hl.registered.tide
     relayout(layout, HD, 1, 2)
     layout.layout_msg({ area = HD, targets = targets(1, 2) }, "next")
     eq(qs.mode(1), "tile", "a one-mode cycle stays put")

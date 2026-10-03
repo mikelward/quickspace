@@ -1,4 +1,4 @@
--- Window geometry for the quickspace layouts (SPEC.md §6), kept free of any
+-- Window geometry for the tide layouts (SPEC.md §6), kept free of any
 -- Hyprland API so it can be tested with plain Lua.
 --
 -- Every function takes the work area as a box {x, y, w, h} and returns one

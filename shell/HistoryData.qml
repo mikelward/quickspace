@@ -7,7 +7,7 @@ import Quickshell.Io
 import "lib/history.mjs" as History
 
 // The notification center's history (SPEC.md §9), kept in
-// $XDG_STATE_HOME/quickspace/notifications.json so it survives a shell
+// $XDG_STATE_HOME/tide/notifications.json so it survives a shell
 // restart, and which monitor the center is open on, if any.
 Singleton {
     id: root
@@ -29,7 +29,7 @@ Singleton {
     property string store: "unread"
 
     readonly property bool unread: History.unread(root.history)
-    readonly property string dir: (Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`) + "/quickspace"
+    readonly property string dir: (Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`) + "/tide"
     // Notification ids start again with each shell process, so keys carry
     // its start. A config reload keeps the server and its ids, and carries
     // live notifications over, so the start is kept across reloads too, and
@@ -37,7 +37,7 @@ Singleton {
     PersistentProperties {
         id: process
 
-        reloadableId: "quickspace-history"
+        reloadableId: "tide-history"
 
         property real startedAt: Date.now()
     }
@@ -150,7 +150,7 @@ Singleton {
         onLoaded: {
             const result = History.parse(text());
             for (const error of result.errors) {
-                console.warn(`quickspace: ${path}: ${error}`);
+                console.warn(`tide: ${path}: ${error}`);
             }
             root.history = {
                 entries: result.entries,
@@ -162,17 +162,17 @@ Singleton {
             if (error !== FileViewError.FileNotFound) {
                 // Writing would replace a history we couldn't read, so this
                 // shell keeps its history in memory only.
-                console.warn(`quickspace: ${path}: ${FileViewError.toString(error)}; notification history won't be saved`);
+                console.warn(`tide: ${path}: ${FileViewError.toString(error)}; notification history won't be saved`);
                 root.store = "memory";
                 return;
             }
             // No file yet: the first change writes one.
             root.store = "saved";
         }
-        onSaveFailed: error => console.warn(`quickspace: ${path}: ${FileViewError.toString(error)}; notification history not saved`)
+        onSaveFailed: error => console.warn(`tide: ${path}: ${FileViewError.toString(error)}; notification history not saved`)
     }
 
-    // `qs -c quickspace ipc call notifications toggle`, from Super+Shift+N,
+    // `qs -c tide ipc call notifications toggle`, from Super+Shift+N,
     // opens it on the focused monitor. Only while the shell is the
     // notification server, so the call fails and the binding can fall back
     // to swaync's panel otherwise.

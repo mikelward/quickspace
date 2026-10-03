@@ -5,12 +5,12 @@ Conventions for AI agents working in this repository.
 `CLAUDE.md` is a symlink to this file, so every agent reads the same
 conventions. Edit `AGENTS.md`.
 
-This repo is quickspace, a small Wayland desktop: Hyprland for tiling, one
+This repo is tide, a small Wayland desktop: Hyprland for tiling, one
 Quickshell process for the bar, launcher, notifications, lock and greeter,
 and uwsm for the session. `SPEC.md` is the design; read the section you're
 changing before you change it, and keep the spec and the code in step. Work
 spans four repos (`SPEC.md` §18): this one holds the shell, the Lua layout,
-the session units and `quickspace` tools; `mikelward/conf` holds the personal
+the session units and `tide` tools; `mikelward/conf` holds the personal
 config; `mikelward/scripts` holds `setup` and the screenshot script;
 `mikelward/dwl` holds the dwl fork §21.1 is exploring, which nothing depends
 on yet. When you change a contract, follow it through every consumer,
@@ -89,7 +89,7 @@ has stopped biting.
   `owner/repo` for the shape of an argument, the real name when the example is
   about that repo.
 - **What the desktop shows is not one of those artifacts.** The bar, lock
-  screen, greeter and `quickspace doctor` print on the user's own screen, and
+  screen, greeter and `tide doctor` print on the user's own screen, and
   showing the short hostname is part of the design; so is naming hosts, paths
   and remotes in a message. Redact only secrets: tokens, keys, and passwords
   embedded in URLs. Mocks are published, though, so they show `host1`, never
@@ -419,5 +419,5 @@ reply, no offer to correct it. It is not a finding.
   new failure modes, rate limits, added latency, and what the user sees if the
   dependency is missing or down. The bar and launcher are on every
   interaction's hot path, so a network call there is a visible hang, and a
-  new daemon is one more owner for `quickspace doctor` to check. If the impact is
+  new daemon is one more owner for `tide doctor` to check. If the impact is
   effectively zero, say so rather than omitting the note.

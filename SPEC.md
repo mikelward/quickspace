@@ -1,6 +1,6 @@
-# quickspace: design spec (milestone 1)
+# tide: design spec (milestone 1)
 
-quickspace is a small Wayland desktop: **Hyprland** tiles the windows, one
+tide is a small Wayland desktop: **Hyprland** tiles the windows, one
 **Quickshell** process draws everything else (bar, launcher, notifications,
 OSDs, share picker), the same QML draws the lock and login screens, and
 **greetd** logs you in. It is
@@ -73,7 +73,7 @@ Contents:
 **Non-goals**
 
 - Writing a compositor, or reimplementing tiling in the shell.
-- A settings suite, file manager, widget system or app store. quickspace
+- A settings suite, file manager, widget system or app store. tide
   links to existing GTK tools where a GUI is needed (§16).
 - An X11 session. XWayland apps work, but nothing is designed for X11.
 - Being a framework. Settings exist where hardware differs (monitors,
@@ -220,10 +220,10 @@ Every long-running piece is a systemd user unit under a
 on failure, scoped to this session only, and visible in one
 `systemctl --user status`. §5 is the detail.
 
-### 3.4 Login: greetd plus the quickspace greeter
+### 3.4 Login: greetd plus the tide greeter
 
 greetd runs a minimal compositor (`cage` or a stripped Hyprland) with the
-quickspace greeter, the same QML screen as the lock (§11).
+tide greeter, the same QML screen as the lock (§11).
 
 ### 3.5 Look
 
@@ -238,7 +238,7 @@ quickspace greeter, the same QML screen as the lock (§11).
 
 | # | Requirement | Mechanism | Kind |
 |---|---|---|---|
-| R1 | Tile (master + stack) | Lua layout `lua:quickspace`, mode `tile`, `mfact 0.55` | Lua |
+| R1 | Tile (master + stack) | Lua layout `lua:tide`, mode `tile`, `mfact 0.55` | Lua |
 | R2 | Three columns | mode `threecol` (center from 3 windows) | Lua |
 | R3 | Two columns + stack | mode `twocol` | Lua |
 | R4 | Lone window 80% on ultrawide, 100% otherwise | the layout reads the work area's aspect, in every mode | Lua |
@@ -303,28 +303,28 @@ work". The old setup shows how it fought itself:
 
 | Job | Owner | Started by | Kept out |
 |---|---|---|---|
-| Compositor | Hyprland | uwsm `wayland-wm@quickspace-hyprland.service` | — |
-| Bar (exactly one per monitor), launcher, OSD, wallpaper | quickspace (`qs -c quickspace`) | `quickspace.service` | waybar, swaybar, swww/swaybg, fuzzel/rofi aren't started; `doctor` counts top-layer bars |
-| Notifications (`org.freedesktop.Notifications`) | quickspace | `quickspace.service`, before any app | dunst/mako/swaync: not installed; `doctor` flags any activatable one |
-| Tray host (`org.kde.StatusNotifierWatcher`) | quickspace | `quickspace.service`, before any app | `nm-applet`, `blueman-applet`, `xembedsniproxy` not run |
-| Polkit agent | quickspace (`Quickshell.Services.Polkit`) | `quickspace.service` | polkit-gnome/-kde agents not run |
-| Lock screen | `quickspace-lock`, a separate Quickshell process with the same QML (`WlSessionLock` + PAM service `quickspace-lock`) | hypridle's `lock_cmd`, on logind's `Lock` signal → `quickspace-lock.service` | hyprlock not installed |
+| Compositor | Hyprland | uwsm `wayland-wm@tide-hyprland.service` | — |
+| Bar (exactly one per monitor), launcher, OSD, wallpaper | tide (`qs -c tide`) | `tide.service` | waybar, swaybar, swww/swaybg, fuzzel/rofi aren't started; `doctor` counts top-layer bars |
+| Notifications (`org.freedesktop.Notifications`) | tide | `tide.service`, before any app | dunst/mako/swaync: not installed; `doctor` flags any activatable one |
+| Tray host (`org.kde.StatusNotifierWatcher`) | tide | `tide.service`, before any app | `nm-applet`, `blueman-applet`, `xembedsniproxy` not run |
+| Polkit agent | tide (`Quickshell.Services.Polkit`) | `tide.service` | polkit-gnome/-kde agents not run |
+| Lock screen | `tide-lock`, a separate Quickshell process with the same QML (`WlSessionLock` + PAM service `tide-lock`) | hypridle's `lock_cmd`, on logind's `Lock` signal → `tide-lock.service` | hyprlock not installed |
 | Idle timeline, `org.freedesktop.ScreenSaver`, logind lock and sleep bridge | hypridle (§10) | `hypridle.service` | swayidle not run; the shell does not time idle |
-| Screen-share picker | quickspace, via xdph `custom_picker_binary` | xdph, on demand | `hyprland-share-picker` |
-| Portals | `xdg-desktop-portal` + `-hyprland` + `-gtk` | D-Bus activation | `-kde`, `-gnome`, `-wlr` never selected: `quickspace-portals.conf` names `hyprland;gtk` |
-| Theme schedule | quickspace | `quickspace.service` | `theme-daemon.sh` retired |
+| Screen-share picker | tide, via xdph `custom_picker_binary` | xdph, on demand | `hyprland-share-picker` |
+| Portals | `xdg-desktop-portal` + `-hyprland` + `-gtk` | D-Bus activation | `-kde`, `-gnome`, `-wlr` never selected: `tide-portals.conf` names `hyprland;gtk` |
+| Theme schedule | tide | `tide.service` | `theme-daemon.sh` retired |
 | Audio | PipeWire + WirePlumber | their own socket units | PulseAudio |
 | Network, Bluetooth | NetworkManager, BlueZ (system) | system units | tray applets |
 | Secrets | gnome-keyring, unlocked by PAM at login | greetd PAM + `gnome-keyring-daemon.socket` | KWallet in this session |
 | Lid, power button | logind's defaults (`HandleLidSwitch=suspend`, `HandleLidSwitchDocked=ignore`), plus a Hyprland `bindl` pair on the lid switch: closing it with an external monitor attached disables the internal panel, and opening it re-enables the panel with its configured mode and returns the panel's workspaces to it | logind / Hyprland | `lid.sh`'s own suspend logic, and the `HandleLidSwitch=ignore` drop-in the old `setup-hypr` installed |
-| "Show in folder" (`org.freedesktop.FileManager1`) | Nautilus (§16.2) | D-Bus activation via quickspace's user-level service file → `quickspace-filemanager.service`, whose launcher picks Dolphin under Plasma and which stops with the session | the arbitrary pick between Dolphin's and Nautilus's system activation files |
+| "Show in folder" (`org.freedesktop.FileManager1`) | Nautilus (§16.2) | D-Bus activation via tide's user-level service file → `tide-filemanager.service`, whose launcher picks Dolphin under Plasma and which stops with the session | the arbitrary pick between Dolphin's and Nautilus's system activation files |
 | Terminal for `Terminal=true` apps | kitty, via `xdg-terminal-exec` | on demand | GLib's fallback list (Konsole) |
-| Apps | you | `quickspace launch` from keybinds and the launcher, which waits for the shell to be ready, then runs `uwsm app --` (§5.4) | — |
+| Apps | you | `tide launch` from keybinds and the launcher, which waits for the shell to be ready, then runs `uwsm app --` (§5.4) | — |
 
 **M2 transitional shell.** Until the Quickshell shell lands (M3 and M4),
-`quickspace.service` runs `quickspace-shell` instead of `qs -c quickspace`.
-It runs the Quickshell bar (`qs -c quickspace`) when Quickshell and the
-shell are installed, and waybar otherwise (`QUICKSPACE_BAR` picks). It
+`tide.service` runs `tide-shell` instead of `qs -c tide`.
+It runs the Quickshell bar (`qs -c tide`) when Quickshell and the
+shell are installed, and waybar otherwise (`TIDE_BAR` picks). It
 starts `conf`'s theme daemon, which runs swaync, and waybar when that's the
 bar, and the first polkit agent it finds. It reports ready once swaync
 owns `org.freedesktop.Notifications` and the bar's tray owns
@@ -344,50 +344,50 @@ waited for) and, once, `conf`'s
 
 ```mermaid
 flowchart TD
-  G[greetd + quickspace greeter] -->|PAM: auth, unlock keyring| U["uwsm start -e -D quickspace:Hyprland -- quickspace-hyprland"]
-  U --> W["wayland-wm@quickspace-hyprland.service (Hyprland)"]
+  G[greetd + tide greeter] -->|PAM: auth, unlock keyring| U["uwsm start -e -D tide:Hyprland -- tide-hyprland"]
+  U --> W["wayland-wm@tide-hyprland.service (Hyprland)"]
   W -->|"the only exec-once: uwsm finalize"| GS[graphical-session.target]
-  GS --> Q["quickspace.service: bar, launcher, notifications, tray watcher, polkit"]
+  GS --> Q["tide.service: bar, launcher, notifications, tray watcher, polkit"]
   GS --> I["hypridle.service (Type=dbus: ready once it owns org.freedesktop.ScreenSaver)"]
-  I -->|"lock_cmd, on logind Lock"| L["quickspace-lock.service (on demand)"]
+  I -->|"lock_cmd, on logind Lock"| L["tide-lock.service (on demand)"]
   I -->|Before=| Q
   Q -->|Before=| A["xdg-desktop-autostart.target (allowlist only)"]
   A --> APPS[apps via uwsm app]
 ```
 
-- **The session entry** is `quickspace.desktop` in `wayland-sessions`, so
+- **The session entry** is `tide.desktop` in `wayland-sessions`, so
   the current display manager lists it too (M2).
-- **`-e -D quickspace:Hyprland`** sets `XDG_CURRENT_DESKTOP` to exactly that;
+- **`-e -D tide:Hyprland`** sets `XDG_CURRENT_DESKTOP` to exactly that;
   without `-e`, uwsm appends to names from other sources.
-- **`quickspace-hyprland`** is a wrapper that execs `start-hyprland`,
+- **`tide-hyprland`** is a wrapper that execs `start-hyprland`,
   Hyprland's crash watchdog, or `Hyprland` where that's missing. uwsm names a
-  session after its compositor command, so the wrapper gives quickspace
-  its own session target, `wayland-session@quickspace-hyprland.target`. A
+  session after its compositor command, so the wrapper gives tide
+  its own session target, `wayland-session@tide-hyprland.target`. A
   plain Hyprland login gets `wayland-session@hyprland.desktop.target`
-  instead, and starts none of quickspace's units.
+  instead, and starts none of tide's units.
 
 ### 5.4 Guards that keep it that way
 
-- **Scoped units.** quickspace's units are `WantedBy=` the quickspace
-  session's target (`wayland-session@quickspace-hyprland.target`, §5.3) and
+- **Scoped units.** tide's units are `WantedBy=` the tide
+  session's target (`wayland-session@tide-hyprland.target`, §5.3) and
   `PartOf=graphical-session.target`, never plainly
   `WantedBy=graphical-session.target`. Plasma also reaches that target, and
-  that is exactly how swaync leaked into KDE. Nothing quickspace installs
+  that is exactly how swaync leaked into KDE. Nothing tide installs
   starts in a KDE session.
-- **Owners before clients.** `quickspace.service` is
+- **Owners before clients.** `tide.service` is
   `Before=xdg-desktop-autostart.target`, and it counts as started only once
   the shell says every owner it hosts is ready. hypridle, the one owner
   outside the shell, comes first.
   - The `hypridle.service` drop-in makes it `Type=dbus` with
     `BusName=org.freedesktop.ScreenSaver`, so it counts as started only once
-    it owns the name, and `quickspace.service` is `After=` and `Wants=` it.
+    it owns the name, and `tide.service` is `After=` and `Wants=` it.
     Chrome uses the D-Bus inhibitor only if that name is already owned, so
     an app started before hypridle would silently lose its inhibits.
-  - The drop-in also runs hypridle only in the quickspace session, through an
+  - The drop-in also runs hypridle only in the tide session, through an
     `ExecCondition=` on `XDG_CURRENT_DESKTOP`. Distro packages enable
     `hypridle.service` for every session, and under Plasma, which owns the
     ScreenSaver name itself, it would time out and restart forever.
-  - Both autostart and `quickspace launch` wait for `quickspace.service`,
+  - Both autostart and `tide launch` wait for `tide.service`,
     so they wait for hypridle too. If hypridle fails, the shell still
     starts (`Wants=`, not `Requires=`), and `doctor` reports it. Ordering alone isn't enough,
   because a plain service is "started" the moment `qs` is launched.
@@ -411,51 +411,51 @@ flowchart TD
     joins the same ready check.
 - **One `exec-once`.** Hyprland's config starts nothing but
   `uwsm finalize`, and a test in `conf` asserts it.
-- **Autostart is an allowlist.** XDG autostart entries run in quickspace only
+- **Autostart is an allowlist.** XDG autostart entries run in tide only
   if they are on its list: the tray applets the bar relies on until the shell
   draws their icons (`nm-applet`, `blueman`), plus any desktop IDs in
-  `~/.config/quickspace/autostart`. Everything else is skipped in quickspace
+  `~/.config/tide/autostart`. Everything else is skipped in tide
   and still runs under KDE. `doctor` reports any that ran anyway.
-  - One prefix drop-in, `app-.service.d/quickspace-autostart.conf`, reaches
+  - One prefix drop-in, `app-.service.d/tide-autostart.conf`, reaches
     every `app-*@autostart.service`, so an entry a package adds later is
     covered without a per-entry file. Its `ExecCondition=` asks
-    `quickspace autostart-allowed` only for autostart units in the
-    quickspace session; every other `app-*.service`, and every unit under
+    `tide autostart-allowed` only for autostart units in the
+    tide session; every other `app-*.service`, and every unit under
     KDE, passes after a shell `case`. `ConditionEnvironment=` can't express
     the session test, because it matches the variable's whole value.
   - This covers other desktops' autostarted polkit agents (MATE, GNOME,
     LXDE, Xfce), which polkit's one-agent-per-session rule would let break
     the shell's. The shell's own search falls back to KDE's agent, which is
     always installed (§5.5), so the legacy agents are never needed.
-- **`XDG_CURRENT_DESKTOP=quickspace:Hyprland`.**
-  - xdg-desktop-portal reads `quickspace-portals.conf` first, which names the
+- **`XDG_CURRENT_DESKTOP=tide:Hyprland`.**
+  - xdg-desktop-portal reads `tide-portals.conf` first, which names the
     backends explicitly.
   - Autostart `OnlyShowIn=Hyprland` entries still match.
-  - quickspace's own entries can say `OnlyShowIn=quickspace`.
+  - tide's own entries can say `OnlyShowIn=tide`.
 - **Apps outlive the shell.** Keybinds and the launcher start apps through
-  `quickspace launch`, which ends in `uwsm app --`. That puts them in
+  `tide launch`, which ends in `uwsm app --`. That puts them in
   `app-graphical.slice`, so restarting or crashing the shell never takes an
   app with it.
 - **Key-bound launches wait for the shell too.** Autostart waits for the
-  shell's ready signal, and so does `quickspace launch`: a key pressed in
+  shell's ready signal, and so does `tide launch`: a key pressed in
   the first second after login can't start an app before the notification,
   tray and polkit owners exist.
-  - `systemctl --user start quickspace.service` blocks until the shell
+  - `systemctl --user start tide.service` blocks until the shell
     reports ready, and returns at once when it already has, so a launch
     later in the session costs nothing extra.
-  - The wait has its own bound: `quickspace launch` gives up after 15 s
+  - The wait has its own bound: `tide launch` gives up after 15 s
     in total and launches the app anyway, because a terminal is how you'd
     fix a stuck start. It doesn't rely on the units' timeouts, which chain
     (the shell waits for hypridle before its own timer starts).
   - The hypridle drop-in also sets `TimeoutStartSec=10`, so a hypridle
     that never claims its name fails quickly and the shell starts without
     it, rather than waiting out systemd's 90 s default.
-  - `quickspace launch` also records the launch for the focus guard (§14.3),
+  - `tide launch` also records the launch for the focus guard (§14.3),
     before it waits, so a key press or focus change during the wait cancels
     the grant.
 - **No restarts for theme or config.** Theme is a property change, and
   Quickshell hot-reloads its config.
-- **`quickspace doctor`** checks the running session for:
+- **`tide doctor`** checks the running session for:
   - who owns each D-Bus name in §5.2;
   - activatable services that could steal those names;
   - duplicate processes (two idle daemons, two polkit agents);
@@ -465,7 +465,7 @@ flowchart TD
   - unscoped autostart entries.
 
   It prints one line per problem, with the fix.
-  - M2's `quickspace doctor` checks the transitional shell's owners
+  - M2's `tide doctor` checks the transitional shell's owners
     (swaync, waybar) and the units, rival daemons, portal config, config
     errors, autostart entries and bars per monitor. Activatable services
     wait for the Quickshell owners (TODO.md).
@@ -473,7 +473,7 @@ flowchart TD
 ### 5.5 Coexisting with KDE
 
 KDE Plasma stays installed as the fallback session.
-quickspace's units are scoped to its own session, its portal config is
+tide's units are scoped to its own session, its portal config is
 desktop-specific, and it installs no global D-Bus activation files. Logging
 into Plasma is therefore unaffected. The reverse direction is the autostart
 allowlist above.
@@ -502,14 +502,14 @@ See [`layouts.png`](docs/mocks/layouts.png).
   - Both numbers are per-output settings.
   - A 32:9 monitor probably wants 60%.
   - Floating and fullscreen windows don't count toward "one window".
-- **Implementation.** One Lua layout, `lua:quickspace`, owns all four
+- **Implementation.** One Lua layout, `lua:tide`, owns all four
   modes, so the single-window rule lives in one place. It keeps each
   workspace's mode, `mfact` and master count, and checks its settings when
   the config loads, so a typo is an error rather than silently ignored.
 - **The bar learns the layout** from Hyprland's event socket. The layout
   keys are Lua bindings in the Hyprland config, so they work even while the
   shell restarts, and each one announces the new mode as
-  `custom>>quickspace-layout>>WORKSPACE,MODE`. The layout also announces a
+  `custom>>tide-layout>>WORKSPACE,MODE`. The layout also announces a
   workspace's mode whenever that workspace becomes active, so a restarted
   shell catches up on the next switch. Until then, a monitor's current
   workspace shows its default mode.
@@ -542,7 +542,7 @@ in how long they last and what stays visible:
   maximize or fullscreen.
 - **Hyprland pieces.** Maximize and fullscreen are Hyprland's own `fullscreen`
   states: 1 is maximized, 0 is fullscreen. Monocle is a mode of the
-  quickspace layout.
+  tide layout.
 - **The bar** marks a workspace with a maximized or fullscreen window with a
   small corner glyph, so a hidden stack of windows is never a surprise.
 - **Popups over fullscreen.** Popups still appear over a fullscreen window,
@@ -631,7 +631,7 @@ with new keys in **bold**:
 | media, brightness, volume keys | as today, with OSD |
 
 Two keys are dropped: `Super+Shift+\` (toggle to BSP) and `Super+P`
-(pseudo-tile). Both exist only for dwindle, which quickspace doesn't use.
+(pseudo-tile). Both exist only for dwindle, which tide doesn't use.
 `Super+O` (rotate master) goes too, since the layouts replace it.
 
 ## 7. Bar
@@ -694,7 +694,7 @@ See [`bar.png`](docs/mocks/bar.png).
   - **en-GB** gives `BST`, but `GMT-7` for Los Angeles.
 
   (Verified with Node's ICU on 2026-09-28.) So the shell reads abbreviations
-  from `quickspace-tz` (`cmd/quickspace-tz`), which reads the system's
+  from `tide-tz` (`cmd/tide-tz`), which reads the system's
   tzdata. It lists each zone's periods of constant offset and abbreviation
   for the next 400 days, local's included, and the shell re-reads it at
   each transition. Tests pin both sides of every DST change (§20).
@@ -728,7 +728,7 @@ See [`bar.png`](docs/mocks/bar.png).
   answer "what's 3 pm in SF here?". The first step lands on the next
   quarter hour. Scrubbed times show in the accent color, and the clocks
   snap back when the pointer leaves.
-- **Config:** a list of `{zone, label}` in `~/.config/quickspace/clocks.json`,
+- **Config:** a list of `{zone, label}` in `~/.config/tide/clocks.json`,
   defaulting to the three above. A machine that needs other zones sets its
   own list in **`clocks.local.json`**, which replaces the shared list
   (§16.1). `setup` can seed the local file from the existing `~/.timezones`
@@ -771,7 +771,7 @@ See [`launcher.png`](docs/mocks/launcher.png).
 - **Open.** Tap `Super` alone, or press `Super+Space`. A second tap or `Esc`
   closes it.
   - The tap is a release bind on `SUPER_L` that fires a Hyprland global
-    shortcut, `quickspace:launcher`, handled by Quickshell's `GlobalShortcut`.
+    shortcut, `tide:launcher`, handled by Quickshell's `GlobalShortcut`.
     That is faster than spawning `qs ipc` per keypress.
   - **Caveat:** on Hyprland 0.56.x a release bind on `SUPER_L` fires on
     *every* Super release, including after `Super+T`. The keybind refactor
@@ -812,7 +812,7 @@ See [`launcher.png`](docs/mocks/launcher.png).
 - **Remembering the previous window.** Opening the launcher records the
   focused window's Hyprland `stableId`, so "Screenshot window" means the
   window you were in, not the launcher.
-- **Launching.** Apps start via `quickspace launch` (§5.4), and the app's
+- **Launching.** Apps start via `tide launch` (§5.4), and the app's
   first window takes focus when it maps, unless you've typed or moved focus
   since (§14.1).
 
@@ -837,7 +837,7 @@ See [`notifications.png`](docs/mocks/notifications.png).
   several windows (Chrome, Nautilus), so matching the `desktop-entry` hint
   or app name alone can't say which one. So:
   - The click writes a launch grant for that app (§14.3), the same one-shot
-    grant a launcher launch gets, with `quickspace grant ID` (the
+    grant a launcher launch gets, with `tide grant ID` (the
     `desktop-entry` hint, else the app name), and invokes the action once
     it's recorded. The app's own activation request
     (`urgent>>ADDRESS`) or its first new window within 10 s takes focus,
@@ -855,7 +855,7 @@ See [`notifications.png`](docs/mocks/notifications.png).
 
 - The **notification center** opens from the bell or `Super+Shift+N`.
 - It groups entries by app and survives a shell restart (stored in
-  `$XDG_STATE_HOME/quickspace/notifications.json`, capped at 200 entries).
+  `$XDG_STATE_HOME/tide/notifications.json`, capped at 200 entries).
 - **Clear all** empties it, and each group has its own ✕.
 - A click outside it, or `Escape`, closes it.
 - Popups don't show over it on its monitor, since it lists them; a critical
@@ -876,8 +876,8 @@ See [`notifications.png`](docs/mocks/notifications.png).
   being shared if there is one; otherwise held, with the bar's bell flashing.
 - **Which "critical" gets through manual DND.** Only criticals from system
   senders (battery, the shell, polkit) do. A system sender's app name or
-  desktop entry is `quickspace` (the shell, its battery warning, and the
-  `quickspace` tools) or names a polkit agent. Chrome marks every
+  desktop entry is `tide` (the shell, its battery warning, and the
+  `tide` tools) or names a polkit agent. Chrome marks every
   `requireInteraction` web notification critical unless the server calls
   itself "Plasma" (or "wf-panel-pi"), so browser criticals are treated as
   normal and persistent. That's `ShouldMarkPersistentNotificationsAsCritical`
@@ -891,7 +891,7 @@ See [`notifications.png`](docs/mocks/notifications.png).
 - The OSD is a pill at the bottom center of the focused monitor, visible for
   1.2 s.
 - Volume and mute show whatever changed them. Brightness shows only when
-  the brightness keys change it, through `quickspace brightness STEP`,
+  the brightness keys change it, through `tide brightness STEP`,
   which runs `brightnessctl` and tells the shell the new level. hypridle
   dims with `brightnessctl` directly, so dimming never shows the OSD.
 
@@ -911,7 +911,7 @@ today's `hypridle.conf`:
 
 - **Unplugging while idle.** If you unplug after the 30 minutes have
   passed, the machine suspends then. The 30-minute step runs
-  `quickspace idle-suspend`, which suspends on battery and otherwise leaves
+  `tide idle-suspend`, which suspends on battery and otherwise leaves
   a flag. The shell checks that flag when UPower reports the switch to
   battery, and any input clears it.
 
@@ -938,7 +938,7 @@ today's `hypridle.conf`:
   - D-Bus inhibits;
   - logind idle inhibitors.
 - Its listeners run the timeline above: `loginctl lock-session`,
-  `hyprctl dispatch dpms`, and `quickspace idle-suspend`.
+  `hyprctl dispatch dpms`, and `tide idle-suspend`.
 
 Quickshell's `IdleMonitor` sees Wayland inhibitors only, and Quickshell has no
 D-Bus server module to own the ScreenSaver name. A shell-only idle timer
@@ -961,7 +961,7 @@ one of them:
     Other apps keep working; the cost is one more component.
     - It takes over the readiness role: the filter's unit becomes the
       `Type=dbus` one with `BusName=org.freedesktop.ScreenSaver`, and
-      `quickspace.service` orders after it. hypridle's drop-in goes back
+      `tide.service` orders after it. hypridle's drop-in goes back
       to a plain service with `ignore_dbus_inhibit = true`, since it no
       longer owns the name and gets the filtered inhibits through logind.
   - **The global switch.** Turn on `ignore_dbus_inhibit` and accept that
@@ -980,17 +980,17 @@ one of them:
 
 **Lock.**
 
-- **One lock implementation**: `quickspace-lock`, a separate Quickshell
+- **One lock implementation**: `tide-lock`, a separate Quickshell
   process built from the same QML component as the greeter, using
   `WlSessionLock` and PAM.
-  - It has its own PAM service file, `quickspace-lock`, rather than
+  - It has its own PAM service file, `tide-lock`, rather than
     Quickshell's default `login`.
   - Its file watcher is off (`QS_DISABLE_FILE_WATCHER`), so editing the
     shell never reloads a live lock.
 - **Triggers:** `Super+L`, idle, suspend, and lid-close without an external
   display.
 - **All of them go through logind.** `loginctl lock-session` raises logind's
-  `Lock` signal; hypridle's `lock_cmd` then starts `quickspace-lock.service`.
+  `Lock` signal; hypridle's `lock_cmd` then starts `tide-lock.service`.
   There is one path to test.
 - **Before sleep.** hypridle runs `before_sleep_cmd` on `PrepareForSleep`.
   `inhibit_sleep = 3` holds the suspend until an ext-session-lock client has
@@ -999,13 +999,13 @@ one of them:
   - If the lock process dies, Hyprland keeps the session locked (the
     "lockscreen dead" screen).
   - `misc:allow_session_lock_restore` lets systemd's restart of
-    `quickspace-lock.service` take the lock back. You then unlock with your
+    `tide-lock.service` take the lock back. You then unlock with your
     password as usual.
   - `loginctl unlock-session` is **not** a way out. It changes only logind's
     state; ext-session-lock requires the compositor to stay locked after its
     client dies.
   - The ways out from a TTY, in order:
-    1. `systemctl --user restart quickspace-lock.service`, which re-locks;
+    1. `systemctl --user restart tide-lock.service`, which re-locks;
        switch back to the session and unlock with your password;
     2. Hyprland 0.56's `hl.clear_crashed_lockscreen()` via
        `hyprctl --instance 0 eval`, if M5 confirms it works from outside
@@ -1020,7 +1020,7 @@ one of them:
 
 ## 11. Login
 
-- **greetd** runs the **quickspace greeter**: Quickshell with the `Greetd`
+- **greetd** runs the **tide greeter**: Quickshell with the `Greetd`
   service, inside `cage`, or inside a stripped Hyprland config if `cage`
   misbehaves with multiple monitors.
 - **Same face as the lock.** Login and lock are one QML component with two
@@ -1030,7 +1030,7 @@ one of them:
 - **Clocks** sit below the hostname.
 - **Greeter extras:**
   - the last user is preselected, with a user picker;
-  - a session chip lists the `wayland-sessions` entries (quickspace first),
+  - a session chip lists the `wayland-sessions` entries (tide first),
     plus a plain shell as the way out if the desktop is broken;
   - restart and shut-down buttons.
 - **Keyboard.** The greeter uses the session's layout (US Dvorak,
@@ -1047,11 +1047,11 @@ See [`share-picker.png`](docs/mocks/share-picker.png).
 - **The stack.**
   - PipeWire and WirePlumber.
   - `xdg-desktop-portal`, with `-hyprland` for ScreenCast/Screenshot and
-    `-gtk` for everything else, named in `quickspace-portals.conf`.
+    `-gtk` for everything else, named in `tide-portals.conf`.
   - Chrome's native Wayland PipeWire capture; no flags needed on current
     Chrome.
 - **The picker.** xdph's `screencopy:custom_picker_binary` runs
-  `quickspace-share-picker`, a small script.
+  `tide-share-picker`, a small script.
   - It reads xdph's two lists: `XDPH_OUTPUT_SHARING_LIST`, entries of
     `<len>:<name>:<x>:<y>:<w>:<h>;`, and `XDPH_WINDOW_SHARING_LIST`, entries
     of `<id>[HC>]<class>[HT>]<title>[HE>]<addr>[HA>]`.
@@ -1194,7 +1194,7 @@ this spec.
 |---|---|
 | A shell surface holds the keyboard: the launcher, share picker, screenshot selection or lock | It keeps it. A window that opens meanwhile doesn't take it; Hyprland already does this for any layer surface with keyboard focus (checked in 0.56's source). |
 | A new window from the app you're in: a dialog, a file chooser, a second window | **Yes.** You asked, and KWin's Medium allows the active app too. |
-| The first window of an app you launched from quickspace (launcher, key binding, quick action), or that app bringing forward a window it already had | **Yes**, if you haven't typed or moved focus since launching it. Otherwise a slow app would snatch focus from whatever you moved on to. |
+| The first window of an app you launched from tide (launcher, key binding, quick action), or that app bringing forward a window it already had | **Yes**, if you haven't typed or moved focus since launching it. Otherwise a slow app would snatch focus from whatever you moved on to. |
 | A window started from the focused terminal (`nautilus .` in kitty) | **Yes**, on the same terms as the launcher. The terminal's shell tells the guard which app the command started (§14.3). |
 | Any other new window: a background app, an update prompt, a slow app you've moved on from | **No.** It opens in place, dimmed like any inactive window, and is marked urgent. |
 | An existing window asks to be activated (xdg-activation, or `_NET_ACTIVE_WINDOW` from XWayland) | **No.** It's marked urgent, unless a launch you just made asked for it (above). |
@@ -1211,7 +1211,7 @@ this spec.
 - **The launcher must get the keyboard.** Under KWin's FocusUnderMouse,
   Kickoff opened without keyboard focus, so typing didn't filter it; that is
   why `setup-kde` uses FocusFollowsMouse.
-  - The quickspace launcher asks for *exclusive* keyboard focus, so the
+  - The tide launcher asks for *exclusive* keyboard focus, so the
     window under the pointer can't take it back while the launcher is open.
   - The same goes for the share picker, screenshot selection and lock.
   - M3 checks by typing into the launcher with the pointer resting on a
@@ -1257,33 +1257,33 @@ this spec.
     mirroring the keyboard binding (a few lines).
   - a window's `pid` and `class`;
   - the `no_initial_focus` window rule.
-- **Where it lives.** `hypr/quickspace/focus.lua`, beside the layout, which
+- **Where it lives.** `hypr/tide/focus.lua`, beside the layout, which
   `conf`'s `hyprland.lua` loads. It publishes itself as the Lua global
-  `quickspace_focus`, and `quickspace launch` records a grant with
-  `hyprctl eval 'quickspace_focus.grant("APP")'`. A window it keeps from
-  focus is announced as `custom>>quickspace-attention>>ADDRESS`, and so is
+  `tide_focus`, and `tide launch` records a grant with
+  `hyprctl eval 'tide_focus.grant("APP")'`. A window it keeps from
+  focus is announced as `custom>>tide-attention>>ADDRESS`, and so is
   an activation without a grant, so the bar keeps its mark after
   Hyprland's own urgent flag goes (§14.4). The shell
-  calls `quickspace_focus.announce_waiting()`, which announces each
+  calls `tide_focus.announce_waiting()`, which announces each
   waiting window again, when it starts and after a config reload, since
   either may have lost or reset what it knew.
 - **Super+Tab.** Lua can't set Hyprland's urgent flag, so the guard keeps its
   own list of waiting windows: the ones it kept from focus, and activations
   without a grant. The shell, which sees those and the windows
   notifications mark together, sends the guard every marked window in the
-  order they were marked (`quickspace_focus.set_order`), and the guard
+  order they were marked (`tide_focus.set_order`), and the guard
   follows it; without a shell, the guard's own order stands.
-  `quickspace_focus.focus_attention()` goes to the most recently marked
+  `tide_focus.focus_attention()` goes to the most recently marked
   window, and returns false when none is marked; `Super+Tab` then falls
   back to Hyprland's `urgent_or_last`.
   - Pressed again while Super is held, it steps to the next marked window,
     oldest last, and wraps, like Alt+Tab. Stepping clears no marks, so you
     can look through them all.
-  - Releasing Super (`quickspace_focus.end_cycle()`, a release binding in
+  - Releasing Super (`tide_focus.end_cycle()`, a release binding in
     conf) clears only the window it landed on. Focus moving any other way
     mid-cycle, such as a click, ends it there.
-  - The shell hears the cycle as `custom>>quickspace-cycle>>start` and
-    `custom>>quickspace-cycle>>end>>ADDRESS`, and keeps its marks until the
+  - The shell hears the cycle as `custom>>tide-cycle>>start` and
+    `custom>>tide-cycle>>end>>ADDRESS`, and keeps its marks until the
     end.
 - **Polkit prompts in M2.** The transitional polkit agent is a window of
   its own, and Lua can't see which process asked. So the guard applies the
@@ -1313,7 +1313,7 @@ this spec.
   - **Used by** that app's first new window, or its first activation of a
     window it already had (a single-instance app reusing a window), within
     10 s.
-  - **A wildcard** (`quickspace launch --app '*'`) is used by the first
+  - **A wildcard** (`tide launch --app '*'`) is used by the first
     window of any app. It's for a key bound to a wrapper script, whose app
     isn't known until its window appears. A grant naming the app is used
     before it, and the same cancel rules apply. Matching grants through
@@ -1333,12 +1333,12 @@ this spec.
   - Matching on the app rather than the process covers a request handed to
     a running instance (`nautilus .` with Nautilus already open) and an app
     that daemonizes.
-  - `quickspace launch` writes one for the launcher and key bindings.
+  - `tide launch` writes one for the launcher and key bindings.
   - A notification click writes one for the sender's app (§9).
-  - For the terminal, each shell in `conf` runs `quickspace-grant` before a
-    command, in a quickspace session only, with the command line and the
+  - For the terminal, each shell in `conf` runs `tide-grant` before a
+    command, in a tide session only, with the command line and the
     shell's pid.
-    - It's a small Go program (`cmd/quickspace-grant`). Each command gets
+    - It's a small Go program (`cmd/tide-grant`). Each command gets
       one grant, naming the shell's pid for process ancestry (below), and
       the app of the line's first command, if it names one.
     - The name is for an app that's already running: `firefox URL` hands
@@ -1427,7 +1427,7 @@ to be focused.
 
 ## 15. Theme
 
-- **One palette file** (`quickspace/theme/palette.json`, dark and light)
+- **One palette file** (`tide/theme/palette.json`, dark and light)
   generates:
   - the shell's QML theme singleton;
   - `~/.config/gtk-3.0/gtk.css` and `gtk-4.0/gtk.css` color overrides, on
@@ -1489,7 +1489,7 @@ to be focused.
     one setting in `appearance.json`, handed to GTK (`font-name`,
     `monospace-font-name`) and Qt as well as the shell. The pairings
     compared are in [`fonts.png`](docs/mocks/fonts.png).
-  - kitty keeps its current look; quickspace doesn't restyle it.
+  - kitty keeps its current look; tide doesn't restyle it.
   - Icons: the Adwaita icon theme for apps. The shell's own glyphs are
     the icon theme's symbolic icons (`battery-level-80-symbolic`), tinted
     to the palette. The mocks draw them with Material Symbols Rounded,
@@ -1499,8 +1499,8 @@ to be focused.
 
 ## 16. Settings
 
-"Settings" opens a small quickspace panel. It covers only what is
-quickspace's own, and links out for the rest:
+"Settings" opens a small tide panel. It covers only what is
+tide's own, and links out for the rest:
 
 | Page | Contents |
 |---|---|
@@ -1522,8 +1522,8 @@ stays hand-written.
 The same `.local` convention as `.shrc.local`, `hyprland.conf.local` and
 sway's `config.local`:
 
-- **Shared defaults.** Every quickspace config file
-  `~/.config/quickspace/<name>.json` (`clocks`, `idle`, `layouts`,
+- **Shared defaults.** Every tide config file
+  `~/.config/tide/<name>.json` (`clocks`, `idle`, `layouts`,
   `appearance`, `outputs`) holds the shared defaults and is installed from
   `conf`.
 - **Per-machine overrides.** An optional **`<name>.local.json`** beside it
@@ -1544,7 +1544,7 @@ sway's `config.local`:
 
 ### 16.2 Apps around the shell
 
-quickspace doesn't ship apps, but a few defaults decide whether the desktop
+tide doesn't ship apps, but a few defaults decide whether the desktop
 feels finished. All are GTK 4/libadwaita unless noted, so they follow the
 light/dark switch.
 
@@ -1578,20 +1578,20 @@ light/dark switch.
   - Plasma's Dolphin and Nautilus both ship an activation file for that
     name, and dbus-daemon picks arbitrarily between equals. So once both are
     installed, even Plasma's "Show in folder" is a coin flip.
-  - quickspace installs a user-level
+  - tide installs a user-level
     `~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service`,
     which is searched first.
   - It doesn't run a file manager directly. It names a user unit
-    (`SystemdService=quickspace-filemanager.service`), and that unit's
+    (`SystemdService=tide-filemanager.service`), and that unit's
     launcher starts Nautilus when the session's `XDG_CURRENT_DESKTOP` is
-    quickspace's, and Dolphin otherwise.
+    tide's, and Dolphin otherwise.
   - The unit is `PartOf=graphical-session.target`, so the file manager it
     started stops when the session ends. A later Plasma login can't find
-    quickspace's Nautilus still owning the name, or the other way around.
+    tide's Nautilus still owning the name, or the other way around.
   - **Scope:** this holds for one graphical session at a time, the normal
     case on one seat. Two concurrent sessions for the same user share one
     user bus and one activation environment, so the last session to start
-    decides. quickspace doesn't support that setup.
+    decides. tide doesn't support that setup.
   - So each session gets its own file manager deterministically, and Plasma
     keeps Dolphin, as §5.5 promises. `doctor` checks who answers.
   - Chrome's "Show in folder" goes through the portal's
@@ -1632,7 +1632,7 @@ light/dark switch.
 | Restarting the bar | lost tray icons, lost notifications | nothing restarts; hot reload |
 | Apps die with the shell | restarting the bar closes your terminal | apps via `uwsm app` (§5.4) |
 | No polkit agent | "Authentication required" silently fails | built into the shell |
-| Wrong portal backend | screen sharing shows a black stream or nothing | `quickspace-portals.conf` + `XDG_CURRENT_DESKTOP=quickspace:Hyprland` |
+| Wrong portal backend | screen sharing shows a black stream or nothing | `tide-portals.conf` + `XDG_CURRENT_DESKTOP=tide:Hyprland` |
 | Keyring not unlocked | Chrome asks for the keyring password after login | `pam_gnome_keyring` in greetd's PAM stack |
 | Lock screen crashes | red screen, locked out | the lock is its own process with no file watcher; `allow_session_lock_restore` + systemd restart (§10) |
 | Suspend without lock | wake to an open desktop | hypridle `before_sleep_cmd` locks via logind; `inhibit_sleep = 3` waits for the lock |
@@ -1651,7 +1651,7 @@ light/dark switch.
 | `Super` tap misfires | launcher opens after every `Super+<key>` on Hyprland 0.56.x | `Super+Space` until the pinned Hyprland has the keybind fix and passes the tap checks (§8) |
 | Dark-on-dark focus hard to see | can't tell which terminal is focused | dim strength is a setting; 0.1 is the next step |
 | Sharing an ultrawide | viewers get a letterboxed strip | the 16:9 area and window-first default in the picker |
-| "Show in folder" opens the wrong file manager | Dolphin and Nautilus both claim `FileManager1` | a user-level activation file → a session-bound unit with a desktop-aware launcher: Nautilus in quickspace, Dolphin in Plasma, one session at a time; `doctor` checks (§16.2) |
+| "Show in folder" opens the wrong file manager | Dolphin and Nautilus both claim `FileManager1` | a user-level activation file → a session-bound unit with a desktop-aware launcher: Nautilus in tide, Dolphin in Plasma, one session at a time; `doctor` checks (§16.2) |
 | `Terminal=true` apps open in Konsole | GLib's terminal list lacks kitty | `xdg-terminal-exec` with kitty listed first (§16.2) |
 | CLDR zone names | `GMT+1` instead of `BST` | place labels on the bar; tzdata abbreviations wherever an abbreviation shows (§7.3) |
 
@@ -1659,10 +1659,10 @@ light/dark switch.
 
 | Repo | Gets |
 |---|---|
-| **quickspace** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session: its `wayland-sessions` entry and `quickspace-hyprland` wrapper, the units (`quickspace.service`, `quickspace-lock.service`, the `hypridle.service` drop-in), `quickspace-portals.conf`, the `quickspace-lock` PAM file and the greetd config template. `quickspace-share-picker`. `quickspace doctor`, `quickspace launch`, `quickspace grant` and `quickspace idle-suspend`. The Lua tiling layout. `make install`. |
-| **conf** | The personal config: Hyprland in Lua (keys, rules, the Lua layout's settings, the single `exec-once`, loading `hyprland.local.lua`); `hypridle.conf` timings; uwsm env; the shared `~/.config/quickspace/*.json` defaults (clocks, idle, layouts), with `*.local.json` left per machine (§16.1); `.desktop` files for the launcher scripts. Deleting waybar, swaync, fuzzel, hyprlock, `theme-daemon.sh` and the sway config once M5 lands (§21). |
-| **scripts** | `setup --quickspace`: packages (pinned Hyprland, Quickshell, greetd, xdph, adw-gtk3, grim/slurp/wl-clipboard/satty, the file manager without its recommends, `xdg-terminal-exec`, the companion apps in §16.2) and enabling units. `screenshot` gains a Wayland path. `lock-screensaver` goes through `loginctl lock-session` on Wayland. `setup --purge-obsolete` learns about packages quickspace replaces. |
-| **dwl** (exploration) | The quickspace fork of dwl that §21.1 is exploring, on upstream's history, under dwl's GPL-3.0-or-later license: the layouts, dimming and IPC it would add. Nothing else depends on it until §21.1's next steps are done and §3.1 is rewritten around it. |
+| **tide** (this) | The spec and mocks. The Quickshell config (`shell/`): bar, launcher, notifications, lock/greeter, OSD, share picker, settings, theme. The session: its `wayland-sessions` entry and `tide-hyprland` wrapper, the units (`tide.service`, `tide-lock.service`, the `hypridle.service` drop-in), `tide-portals.conf`, the `tide-lock` PAM file and the greetd config template. `tide-share-picker`. `tide doctor`, `tide launch`, `tide grant` and `tide idle-suspend`. The Lua tiling layout. `make install`. |
+| **conf** | The personal config: Hyprland in Lua (keys, rules, the Lua layout's settings, the single `exec-once`, loading `hyprland.local.lua`); `hypridle.conf` timings; uwsm env; the shared `~/.config/tide/*.json` defaults (clocks, idle, layouts), with `*.local.json` left per machine (§16.1); `.desktop` files for the launcher scripts. Deleting waybar, swaync, fuzzel, hyprlock, `theme-daemon.sh` and the sway config once M5 lands (§21). |
+| **scripts** | `setup --tide`: packages (pinned Hyprland, Quickshell, greetd, xdph, adw-gtk3, grim/slurp/wl-clipboard/satty, the file manager without its recommends, `xdg-terminal-exec`, the companion apps in §16.2) and enabling units. `screenshot` gains a Wayland path. `lock-screensaver` goes through `loginctl lock-session` on Wayland. `setup --purge-obsolete` learns about packages tide replaces. |
+| **dwl** (exploration) | The tide fork of dwl that §21.1 is exploring, on upstream's history, under dwl's GPL-3.0-or-later license: the layouts, dimming and IPC it would add. Nothing else depends on it until §21.1's next steps are done and §3.1 is rewritten around it. |
 
 ## 19. Milestones
 
@@ -1672,7 +1672,7 @@ are what "done" means.
 | # | Milestone | Done when |
 |---|---|---|
 | **M1** | This spec + mocks | agreed; open questions answered |
-| **M2** | Session skeleton + layouts | `setup --quickspace` installs a session selectable from the current display manager. `doctor` reports no duplicate owners. All four layouts and the single-window rule work per workspace on an ultrawide and on the laptop panel. The focus guard follows §14.1, including each case in §14.2. The Hyprland config is Lua and CI-loaded. Shell memory is measured. |
+| **M2** | Session skeleton + layouts | `setup --tide` installs a session selectable from the current display manager. `doctor` reports no duplicate owners. All four layouts and the single-window rule work per workspace on an ultrawide and on the laptop panel. The focus guard follows §14.1, including each case in §14.2. The Hyprland config is Lua and CI-loaded. Shell memory is measured. |
 | **M3** | Bar + launcher | the bar shows every state in `bar.png` from live data: tray menus, clocks with correct labels and popover abbreviations across a DST fixture, urgency end to end from a kitty bell and from a Chat notification. `Super+Space` opens the launcher (tap-`Super` too, once the pinned Hyprland passes the tap checks), and fuzzy search and quick actions work. |
 | **M4** | Notifications, OSD, screenshots | notifications and history survive a shell restart. DND is automatic while sharing a screen or region, and off for a window share. The OSD works. All three screenshot modes work, including "the window before the launcher". |
 | **M5** | Idle, lock, login | the idle timeline works, including through a Meet call. Lock via key, idle, suspend and lid. Crash recovery is tested. The greetd greeter shares the lock component. The keyring unlocks at login. The old sway, waybar, swaync, fuzzel and hyprlock configs are deleted from `conf`. |
@@ -1719,13 +1719,13 @@ hyprwm libraries and tools, and Hyprland itself. Debian 13 looks worse (GCC
 14 and xkbcommon 1.7, against 0.56's GCC 15 and xkbcommon 1.11), but that is
 not yet re-checked against Debian's package pages. Hyprland also changes and
 regresses often. The alternative
-under consideration is **a quickspace fork of dwl**, the dwm-style wlroots
+under consideration is **a tide fork of dwl**, the dwm-style wlroots
 compositor (about 3,400 lines of C), built on a wlroots version we pin and
 build ourselves.
 
 The fork lives in its own repository,
 [mikelward/dwl](https://github.com/mikelward/dwl): upstream dwl's history
-(from [Codeberg](https://codeberg.org/dwl/dwl)), with quickspace's changes
+(from [Codeberg](https://codeberg.org/dwl/dwl)), with tide's changes
 on top of a release tag. It keeps dwl's GPL-3.0-or-later license, so keeping
 it out of this Apache-2.0 repository keeps each repository under one license.
 
@@ -1803,7 +1803,7 @@ local observation.
 sources, then a test session on wlroots 0.19/0.20:
 
 1. Check that xdg-desktop-portal-wlr shares a single window and a region in
-   Chrome, through §12's own `quickspace-share-picker` rather than the
+   Chrome, through §12's own `tide-share-picker` rather than the
    portal's chooser. The picker reads xdph's `XDPH_OUTPUT_SHARING_LIST` and
    `XDPH_WINDOW_SHARING_LIST` and answers in xdph's `[SELECTION]` format, so it
    needs an adapter for xdpw. Run all of §12's flows end to end: the focused
@@ -1839,7 +1839,7 @@ Decided in review of this spec:
 - **File manager:** Nautilus, with yazi kept for keyboard use (§16.2).
 - **The old stack:** once M5 lands, the sway config and the
   waybar/swaync/fuzzel/hyprlock configs are deleted from `conf`. KDE Plasma
-  is the fallback if quickspace breaks (§5.5).
+  is the fallback if tide breaks (§5.5).
 
 ## Sources
 
@@ -1890,7 +1890,7 @@ Checked 2026-09-29, for §21.1:
 - Ubuntu 26.04 Hyprland: 0.53.3 (`hyprland` 0.53.3+ds-4), from `apt-cache
   policy hyprland` on a 26.04 machine
 - The nine pinned projects and GCC 15:
-  [setup-quickspace's pins](https://github.com/mikelward/scripts/pull/261),
+  [setup-tide's pins](https://github.com/mikelward/scripts/pull/261),
   built on Ubuntu 26.04's GCC 15.2
 - Hyprland 0.56.2's build dependencies:
   [`CMakeLists.txt`](https://github.com/hyprwm/Hyprland/blob/v0.56.2/CMakeLists.txt),
