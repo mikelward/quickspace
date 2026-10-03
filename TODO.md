@@ -18,12 +18,6 @@ once you have agreed with it or reversed it.
       ring is never hidden in `+n`. The alternative is plain window order,
       leaving the workspace's amber fill as the only cue. It's one function,
       `icons` in `shell/lib/workspaces.mjs`.
-- [ ] **Super+Tab stops at each marked window, not each mark.** SPEC.md
-      §14.4 had an app-wide mark go to the app's most recently focused
-      window; stepping through every marked window instead lets you look
-      at each, and the guard has no notion of which windows a mark covers.
-      The alternative passes the shell's marks to the guard as one window
-      per mark (`attentionOrder` in `shell/lib/workspaces.mjs`).
 - [ ] **A notification's marks stay when its popup times out.** SPEC.md
       §14.4 clears them when it's dismissed; an action invoked from it, a
       reply, or its app closing it counts as that too, but running out of time on
